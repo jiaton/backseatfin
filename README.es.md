@@ -17,6 +17,10 @@ Este documento es una traducción del README en inglés; el README en inglés es
 
 </div>
 
+![Captura del reproductor](docs/images/player.jpg)
+
+<sub>Captura: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
+
 Los navegadores de los coches, como el de Tesla, detienen el `<video>` mientras se
 conduce, pero siguen dibujando el `<canvas>`. BackseatFin añade un reproductor de
 canvas a la propia aplicación web de tu servidor multimedia: abre Jellyfin o Emby en

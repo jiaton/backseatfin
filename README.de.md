@@ -17,6 +17,10 @@ Dieses Dokument ist eine Übersetzung der englischen README; maßgeblich ist die
 
 </div>
 
+![Screenshot des Players](docs/images/player.jpg)
+
+<sub>Screenshot: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
+
 Fahrzeugbrowser wie der von Tesla stoppen `<video>` während der Fahrt, zeichnen aber
 weiterhin `<canvas>`. BackseatFin fügt der eigenen Web-App deines Media-Servers einen
 Canvas-Player hinzu: Jellyfin oder Emby im Auto öffnen, auf Play drücken, und es läuft.

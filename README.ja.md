@@ -17,6 +17,10 @@
 
 </div>
 
+![車載プレーヤーのスクリーンショット](docs/images/player.jpg)
+
+<sub>スクリーンショット：[Sintel](https://durian.blender.org/) © Blender Foundation、[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。</sub>
+
 Tesla などの車載ブラウザは走行中に `<video>` を停止しますが、`<canvas>` の描画は継続します。BackseatFin はメディアサーバー自身の Web アプリに canvas プレーヤーを追加します。車内で Jellyfin または Emby を開き、再生ボタンを押すだけで再生されます。
 
 - **Jellyfin：プラグインだけで動きます。** 追加のサーバーは不要で、トランスコードは Jellyfin が行います。

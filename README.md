@@ -15,6 +15,10 @@ English · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Espa
 
 </div>
 
+![Car player screenshot](docs/images/player.jpg)
+
+<sub>Screenshot: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
+
 Car browsers such as Tesla's stop `<video>` while driving, but they keep drawing
 `<canvas>`. BackseatFin adds a canvas player to your media server's own web app: open
 Jellyfin or Emby in the car, press Play, and it plays.

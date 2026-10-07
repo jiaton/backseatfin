@@ -17,6 +17,10 @@
 
 </div>
 
+![车载播放器截图](docs/images/player.jpg)
+
+<sub>截图画面：[Sintel](https://durian.blender.org/) © Blender Foundation，[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。</sub>
+
 像特斯拉这样的车载浏览器在行驶时会停止播放 `<video>`，但仍会持续绘制 `<canvas>`。BackseatFin 为你的媒体服务器自带的网页应用添加了一个 canvas 播放器：在车里打开 Jellyfin 或 Emby，按下播放，视频就能播放。
 
 - **Jellyfin：只需一个插件。** 无需额外的服务器，转码由 Jellyfin 完成。
