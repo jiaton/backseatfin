@@ -1,0 +1,10 @@
+# Intel GPU (VAAPI + OpenCL) for HDR / Dolby Vision tone mapping. Enable it with
+# COMPOSE_FILE=docker-compose.yml:docker-compose.intel.yml in .env, and set VIDEO_GID and
+# RENDER_GID to the host's group IDs (getent group video render).
+services:
+  backend:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - ${VIDEO_GID:?Set VIDEO_GID in .env}
+      - ${RENDER_GID:?Set RENDER_GID in .env}

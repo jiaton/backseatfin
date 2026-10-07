@@ -1,0 +1,58 @@
+# The car host: Emby's own web app, with two changes so that pressing Play in the car
+# opens the canvas player instead of Emby's <video> player (which the car blocks while
+# driving):
+#   /car/*            → our player, inject.js and API (the admin server below, /car stripped)
+#   /web/index.html   → Emby's index.html with the inject.js <script> added (the backend
+#                       fetches it from Emby)
+#   everything else   → Emby, untouched
+# Put this port behind your HTTPS reverse proxy: the player needs a secure context.
+map $http_upgrade $car_host_connection {
+  default upgrade;
+  ''      '';
+}
+
+server {
+  listen 8080;
+
+  # Emby's address, read at request time (resolver above), so Emby restarting under
+  # a new container IP doesn't need an nginx restart.
+  set $emby ${EMBY_URL};
+
+  # Uploads (artwork, subtitles) go to Emby unchanged.
+  client_max_body_size 0;
+
+  location /car/ {
+    proxy_pass http://127.0.0.1:80/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $car_host_connection;
+    proxy_set_header Host $host;
+    proxy_set_header User-Agent $http_user_agent;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    # A movie is one long-lived stream.
+    proxy_buffering off;
+    proxy_read_timeout 6h;
+    proxy_send_timeout 6h;
+  }
+
+  location = /web/index.html {
+    proxy_pass http://127.0.0.1:80/api/emby/web-index;
+    proxy_set_header Host $host;
+  }
+
+  location / {
+    proxy_pass $emby;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $car_host_connection;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_buffering off;
+    proxy_read_timeout 6h;
+    proxy_send_timeout 6h;
+  }
+}

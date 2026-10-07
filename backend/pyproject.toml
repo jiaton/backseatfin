@@ -1,0 +1,28 @@
+[project]
+name = "backseatfin-server"
+version = "0.1.0"
+description = "Pulls YouTube playlists into the Emby library and streams video to the Tesla browser as canvas-decodable MPEG-TS"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi (>=0.115,<1.0)",
+    "uvicorn[standard] (>=0.32,<1.0)",
+    "httpx (>=0.27,<1.0)",
+    "sqlmodel (>=0.0.22,<1.0)",
+    "pydantic-settings (>=2.6,<3.0)",
+    "yt-dlp[default]",
+    "tzdata",
+]
+
+[tool.poetry]
+packages = [{ include = "app" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

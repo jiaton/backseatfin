@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Tests run in the real image: ffmpeg builds and fonts are part of what's tested.
+      - name: Build image
+        run: docker build -t backseatfin-server ./backend
+      - name: Tests
+        run: docker run --rm --entrypoint python backseatfin-server -m pytest -q
+      # The committed frontend/openapi.json must match what the server serves.
+      - name: API contract
+        run: |
+          docker run --rm --entrypoint python backseatfin-server -m app.scripts.export_openapi > /tmp/openapi.json
+          diff -u frontend/openapi.json /tmp/openapi.json
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check:api
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build

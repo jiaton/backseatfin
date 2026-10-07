@@ -1,0 +1,38 @@
+# BackseatFin. Configure with .env (copy .env.example), then: docker compose up -d
+name: backseatfin
+
+services:
+  backend:
+    image: ghcr.io/jiaton/backseatfin-server:${BACKSEATFIN_VERSION:-latest}
+    build: ./backend
+    env_file: .env
+    volumes:
+      - data:/app/data
+      # Downloaded YouTube videos. Emby must see them at the same path (LIBRARY_ROOT).
+      - ${YOUTUBE_LIBRARY_DIR:-./youtube-library}:/media/youtube
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  frontend:
+    image: ghcr.io/jiaton/backseatfin-web:${BACKSEATFIN_VERSION:-latest}
+    build: ./frontend
+    environment:
+      EMBY_URL: ${EMBY_URL:?Set EMBY_URL in .env}
+    ports:
+      - ${ADMIN_PORT:-8098}:80
+      - ${CAR_PORT:-8097}:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  data:
