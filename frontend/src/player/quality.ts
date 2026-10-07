@@ -11,7 +11,12 @@ export type Quality = (typeof QUALITY_VALUES)[number]
 export const QUALITY_HEIGHTS: Record<EngineKind, Record<Quality, number>> = {
   webcodecs: { low: 480, medium: 720, high: 1080, max: 1080 },
   jsmpeg: { low: 480, medium: 720, high: 720, max: 1080 },
+  hls: { low: 480, medium: 720, high: 1080, max: 1080 },
 }
+
+/** H.264 video bitrate per level, kbit/s (mirrors the server's H264_QUALITY_PRESETS;
+ * a media server's HLS transcode is asked for the same). */
+export const H264_KBPS: Record<Quality, number> = { low: 800, medium: 1500, high: 3000, max: 6000 }
 
 const KEY = 'backseatfin:quality'
 // 720p by default: in the car responsiveness beats picture quality, and half the

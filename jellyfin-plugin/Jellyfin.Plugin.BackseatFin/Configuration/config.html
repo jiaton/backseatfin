@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>BackseatFin</title>
+</head>
+<body>
+    <div id="BackseatFinConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="BackseatFinConfigForm">
+                    <h2>BackseatFin</h2>
+                    <p>Plays Jellyfin in the car's browser on a canvas, which cars don't block while driving. For passengers: the driver must keep their eyes on the road.</p>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CarHostnames">Car-only hostnames</label>
+                        <input id="CarHostnames" name="CarHostnames" type="text" is="emby-input" placeholder="car.example.com" />
+                        <div class="fieldDescription">
+                            Optional. Hostnames that serve Jellyfin to the car only (point an extra hostname at Jellyfin in your reverse proxy). Every browser that opens one of them gets the car player.
+                            Leave empty to switch each car browser on by itself instead: open <code>/BackseatFin/car</code> in the car and turn car mode on. Other browsers keep Jellyfin's own player.
+                        </div>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var BackseatFinConfig = { pluginUniqueId: '1f31e26e-b3ee-4e18-b404-f4a0800fbd9f' };
+
+            document.querySelector('#BackseatFinConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(BackseatFinConfig.pluginUniqueId).then(function (config) {
+                    document.querySelector('#CarHostnames').value = config.CarHostnames || '';
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#BackseatFinConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(BackseatFinConfig.pluginUniqueId).then(function (config) {
+                    config.CarHostnames = document.querySelector('#CarHostnames').value;
+                    ApiClient.updatePluginConfiguration(BackseatFinConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>

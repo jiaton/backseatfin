@@ -1,10 +1,22 @@
 /**
- * Pure helpers for the Emby hand-off script (no DOM, no imports — this file is bundled
- * into the fixed-name inject.js that Emby's page loads).
+ * Pure helpers for the hand-off script (no DOM, no imports — this file is bundled into
+ * the fixed-name inject.js that Emby's or Jellyfin's page loads). Both web apps share
+ * their ancestry: the same player element, URL shapes and query parameters.
  */
 
 /** postMessage type the embedded player sends to ask inject.js to close its layer. */
 export const CLOSE_MESSAGE = 'backseatfin:close'
+/** sessionStorage key under which inject.js leaves the viewer's session for the player. */
+export const CREDENTIALS_KEY = 'backseatfin:session'
+/** localStorage key: '1' = this browser is in car mode (see isActive). */
+export const CAR_MODE_KEY = 'backseatfin:car'
+
+/** Whether to take over playback here. The script tag's data-mode: none = always (the
+ * page was served on a car-only hostname); 'opt-in' = only in browsers switched to car
+ * mode, so phones and computers on the same address keep the server's own player. */
+export function isActive(mode: string | undefined, carMode: string | null): boolean {
+  return mode !== 'opt-in' || carMode === '1'
+}
 
 export interface Handoff {
   item: string
@@ -13,9 +25,11 @@ export interface Handoff {
   sub?: number
 }
 
-// Emby's playback URLs: direct play (/Videos/{id}/stream[.ext]), HLS transcode
+// Playback URLs: direct play (/Videos/{id}/stream[.ext]), HLS transcode
 // (/Videos/{id}/master.m3u8, main.m3u8), live (/Videos/{id}/live.m3u8).
-const PLAYBACK_PATH = /\/videos\/([A-Za-z0-9]+)\/(?:stream|original|master|main|live)(?:\.[a-z0-9]+)?$/i
+// Item ids: Emby's are numbers, Jellyfin's 32 hex digits — sometimes written as a
+// dashed GUID (its own HLS player does that).
+const PLAYBACK_PATH = /\/videos\/([A-Za-z0-9-]+)\/(?:stream|original|master|main|live)(?:\.[a-z0-9]+)?$/i
 
 function intParam(params: URLSearchParams, ...names: string[]): number | undefined {
   for (const name of names) {
@@ -25,7 +39,7 @@ function intParam(params: URLSearchParams, ...names: string[]): number | undefin
   return undefined
 }
 
-/** Recognizes an Emby video playback URL and extracts what the car player needs. */
+/** Recognizes a video playback URL and extracts what the car player needs. */
 export function parsePlaybackUrl(raw: string, base: string): Handoff | null {
   let url: URL
   try {
@@ -44,20 +58,23 @@ export function parsePlaybackUrl(raw: string, base: string): Handoff | null {
     item: m[1],
     t: Math.max(0, Math.floor(t)),
     audio: intParam(params, 'AudioStreamIndex', 'audioStreamIndex'),
-    // Emby uses -1 for "no subtitles"; intParam only accepts non-negative integers.
+    // -1 means "no subtitles"; intParam only accepts non-negative integers.
     sub: intParam(params, 'SubtitleStreamIndex', 'subtitleStreamIndex'),
   }
 }
 
-/** Emby routes that are the player itself — never a sensible "back" target. */
+/** Routes that are the server's own player — never a sensible "back" target. Emby:
+ * #!/videoosd/…, #!/nowplaying; Jellyfin: #/video, #/queue. */
 export function isPlayerRoute(href: string): boolean {
-  return /videoosd|nowplaying/i.test(href)
+  return /videoosd|nowplaying|#!?\/(?:video|queue)(?:[?/]|$)/i.test(href)
 }
 
-export function playerUrl(h: Handoff, back: string, embed = false): string {
+/** `playerPath`: where the player page is, next to inject.js (/car/play on our car
+ * host, <jellyfin>/BackseatFin/play from the plugin). */
+export function playerUrl(h: Handoff, back: string, embed = false, playerPath = '/car/play'): string {
   const q = new URLSearchParams({ item: h.item, t: String(h.t), back })
   if (embed) q.set('embed', '1')
   if (h.audio != null) q.set('audio', String(h.audio))
   if (h.sub != null) q.set('sub', String(h.sub))
-  return `/car/play?${q}`
+  return `${playerPath}?${q}`
 }

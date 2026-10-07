@@ -1,8 +1,9 @@
 /**
- * Minimal MPEG-TS demuxer for the WebCodecs player: exactly what our server sends
- * (ffmpeg mpegts, one H.264 program + one AAC-ADTS program), nothing more.
+ * Minimal MPEG-TS demuxer for the WebCodecs player: what our server sends and what a
+ * media server's HLS segments carry (ffmpeg mpegts, one H.264 + one AAC-ADTS stream),
+ * nothing more.
  *
- *   188-byte packets → PAT → PMT → per-PID PES reassembly → PTS
+ *   188-byte packets → PAT → PMT → per-PID PES reassembly → PTS (+ DTS)
  *   video PES = one H.264 access unit (Annex-B)       → onVideo
  *   audio PES = one or more ADTS frames → raw AAC      → onAudio (+ AudioSpecificConfig)
  */
@@ -15,7 +16,9 @@ const STREAM_H264 = 0x1b
 const STREAM_AAC_ADTS = 0x0f
 
 export interface VideoSample {
-  pts: number // seconds
+  pts: number // seconds: when to show it
+  /** Seconds: decode order. Equals pts unless the stream has B-frames. */
+  dts: number
   key: boolean
   data: Uint8Array // Annex-B access unit
 }
@@ -174,8 +177,9 @@ export class TsDemuxer {
     const headerLength = pes[8]
     if (!(ptsDtsFlags & 0x02)) return // no PTS: nothing to schedule it by
     const pts = readPts(pes, 9)
+    const dts = ptsDtsFlags === 0x03 ? readPts(pes, 14) : pts
     const data = pes.subarray(9 + headerLength)
-    if (pid === this.videoPid) this.onVideo({ pts, key: isKeyframe(data), data })
+    if (pid === this.videoPid) this.onVideo({ pts, dts, key: isKeyframe(data), data })
     else for (const a of parseAdts(data, pts)) this.onAudio(a)
   }
 }

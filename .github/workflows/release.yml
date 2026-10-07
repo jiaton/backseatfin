@@ -6,8 +6,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
+  contents: write # the GitHub release
+  packages: write # the images
+  pages: write # the Jellyfin plugin repository
+  id-token: write
 
 jobs:
   images:
@@ -47,3 +49,47 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # The Jellyfin plugin: a zip on the GitHub release, and the plugin repository manifest
+  # on GitHub Pages (https://<owner>.github.io/backseatfin/jellyfin/manifest.json).
+  jellyfin-plugin:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the player
+        working-directory: frontend
+        run: npm ci && npm run build:jellyfin
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test and build
+        working-directory: jellyfin-plugin
+        run: |
+          dotnet test BackseatFin.slnx
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet build -c Release Jellyfin.Plugin.BackseatFin -p:AssemblyVersion=$VERSION.0 -p:FileVersion=$VERSION.0
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 jellyfin-plugin/package.py "$VERSION" \
+            jellyfin-plugin/Jellyfin.Plugin.BackseatFin/bin/Release/net10.0/Jellyfin.Plugin.BackseatFin.dll \
+            site/jellyfin \
+            "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" site/jellyfin/*.zip --generate-notes --verify-tag
+      - name: Pages content
+        run: rm site/jellyfin/*.zip
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4

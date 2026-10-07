@@ -6,6 +6,7 @@
 
 const NAL_AUD = 9
 const NAL_IDR = 5
+const NAL_SPS = 7
 
 /** Offsets of every NAL start code (3- or 4-byte) in `buf`, with the NAL type. */
 function startCodes(buf: Uint8Array, from: number): { at: number; type: number }[] {
@@ -22,6 +23,18 @@ function startCodes(buf: Uint8Array, from: number): { at: number; type: number }
 
 export function isKeyframe(accessUnit: Uint8Array): boolean {
   return startCodes(accessUnit, 0).some((s) => s.type === NAL_IDR)
+}
+
+const hex = (n: number) => n.toString(16).padStart(2, '0')
+
+/** The `avc1.PPCCLL` codec string from the SPS in a keyframe's access unit (profile,
+ * constraint flags, level), or null when it carries no SPS. */
+export function avcCodecString(accessUnit: Uint8Array): string | null {
+  const sps = startCodes(accessUnit, 0).find((s) => s.type === NAL_SPS)
+  if (!sps) return null
+  const at = sps.at + (accessUnit[sps.at + 2] === 1 ? 3 : 4) + 1 // past start code + NAL header
+  if (at + 3 > accessUnit.length) return null
+  return `avc1.${hex(accessUnit[at])}${hex(accessUnit[at + 1])}${hex(accessUnit[at + 2])}`
 }
 
 export class AnnexBSplitter {

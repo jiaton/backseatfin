@@ -1,17 +1,21 @@
 # BackseatFin
 
-Watch your own Emby library in a car's browser, including while driving, where the car
-blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Chromium 148 in the car).
+Watch your own Jellyfin or Emby library in a car's browser, including while driving,
+where the car blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Chromium
+148 in the car).
 
-1. **The car host** (Emby + the car player): Emby's own web app, except that its
+1. **Jellyfin: a plugin, no server** (`jellyfin-plugin/`, GPLv3). It serves the player
+   at `<jellyfin>/BackseatFin/` and adds `inject.js` to Jellyfin's web app. The player
+   plays Jellyfin's own HLS transcode (engine `hls`). See "Jellyfin" below.
+2. **Emby: the car host** (Emby + the car player): Emby's own web app, except that its
    `index.html` also loads `inject.js`, which hands Play to our player. The player draws
    on a `<canvas>`. The default engine is **WebCodecs**: ffmpeg re-encodes to H.264 + AAC
    in MPEG-TS, pushed over a WebSocket, demuxed in the browser, video decoded by the
    car's hardware decoder and audio played through WebAudio. **JSMpeg** (MPEG-1/MP2
    decoded in WebAssembly) is the fallback where WebCodecs can't do H.264 + AAC.
-2. **YouTube → Emby** (optional): poll YouTube playlists and download new videos into an
+3. **YouTube → Emby** (optional): poll YouTube playlists and download new videos into an
    Emby "TV shows" library, one channel per show.
-3. **The admin site**: playlists, download queue, devices, the car test page.
+4. **The admin site** (Emby setup): playlists, download queue, devices, the car test page.
 
 Self-hosted and single-household. Talks to YouTube (yt-dlp), Emby (HTTP API, as the
 viewer or with the server key) and the folder that Emby also indexes.
@@ -36,9 +40,17 @@ Frontend (`frontend/`):
 - Regenerate API types after `openapi.json` changes: `npm run gen:api`
 - Tests: `npm run test` (Vitest + RTL + MSW) · Lint: `npm run lint` · Build: `npm run build`
 
+Jellyfin plugin (`jellyfin-plugin/`, .NET 10 SDK; Docker `mcr.microsoft.com/dotnet/sdk:10.0`
+works): `cd frontend && npm run build:jellyfin` first (the DLL embeds `dist-jellyfin/`),
+then `dotnet test BackseatFin.slnx` and `dotnet build -c Release Jellyfin.Plugin.BackseatFin`.
+Try it in a throwaway `jellyfin/jellyfin` container: copy the DLL to
+`/config/plugins/BackseatFin_0.1.0.0/` and restart.
+
 CI (`.github/workflows/ci.yml`) runs the backend tests in the image, diffs the API
-contract, and runs the frontend's `check:api`, lint, tests and build. Tags `v*` publish
-`ghcr.io/<owner>/backseatfin-server` and `-web` (`release.yml`).
+contract, runs the frontend's `check:api`, lint, tests and both builds, and tests and
+builds the plugin. Tags `v*` (`release.yml`) publish `ghcr.io/<owner>/backseatfin-server`
+and `-web`, the plugin zip on the GitHub release, and the plugin repository manifest on
+GitHub Pages.
 
 ## Stack
 
@@ -48,11 +60,15 @@ contract, and runs the frontend's `check:api`, lint, tests and build. Tags `v*` 
   overlay → H.264 1080p runs at ~2.8× real time on an Intel N305.
 - Frontend: Vite + React 19 + TS · shadcn/ui · Tailwind v4 · TanStack Query for the
   admin site. The player is framework-free (Media Chrome web components for controls).
-  JSMpeg is vendored at `public/vendor/jsmpeg.min.js` (MIT). **One build, three
-  entries**, with `base: './'`: `index.html` (admin SPA), `play.html` (car player), and
-  `src/inject/main.ts` → fixed-name `inject.js`. Relative asset URLs let the same files
-  serve at the admin site's root and under `/car/` on the car host; `player/net.ts:
-  API_PREFIX` picks `/car` from the page path.
+  JSMpeg is vendored at `public/vendor/jsmpeg.min.js` (MIT). Two builds, both with
+  `base: './'`:
+  - `npm run build` (our server's image): `index.html` (admin SPA), `play.html` (car
+    player, `player/main.ts`), and `src/inject/main.ts` → fixed-name `inject.js`.
+    Relative asset URLs let the same files serve at the admin site's root and under
+    `/car/` on the car host; `player/net.ts: API_PREFIX` picks `/car` from the page path.
+  - `npm run build:jellyfin` (`vite.jellyfin.config.ts`, root `jellyfin/`) →
+    `dist-jellyfin/`: `play.html` (`player/jellyfin-main.ts`), `car.html` (car-mode
+    switch) and `inject.js`. The plugin embeds these files.
 - The `frontend` image is nginx with two servers:
   - `:80`, the admin site. It proxies `/api` (WebSocket upgrade on `/api/stream/ws`),
     resolving `backend` per request through Docker DNS, so a backend-only recreate
@@ -64,6 +80,13 @@ contract, and runs the frontend's `check:api`, lint, tests and build. Tags `v*` 
     Emby.
 - Users put both ports behind their own HTTPS reverse proxy (`docs/reverse-proxy.md`).
   WebCodecs needs a secure context.
+- Jellyfin plugin: C# on .NET 10, built against `Jellyfin.Controller` 12.0.0 (loads on
+  12.0+). `InjectStartupFilter` (registered by `PluginServiceRegistrator` as an
+  `IStartupFilter`) rewrites `/web/` and `/web/index.html` responses to add the script tag
+  (Jellyfin's web files are read-only in its image); `WebController` serves the embedded
+  `dist-jellyfin` files at `/BackseatFin/{**path}` (`play` → play.html, `car` → car.html).
+  `package.py` makes the release zip and the plugin repository `manifest.json` (GitHub
+  Pages).
 
 ## Layering: domain folders + explicit ports (backend)
 
@@ -129,7 +152,42 @@ by design.
   `POST /api/emby/items/{id}/subtitles/{i}/prepare`, shows "Loading subtitles…", and
   reconnects once it's ready.
 
-## The car host hand-off (how the car plays Emby)
+## Jellyfin (no server)
+
+- **Which browsers:** the plugin setting `CarHostnames`. Set → only requests for those
+  hosts get the script tag (like Emby's car host). Empty → every page gets it with
+  `data-mode="opt-in"`, and `inject.js` only acts where `localStorage['backseatfin:car']
+  === '1'`, which `/BackseatFin/car` switches. Never on by default anywhere else: phones
+  and computers keep Jellyfin's own player.
+- **Hand-off:** the same `inject.js` as Emby (the two web apps share their ancestry:
+  `ApiClient`, `video.htmlvideoplayer`, `/Videos/{id}/…` URLs). Jellyfin's routes are
+  `#/video`/`#/queue`; its own HLS player writes item ids as dashed GUIDs. `inject.js`
+  finds the player next to itself (`new URL('play', import.meta.url)`).
+- **Player:** `sources/jellyfin.ts` calls Jellyfin's API from the browser with the
+  viewer's session (inject.js leaves `{token, userId}` in sessionStorage; else
+  `jellyfin_credentials`), as its own device (`backseatfin:device`, so stopping our
+  transcodes never touches the web app's).
+  - Stream = `/Videos/{id}/master.m3u8` with `VideoCodec=h264`, `AudioCodec=aac`,
+    `MaxAudioChannels=2`, `SegmentContainer=ts`, the level's bitrate, `MaxHeight` = min(level,
+    screen height), `MaxWidth` = screen width, and `SubtitleMethod=Encode` (burned in).
+    Jellyfin refuses `StartTimeTicks` on segments: the playlist covers the whole film, and
+    the `hls` engine starts at the segment holding the position (`#t=` on the URL).
+  - One `PlaySessionId` per choice of tracks/quality/size: seeks reuse it (Jellyfin
+    restarts its encoder at the requested segment); a new choice gets a new one, and the
+    old transcode is stopped (`DELETE /Videos/ActiveEncodings`). Leaving stops it too:
+    the page pauses (aborting fetches) *before* reporting, or an in-flight segment
+    request would restart the encoder.
+  - Progress: `/Sessions/Playing` (+ `/Progress`, `/Stopped`) in ticks, `keepalive`
+    when leaving.
+  - No JSMpeg fallback (nothing to transcode MPEG-1): without WebCodecs the page says so.
+- **`hls` engine** (`engines/hls-engine.ts` + `hls.ts`): master → first variant → media
+  playlist (cached per URL, so a seek costs one segment request); segments fetched one
+  at a time and streamed into the demuxer, at most `MAX_AHEAD_S` (9 s) ahead of the clock.
+  A failed segment is retried in place only before any of its bytes arrived and only
+  for transient errors; otherwise the player reconnects in place (`network`) or shows
+  the error (`connection`, e.g. 401, 500).
+
+## The Emby car host hand-off (how the car plays Emby)
 
 1. The car host serves Emby's `index.html` with
    `<script type="module" src="/car/inject.js">` added. Nothing else about Emby
@@ -157,8 +215,11 @@ by design.
 4. **The player page** lives in `frontend/src/player/` (design and measurements:
    `docs/player.md`). It's framework-free (no React or Tailwind), because it runs in
    the car for hours and will also ship as a standalone plugin.
-   - **Shape:** `player/main.ts` boots `page.ts`, which puts `<car-video>` under Media
-     Chrome controls. ~44 KB gz of JS + CSS.
+   - **Shape:** an entry (`player/main.ts` for Emby via our server,
+     `player/jellyfin-main.ts`) builds a `PlaybackSource` (`source.ts`: the item, its
+     tracks, `streamUrl()`, `headers()`, `report()`, optional `prepareSubtitle()`) and
+     hands it to `page.ts: mountPlayer`, which puts `<car-video>` under Media Chrome
+     controls. Nothing in `page.ts` knows which server it is. ~45 KB gz of JS + CSS.
    - **`<car-video>`** (`car-video.ts`) is a media element: `play()`, `pause()`,
      `currentTime`, `duration`, `paused`, `ended`, `volume`, `muted`, `seekable`,
      `readyState`, `error`, plus the standard events, so any media UI can drive it.
@@ -195,7 +256,9 @@ by design.
      words it. Server close reasons and subtitle errors are English.
    - **Engines** (`player/engines/`, one `StreamEngine` interface): `pickEngine()`
      chooses `webcodecs` when `VideoDecoder` supports `avc1.640028` and `AudioDecoder`
-     supports AAC-LC, else `jsmpeg`; `?engine=` forces one.
+     supports AAC-LC, else `jsmpeg`; `?engine=` forces one. `webcodecs` (our server's
+     WebSocket) and `hls` (a media server's HLS) are inputs to one decode pipeline,
+     `webcodecs-pipeline.ts`.
    - **WebCodecs pipeline:**
      - The stream is `format=h264ts`: H.264 High 4:2:0, no B-frames, 2 s GOP, AAC-LC
        48 kHz, MPEG-TS, with `-readrate_initial_burst 2` so the client starts with a
@@ -203,6 +266,10 @@ by design.
      - `engines/mpegts.ts` demuxes it (PAT/PMT/PES/PTS; ADTS → raw AAC + ASC). It's
        tested against the real ffmpeg fixture `engines/__fixtures__/tiny.mpegts`, named
        `.mpegts` because `.ts` would be compiled as TypeScript.
+     - The decoder is configured from the first keyframe's SPS (`annexb.ts:
+       avcCodecString`). B-frames (media servers' HLS): compressed frames wait in decode
+       order and are fed by DTS; frames come out and are drawn by PTS. `optimizeForLatency`
+       only without B-frames.
      - **Decoding is gated:** received video waits *compressed* and is decoded only
        `DECODE_AHEAD_S` (0.5 s) ahead of the clock, with at most 24 decoded frames
        (~3 MB each at 1080p; car decoders have few output buffers). Uses
@@ -318,6 +385,13 @@ English first, then Chinese. A test checks the Chinese table has every key.
   `player/quality`), the TS demuxer, and the `<car-video>` state machine with a fake
   engine (`player/car-video.test.ts`: seek coalescing, stall resume, end, fallback,
   start timeout, outage retry, stale callbacks).
+- Jellyfin source (`sources/jellyfin.test.ts`): credentials, device id, the HLS
+  query, one transcode per choice and stopping the old one, progress reports.
+- Plugin (`jellyfin-plugin/…Tests`, xunit): which hosts get which script tag, the web
+  index match, idempotent injection.
+- End to end against a real Jellyfin (Playwright; not in CI yet): Play → layer → frames
+  → seek, quality, audio, subtitles, pause/resume → Back → resume point saved, no
+  transcode left running.
 - A bug fix comes with a regression test.
 
 ## Forbidden
@@ -333,6 +407,7 @@ English first, then Chinese. A test checks the Chinese table has every key.
 - A 401/403 for "not signed in yet" (see the fail2ban contract).
 - Gating car-only behaviour on the User-Agent (the car's UA has no "Tesla" token).
 - Imports in `src/inject/` beyond `./parse` (it must build to one standalone file).
+- The Jellyfin plugin acting in a browser nobody chose (car hostname or car mode).
 - Unbounded ffmpeg: every stream goes through `StreamService`'s slot cap.
 - Personal hostnames, addresses, paths or IDs in code, docs or tests: use
   `example.com` names and `.env` settings.

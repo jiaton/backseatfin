@@ -2,17 +2,21 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
 
+import { avcCodecString } from './annexb'
 import { type AudioSample, TsDemuxer, type VideoSample } from './mpegts'
 
 // 0.5 s of 64x64 H.264 High (no B-frames) + AAC-LC 48 kHz stereo, made by the same
 // ffmpeg flags the server uses for format=h264ts.
 const fixture = new Uint8Array(readFileSync(join(__dirname, '__fixtures__/tiny.mpegts')))
+// 0.5 s of 64x64 H.264 High with 3 B-frames (decode order ≠ display order), like a
+// media server's HLS transcode.
+const bframes = new Uint8Array(readFileSync(join(__dirname, '__fixtures__/bframes.mpegts')))
 
-function demux(chunkSize: number) {
+function demux(chunkSize: number, bytes = fixture) {
   const video: VideoSample[] = []
   const audio: AudioSample[] = []
   const d = new TsDemuxer((v) => video.push(v), (a) => audio.push(a))
-  for (let i = 0; i < fixture.length; i += chunkSize) d.push(fixture.subarray(i, i + chunkSize))
+  for (let i = 0; i < bytes.length; i += chunkSize) d.push(bytes.subarray(i, i + chunkSize))
   d.flush()
   return { video, audio }
 }
@@ -49,4 +53,26 @@ it('gives identical results however the network chunks the stream', () => {
     expect(chunked.video.map((v) => [v.pts, v.data.length])).toEqual(whole.video.map((v) => [v.pts, v.data.length]))
     expect(chunked.audio.length).toBe(whole.audio.length)
   }
+})
+
+it('without B-frames, decode time is the presentation time', () => {
+  const { video } = demux(fixture.length)
+  expect(video.every((v) => v.dts === v.pts)).toBe(true)
+})
+
+it('with B-frames, reads decode times: increasing, never after the presentation time', () => {
+  const { video } = demux(bframes.length, bframes)
+  expect(video).toHaveLength(12)
+  expect(video.some((v) => v.dts !== v.pts)).toBe(true)
+  video.forEach((v) => expect(v.dts).toBeLessThanOrEqual(v.pts + 1e-9))
+  video.slice(1).forEach((v, i) => expect(v.dts).toBeGreaterThan(video[i].dts))
+  // display order differs from decode order
+  const pts = video.map((v) => v.pts)
+  expect(pts).not.toEqual([...pts].sort((a, b) => a - b))
+})
+
+it('reads the codec string from the keyframe SPS', () => {
+  const { video } = demux(bframes.length, bframes)
+  expect(avcCodecString(video[0].data)).toMatch(/^avc1\.64[0-9a-f]{4}$/) // High profile
+  expect(avcCodecString(video[1].data)).toBeNull()
 })

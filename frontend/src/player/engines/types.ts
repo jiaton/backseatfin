@@ -1,6 +1,9 @@
-/** A way of turning our stream WebSocket into pictures and sound on a canvas. The
- * player swaps engines without caring which one runs (see use-stream-engine). */
-export type EngineKind = 'webcodecs' | 'jsmpeg'
+/** A way of turning a stream into pictures and sound on a canvas. The player swaps
+ * engines without caring which one runs.
+ * webcodecs: our server's H.264 stream over a WebSocket, hardware-decoded.
+ * jsmpeg: our server's MPEG-1 stream over a WebSocket, decoded in WebAssembly.
+ * hls: a media server's own HLS transcode (H.264 + B-frames), hardware-decoded. */
+export type EngineKind = 'webcodecs' | 'jsmpeg' | 'hls'
 
 /** decode: this engine can't decode here (worth falling back to another engine).
  * connection: the server refused the stream and said why (show it, offer a retry).
@@ -46,5 +49,5 @@ export interface StreamEngine {
   destroy(): void
 }
 
-/** Stream WebSocket `format` each engine consumes. */
-export const ENGINE_FORMAT: Record<EngineKind, string> = { webcodecs: 'h264ts', jsmpeg: 'jsmpeg_ts' }
+/** Our server's stream WebSocket `format` for each engine that reads it. */
+export const ENGINE_FORMAT = { webcodecs: 'h264ts', jsmpeg: 'jsmpeg_ts' } as const satisfies Partial<Record<EngineKind, string>>

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/check-inject.mjs",
+    "build:jellyfin": "tsc -b && vite build -c vite.jellyfin.config.ts && node scripts/check-inject.mjs dist-jellyfin",
     "lint": "oxlint && stylelint \"src/**/*.css\" && node scripts/check-tokens.mjs",
     "test": "vitest run",
     "gen:api": "openapi-typescript openapi.json -o src/lib/api/schema.d.ts",

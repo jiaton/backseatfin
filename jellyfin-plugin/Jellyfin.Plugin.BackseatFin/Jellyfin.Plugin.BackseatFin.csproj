@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.BackseatFin</RootNamespace>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provided by Jellyfin at runtime: compile against them, don't ship them. -->
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Model" Version="12.0.0" ExcludeAssets="runtime" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The player's web files (frontend: npm run build:jellyfin), served at /BackseatFin/. -->
+    <EmbeddedResource Include="../../frontend/dist-jellyfin/**/*" LogicalName="web/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Configuration/config.html" LogicalName="config.html" />
+  </ItemGroup>
+
+  <Target Name="RequireWebBuild" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('../../frontend/dist-jellyfin/play.html')" Text="Build the player first: cd frontend &amp;&amp; npm run build:jellyfin" />
+  </Target>
+
+</Project>

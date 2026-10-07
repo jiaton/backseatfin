@@ -1,5 +1,7 @@
-// The /car/play page: <car-video> under Media Chrome controls, no framework. Kept small
-// on purpose — it runs in the car's browser for hours at a time.
+// The player page: <car-video> under Media Chrome controls, no framework. Kept small
+// on purpose — it runs in the car's browser for hours at a time. Everything that
+// depends on the media server comes from a PlaybackSource (see source.ts); the entry
+// points (main.ts for Emby via our server, jellyfin-main.ts) build one and mount it.
 import 'media-chrome/dist/media-controller.js'
 import 'media-chrome/dist/media-control-bar.js'
 import 'media-chrome/dist/media-play-button.js'
@@ -8,22 +10,16 @@ import 'media-chrome/dist/media-time-display.js'
 import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
-import { createReporter, fetchItem, HttpError, type PlaybackItem, prepareSubtitle, startPlayerSession, type Track } from './api'
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
-import { pickEngine } from './engines/detect'
-import { ENGINE_FORMAT, type EngineKind } from './engines/types'
-import { detectLang, LANG_NAMES, type Lang, LANGS, saveLang, type Translate, translator } from './i18n'
-import { wsUrl } from './net'
-import { CLOSE_MESSAGE, formatClock, type PlayerParams, readEmbyCredentials, readPlayerParams } from './params'
+import { detectLang, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
+import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { loadQuality, type Quality, QUALITY_HEIGHTS, QUALITY_VALUES, saveQuality } from './quality'
+import type { PlaybackSource, StreamChoice, Track } from './source'
 import './page.css'
 
 const PROGRESS_EVERY_MS = 10_000
 const SUBTITLE_POLL_MS = 3000
 const AUTOHIDE_S = 3
-
-/** The media server this page plays from (named in messages). */
-const SERVER = 'Emby'
 
 let lang: Lang = 'en'
 let t: Translate = translator('en')
@@ -84,46 +80,35 @@ function icon(name: keyof typeof ICONS): SVGSVGElement {
   return t.content.firstElementChild as SVGSVGElement
 }
 
-function displayTitle(item: PlaybackItem) {
-  if (!item.series_name) return item.name
-  const se = item.season_number != null && item.episode_number != null ? ` S${item.season_number}E${item.episode_number}` : ''
-  return `${item.series_name}${se} · ${item.name}`
-}
-
-function message(text: string) {
+/** A page with just a message and the way back (nothing to play, not signed in…).
+ * `root`: the server's base path, if any. */
+export function showMessage(key: StringKey, server: string, vars: Record<string, string> = {}, root = '') {
   document.body.replaceChildren(
-    h('main', { class: 'cm-message' }, h('p', {}, text), h('a', { href: '/web/index.html' }, t('backTo', { server: SERVER }))),
+    h(
+      'main',
+      { class: 'cm-message' },
+      h('p', {}, t(key, { server, ...vars })),
+      h('a', { href: `${root}/web/` }, t('backTo', { server })),
+    ),
   )
 }
 
-async function main() {
-  const params = readPlayerParams(window.location.search)
-  if (!params) return message(t('noItem', { server: SERVER }))
-  try {
-    await startPlayerSession(readEmbyCredentials())
-    const [item, engine] = await Promise.all([fetchItem(params.item), pickEngine()])
-    mount(item, params, engine)
-  } catch (e) {
-    message(e instanceof HttpError && e.status === 401 ? t('signedOut', { server: SERVER }) : t('loadFailed', { detail: String(e) }))
-  }
-}
-
-function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKind) {
-  const defaultAudio = item.audio_tracks.find((t) => t.is_default)?.index ?? item.audio_tracks[0]?.index
+export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
+  const { item, server } = source
+  const defaultAudio = item.audioTracks.find((t) => t.isDefault)?.index ?? item.audioTracks[0]?.index
   const state = {
     audio: params.audio ?? defaultAudio,
     sub: params.sub,
     quality: loadQuality(),
   }
-  const report = createReporter(item.id, item.media_source_id)
 
   // --- elements ----------------------------------------------------------------------
   const video = document.createElement('car-video') as CarVideoElement
   video.setAttribute('slot', 'media')
-  video.engine = initialEngine
+  video.engine = source.engines[0]
 
   const back = h('button', { class: 'cm-icon-button' }, icon('back'))
-  const title = h('h1', { class: 'cm-title' }, displayTitle(item))
+  const title = h('h1', { class: 'cm-title' }, item.title)
   const top = h('div', { slot: 'top-chrome', class: 'cm-top' }, back, title)
 
   const rewind = h('button', { class: 'cm-icon-button cm-round' }, icon('rewind'))
@@ -161,7 +146,7 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
     subChip.textContent = subState === 'failed' ? t('subtitlesFailed') : t('subtitlesLoading')
   }
   function applyTexts() {
-    back.setAttribute('aria-label', t('backTo', { server: SERVER }))
+    back.setAttribute('aria-label', t('backTo', { server }))
     rewind.setAttribute('aria-label', t('rewind'))
     forward.setAttribute('aria-label', t('forward'))
     settings.setAttribute('aria-label', t('settings'))
@@ -184,36 +169,28 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
     const even = (n: number) => Math.max(0, Math.round((n * dpr) / 2) * 2)
     return { w: even(r.width), h: even(r.height) }
   }
-  const streamUrl = (start: number, engine: EngineKind) => {
-    const q = new URLSearchParams({
-      source: `emby:${item.id}`,
-      t: String(Math.floor(start)),
-      quality: state.quality,
-      format: ENGINE_FORMAT[engine],
-    })
-    if (state.audio != null) q.set('audio', String(state.audio))
-    if (state.sub != null) q.set('sub', String(state.sub))
-    const box = displayBox()
-    if (box.w >= 160 && box.h >= 120) {
-      q.set('maxw', String(Math.min(box.w, 4096)))
-      q.set('maxh', String(Math.min(box.h, 4096)))
-    }
-    return wsUrl(`/api/stream/ws?${q}`)
+  const choice = (): StreamChoice => ({ ...state, box: displayBox() })
+  video.source = {
+    url: (start, engine) => source.streamUrl(start, engine, choice()),
+    headers: source.headers,
+    duration: item.duration,
+    start: params.t,
   }
-  video.source = { url: streamUrl, duration: item.runtime_seconds ?? Number.NaN, start: params.t }
 
   // --- leaving -----------------------------------------------------------------------
   let stopped = false
   const reportStopped = (leaving: boolean) => {
     if (stopped) return
     stopped = true
-    report('stopped', video.currentTime, false, { leaving })
+    source.report('stopped', video.currentTime, choice(), { leaving })
   }
   const goBack = () => {
-    reportStopped(true)
+    // Stop fetching first: a segment request still in flight after the "stopped"
+    // report would make the server start transcoding again.
     video.pause()
-    // As a layer over Emby: inject.js removes us (Emby stays as it was). Standalone:
-    // navigate back into Emby.
+    reportStopped(true)
+    // As a layer over the server's page: inject.js removes us (the page stays as it
+    // was). Standalone: navigate back into it.
     if (params.embed && window.parent !== window) window.parent.postMessage({ type: CLOSE_MESSAGE }, window.location.origin)
     else window.location.assign(params.back)
   }
@@ -240,15 +217,15 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
     errorPanel.hidden = true
     if (!started) {
       started = true
-      report('start', video.currentTime)
+      source.report('start', video.currentTime, choice())
     }
     window.clearInterval(progressTimer)
-    progressTimer = window.setInterval(() => report('progress', video.currentTime), PROGRESS_EVERY_MS)
+    progressTimer = window.setInterval(() => source.report('progress', video.currentTime, choice()), PROGRESS_EVERY_MS)
   })
   video.addEventListener('pause', () => {
     updateStatus()
     window.clearInterval(progressTimer)
-    if (!video.ended && !video.error) report('progress', video.currentTime, true)
+    if (!video.ended && !video.error) source.report('progress', video.currentTime, choice(), { paused: true })
   })
   video.addEventListener('ended', () => {
     updateStatus()
@@ -339,19 +316,19 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
     if (video.videoWidth) notes.push(t('playingNow', { size: `${video.videoWidth}×${video.videoHeight}` }))
     quality.append(...notes.map((n) => h('p', { class: 'cm-note' }, n)))
     const groups = [quality]
-    if (item.audio_tracks.length > 1) {
+    if (item.audioTracks.length > 1) {
       groups.push(
         group(
           t('audio'),
-          item.audio_tracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.audio, pick: () => choose({ audio: tr.index }) })),
+          item.audioTracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.audio, pick: () => choose({ audio: tr.index }) })),
         ),
       )
     }
-    if (item.subtitle_tracks.length) {
+    if (item.subtitleTracks.length) {
       groups.push(
         group(t('subtitles'), [
           { label: t('off'), selected: state.sub == null, pick: () => choose({ sub: undefined }) },
-          ...item.subtitle_tracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.sub, pick: () => choose({ sub: tr.index }) })),
+          ...item.subtitleTracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.sub, pick: () => choose({ sub: tr.index }) })),
         ]),
       )
     }
@@ -388,7 +365,8 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
 
   // --- text subtitles: extracted in the background ------------------------------------
   // Emby reads the whole file to extract an embedded subtitle (a minute on a big mkv),
-  // so the stream starts without it; once it's ready we reconnect so it's burned in.
+  // so our server starts the stream without it; once it's ready we reconnect so it's
+  // burned in. Sources that burn subtitles in by themselves have no prepareSubtitle.
   let subPoll = 0
   let subGeneration = 0
   function watchSubtitle() {
@@ -396,19 +374,20 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
     const generation = ++subGeneration
     subState = 'none'
     renderSubChip()
-    const track = item.subtitle_tracks.find((tr) => tr.index === state.sub)
-    if (!track || track.kind !== 'text') return
+    const track = item.subtitleTracks.find((tr) => tr.index === state.sub)
+    const prepare = source.prepareSubtitle
+    if (!track || track.kind !== 'text' || !prepare) return
     let sawPending = false
     const check = async () => {
       try {
-        const result = await prepareSubtitle(item.id, item.media_source_id, track.index)
+        const result = await prepare(track.index)
         if (generation !== subGeneration) return
-        if (result.status === 'pending') {
+        if (result === 'pending') {
           sawPending = true
           subState = 'pending'
           renderSubChip()
           subPoll = window.setTimeout(check, SUBTITLE_POLL_MS)
-        } else if (result.status === 'ready') {
+        } else if (result === 'ready') {
           subState = 'none'
           renderSubChip()
           if (sawPending && !video.paused) video.reload()
@@ -427,5 +406,3 @@ function mount(item: PlaybackItem, params: PlayerParams, initialEngine: EngineKi
   watchSubtitle()
   void video.play()
 }
-
-void main()

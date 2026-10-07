@@ -90,7 +90,27 @@ changed the code:
   have a limited pool of output buffers. `<car-video>` holds at most 24 and decodes 0.5 s
   ahead. Hardware decoders in cars have even fewer buffers.
 
+## Results: Jellyfin HLS (2026-10-06, `hls` engine, headless Chromium in Docker)
+Jellyfin 12.2 in Docker on the same machine (software transcoding), Sintel (CC-BY, 2048×872
+H.264 with B-frames) played twice in a row (30 min), 1280×720 window, so streams were
+1280×545. Jellyfin's transcode and Chromium's software decoding shared one 8-core Intel N305.
+
+| Scenario | Result |
+|---|---|
+| 720p steady, 25 min | renderer median 580 MB, max 669; JS heap 3 MB, flat; event listeners flat; no reconnects; 20.8 frames/s drawn (24 fps film, software decode under load) |
+| 1080p level, 10 min | renderer median 486 MB, max 628; no reconnects |
+| 50 seeks | one stream per seek (51 total); renderer median 516 MB, max 594; heap 3–6 MB |
+| bad network (4G → 3 Mbps + jitter → 1 Mbps → 15 s cut) | no reconnects down to 3 Mbps; at 1 Mbps (below the stream's 1.6 Mbps) it keeps playing but draws ~13 frames/s; after the cut it resumed at the same position seconds after the network returned |
+| Response times (end-to-end test) | first frame 1.7–3.8 s after Play; seek 0.8 s; quality switch 1.4 s; audio switch 0.6–1.5 s; subtitles on 1.2–1.5 s; resume after pause 0.4–0.6 s |
+
+Findings that changed the code:
+- **Segments filled the browser's HTTP cache** (Chromium's network process grew by ~50 MB);
+  they're read once, so they're fetched `no-store`.
+- **The wait loop piled up abort listeners** (one per 250 ms poll, held until the stream
+  ended); `sleep()` now removes its listener.
+- **Leaving left a transcode running** when a segment request was still in flight after
+  the "stopped" report; the page now stops the stream first.
+
 ## Later
-- HLS input mode: play the media server's own transcode (B-frame aware), for a
-  backend-less Jellyfin plugin.
+- Lower the quality by itself when the network can't carry the stream (1 Mbps above).
 - Memory readings from the car itself.

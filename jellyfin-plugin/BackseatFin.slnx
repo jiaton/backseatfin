@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Jellyfin.Plugin.BackseatFin/Jellyfin.Plugin.BackseatFin.csproj" />
+  <Project Path="Jellyfin.Plugin.BackseatFin.Tests/Jellyfin.Plugin.BackseatFin.Tests.csproj" />
+</Solution>

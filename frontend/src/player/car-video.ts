@@ -1,3 +1,4 @@
+import { createHlsEngine } from './engines/hls-engine'
 import { createJsmpegEngine } from './engines/jsmpeg-engine'
 import type { EngineCallbacks, EngineErrorKind, EngineKind, EngineStats, StreamEngine } from './engines/types'
 import { createWebCodecsEngine } from './engines/webcodecs-engine'
@@ -6,8 +7,12 @@ import { createWebCodecsEngine } from './engines/webcodecs-engine'
  * and changing anything the URL encodes (tracks, quality), reconnects at the current
  * position. */
 export interface CarVideoSource {
-  /** WebSocket URL of the stream starting at `startSeconds`, for this engine. */
+  /** URL of the stream starting at `startSeconds`, for this engine (a WebSocket URL,
+   * or for `hls` a playlist URL). */
   url(startSeconds: number, engine: EngineKind): string
+  /** Request headers for engines that fetch over HTTP (`hls`), e.g. the media server's
+   * authorization. */
+  headers?(): Record<string, string>
   /** Seconds; NaN if unknown. */
   duration: number
   /** Where playback starts (e.g. Emby's resume position). */
@@ -33,10 +38,14 @@ export type EngineFactory = (
   canvas: HTMLCanvasElement,
   url: string,
   cb: EngineCallbacks,
+  headers?: Record<string, string>,
 ) => Promise<StreamEngine>
 
-export const defaultEngineFactory: EngineFactory = (kind, canvas, url, cb) =>
-  kind === 'webcodecs' ? Promise.resolve(createWebCodecsEngine(canvas, url, cb)) : createJsmpegEngine(canvas, url, cb)
+export const defaultEngineFactory: EngineFactory = (kind, canvas, url, cb, headers) => {
+  if (kind === 'webcodecs') return Promise.resolve(createWebCodecsEngine(canvas, url, cb))
+  if (kind === 'hls') return Promise.resolve(createHlsEngine(canvas, url, cb, headers))
+  return createJsmpegEngine(canvas, url, cb)
+}
 
 /** MediaError codes we use. */
 const MEDIA_ERR_NETWORK = 2
@@ -338,7 +347,7 @@ export class CarVideoElement extends HTMLElement {
 
     const live = () => generation === this.#generation
     const kind = this.#engineKind
-    if (this.#canvasKind && this.#canvasKind !== kind) {
+    if (this.#canvasKind && (this.#canvasKind === 'jsmpeg') !== (kind === 'jsmpeg')) {
       // WebCodecs draws with 2D, JSMpeg with WebGL; a canvas can't switch.
       const fresh = document.createElement('canvas')
       fresh.setAttribute('part', 'canvas')
@@ -368,7 +377,7 @@ export class CarVideoElement extends HTMLElement {
         this.#emit('audiolockchange')
       },
     }
-    CarVideoElement.engineFactory(kind, this.#canvas, source.url(at, kind), callbacks).then(
+    CarVideoElement.engineFactory(kind, this.#canvas, source.url(at, kind), callbacks, source.headers?.()).then(
       (engine) => {
         if (!live()) return engine.destroy()
         this.#engine = engine

@@ -35,6 +35,7 @@ const en = {
   noItem: 'Nothing to play. Start playback from {server}.',
   signedOut: 'Not signed in, or the session expired. Press Play in {server} again.',
   loadFailed: "Couldn't load: {detail}",
+  needsWebCodecs: "This browser can't play {server} streams here: it needs hardware H.264 decoding (WebCodecs).",
   screenNote:
     'This window can show up to {size}. The stream is never sent larger than that, so above it a higher level only raises the bitrate: a little more detail, more data.',
   playingNow: 'Playing now: {size}',
@@ -75,6 +76,7 @@ const zh: Record<StringKey, string> = {
   noItem: '缺少要播放的内容，请从 {server} 点播放。',
   signedOut: '没有登录信息或已过期，请在 {server} 里重新点播放。',
   loadFailed: '无法加载：{detail}',
+  needsWebCodecs: '这个浏览器无法在这里播放 {server} 的视频：需要 H.264 硬件解码（WebCodecs）。',
   screenNote: '这个窗口最多显示 {size}。视频不会以超过这个尺寸传输，所以再往上选更高档位，只是提高码率：细节多一点，流量也更大。',
   playingNow: '当前播放：{size}',
   qualityLow: '流畅',
