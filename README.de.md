@@ -31,7 +31,6 @@ hinzu: Emby im Auto öffnen, auf Play drücken, und es läuft.
 - **YouTube ohne die Plattform** (optional): Playlists abonnieren, auf die eigene
   Festplatte herunterladen, in Emby ansehen. Kein Konto, keine Gebühren, und die Daten
   bleiben bei dir.
-- Oberfläche in Englisch und Chinesisch.
 
 > [!WARNING]
 > Für Mitfahrer. Der Fahrer muss die Augen auf die Straße gerichtet halten. Videos

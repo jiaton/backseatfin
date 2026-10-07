@@ -26,7 +26,6 @@ car, press Play, and it plays.
 - **HDR and Dolby Vision** are tone-mapped on the server, on an Intel GPU or the CPU.
 - **YouTube without the platform** (optional): follow playlists, download to your own
   disk, watch in Emby. No account, no fees, and the data stays with you.
-- English and Chinese UI.
 
 > [!WARNING]
 > For passengers. The driver must keep their eyes on the road. Watching video while

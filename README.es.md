@@ -33,7 +33,6 @@ se reproduce.
 - **YouTube sin la plataforma** (opcional): sigue listas de reproducción, descarga a
   tu propio disco y mira en Emby. Sin cuenta, sin tarifas, y los datos se quedan
   contigo.
-- Interfaz en inglés y chino.
 
 > [!WARNING]
 > Para pasajeros. El conductor debe mantener la vista en la carretera. Ver vídeos
