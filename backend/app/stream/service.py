@@ -38,7 +38,7 @@ class StreamService:
             width, height, kbps = output_size(output, request)
             return ResolvedInput(
                 StreamSpec(
-                    input_url=None, output=output, start_seconds=request.start_seconds, max_duration_seconds=600,
+                    input_url=None, output=output, start_seconds=request.start_seconds, max_duration_seconds=600, paced=request.paced,
                     max_width=width, max_height=height, video_kbps=kbps,
                 )
             )

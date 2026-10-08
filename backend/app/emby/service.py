@@ -106,6 +106,7 @@ class EmbyPlaybackService:
             input_url=url,
             output=output,
             start_seconds=request.start_seconds,
+            paced=request.paced,
             input_headers=headers,
             video_stream_index=video.index,
             audio_stream_index=audio.index if audio else None,

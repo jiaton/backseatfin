@@ -26,6 +26,8 @@ export async function createBackseatfinSource(itemId: string, engine: EngineKind
     streamUrl: (start, kind, choice) => {
       const format = kind === 'jsmpeg' ? ENGINE_FORMAT.jsmpeg : ENGINE_FORMAT.webcodecs
       const q = new URLSearchParams({ source: `emby:${item.id}`, t: String(Math.floor(start)), quality: choice.quality, format })
+      // WebCodecs buffers ~20 s and holds the server back itself (see webcodecs-engine).
+      if (format === ENGINE_FORMAT.webcodecs) q.set('flow', '1')
       if (choice.audio != null) q.set('audio', String(choice.audio))
       if (choice.sub != null) q.set('sub', String(choice.sub))
       const { w, h } = choice.box

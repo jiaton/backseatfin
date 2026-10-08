@@ -60,6 +60,10 @@ export interface EngineStats {
   audioClock?: 'audio' | 'wall'
   audioFormat?: string
   audioBufferedS?: number
+  /** Our server's stream: connections replaced mid-stream (stuck, or after a long
+   * pause), and whether the server is told to hold (buffer full). */
+  reconnects?: number
+  held?: boolean
   /** HLS: the last segment's time to first byte / to the end, and its number. */
   segmentWaitMs?: number
   segmentLoadMs?: number

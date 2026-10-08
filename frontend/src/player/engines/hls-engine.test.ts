@@ -1,6 +1,7 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { sleep } from './hls-engine'
+import { fetchSegment, SEGMENT_STALL_MS, sleep } from './hls-engine'
+import type { Pipeline } from './webcodecs-pipeline'
 
 afterEach(() => vi.useRealTimers())
 
@@ -23,4 +24,39 @@ it('sleep rejects at once when the engine stops', async () => {
   const p = sleep(60_000, controller.signal)
   controller.abort(new Error('stopped'))
   await expect(p).rejects.toThrow('stopped')
+})
+
+describe('fetchSegment', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const bytes = (from: number, n: number) => Uint8Array.from({ length: n }, (_, i) => (from + i) % 256)
+
+  it('a request that stalls halfway is retried, and continues where it stopped', async () => {
+    vi.useFakeTimers()
+    const whole = bytes(0, 1000)
+    let calls = 0
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+      calls++
+      const first = calls === 1
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(whole.subarray(0, 400))
+          if (first) {
+            init.signal?.addEventListener('abort', () => c.error(init.signal!.reason)) // then nothing: stuck
+          } else {
+            c.enqueue(whole.subarray(400))
+            c.close()
+          }
+        },
+      })
+      return new Response(body)
+    }))
+    const got: number[] = []
+    const pipeline = { push: (b: Uint8Array) => got.push(...b), inputStats: {} } as unknown as Pipeline
+    const done = fetchSegment(pipeline, 'https://jf.example.com/seg/1.ts', {}, new AbortController().signal)
+    await vi.advanceTimersByTimeAsync(SEGMENT_STALL_MS + 2000)
+    await done
+    expect(calls).toBe(2)
+    expect(got).toEqual(Array.from(whole)) // no gap, no repeat
+  })
 })

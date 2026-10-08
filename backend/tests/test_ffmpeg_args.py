@@ -180,3 +180,10 @@ def test_output_size_caps_the_preset_to_the_viewer_box():
     assert output_size(F.H264_TS, StreamRequest("x", quality=Quality.HIGH, max_width=1780, max_height=1000)) == (1780, 1000, 3000)
     # A box bigger than the preset doesn't raise it.
     assert output_size(F.H264_TS, StreamRequest("x", quality=Quality.MEDIUM, max_width=2560, max_height=1440)) == (2560, 720, 1500)
+
+
+def test_flow_controlled_stream_is_not_paced():
+    # The client holds the stream back itself (stream.routes FlowControl): no -re, no burst.
+    args = build_ffmpeg_args(_spec(output=OutputFormat.H264_TS, paced=False))
+    assert "-re" not in args
+    assert "-readrate_initial_burst" not in args

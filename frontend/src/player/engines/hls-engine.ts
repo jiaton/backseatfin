@@ -7,8 +7,13 @@ import { createPipeline, type Pipeline } from './webcodecs-pipeline'
 const MAX_AHEAD_S = 9
 /** A failed segment fetch is retried in place this many times before the engine gives
  * up and lets the player reconnect. */
-const SEGMENT_RETRIES = 2
+const SEGMENT_RETRIES = 3
 const RETRY_DELAY_MS = 1000
+/** No bytes for this long = the request is stuck (mobile networks stall without
+ * failing): abort it and ask again, picking up where it stopped. */
+export const SEGMENT_STALL_MS = 5000
+/** …but a segment the server is still preparing may take longer to start. */
+const SEGMENT_FIRST_BYTE_MS = 15000
 const WAIT_POLL_MS = 250
 
 class HttpError extends Error {
@@ -34,6 +39,8 @@ export const sleep = (ms: number, signal: AbortSignal) =>
     }, ms)
     signal.addEventListener('abort', onAbort, { once: true })
   })
+
+class StalledError extends Error {}
 
 async function get(url: string, headers: Record<string, string>, signal: AbortSignal): Promise<Response> {
   // no-store: a segment is read once; the browser's cache would only hold on to it (it
@@ -116,30 +123,54 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
   }
 }
 
-async function fetchSegment(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
+export async function fetchSegment(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
+  let pushed = 0 // bytes of this segment already handed on (a retry skips them)
   for (let attempt = 0; ; attempt++) {
-    let received = false
     const asked = performance.now()
+    // Its own abort, so a stalled attempt can be dropped without stopping the engine.
+    const attemptAbort = new AbortController()
+    const stopAttempt = () => attemptAbort.abort(signal.reason)
+    signal.addEventListener('abort', stopAttempt, { once: true })
+    let stalled = false
+    let timer = 0
+    const arm = (ms: number) => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        stalled = true
+        attemptAbort.abort(new StalledError('segment stalled'))
+      }, ms)
+    }
     try {
-      const response = await get(url, headers, signal)
+      arm(SEGMENT_FIRST_BYTE_MS)
+      const response = await get(url, headers, attemptAbort.signal)
       const reader = response.body!.getReader()
+      let seen = 0 // bytes of this response so far
       for (;;) {
+        arm(SEGMENT_STALL_MS)
         const { done, value } = await reader.read()
         if (done) {
           // Waiting = the server preparing the segment; the rest = the network.
           pipeline.inputStats.segmentLoadMs = Math.round(performance.now() - asked)
           return
         }
-        if (!received) pipeline.inputStats.segmentWaitMs = Math.round(performance.now() - asked)
-        received = true
-        pipeline.push(value)
+        if (seen === 0 && pushed === 0) pipeline.inputStats.segmentWaitMs = Math.round(performance.now() - asked)
+        // A retried segment repeats what we already have: skip that part (segments are
+        // files on the server, the same bytes every time).
+        const fresh = seen + value.length > pushed ? value.subarray(Math.max(0, pushed - seen)) : null
+        seen += value.length
+        if (fresh?.length) {
+          pipeline.push(fresh)
+          pushed += fresh.length
+        }
       }
     } catch (e) {
-      // Retried here only if nothing of it arrived yet (a retry would replay what was
-      // pushed) and the failure may pass; otherwise the player reconnects in place.
-      const retryable = !(e instanceof HttpError) || TRANSIENT.has(e.status)
-      if (signal.aborted || received || !retryable || attempt >= SEGMENT_RETRIES) throw e
+      if (signal.aborted) throw e
+      const retryable = stalled || !(e instanceof HttpError) || TRANSIENT.has(e.status)
+      if (!retryable || attempt >= SEGMENT_RETRIES) throw stalled ? new Error('segment stalled') : e
       await sleep(RETRY_DELAY_MS, signal)
+    } finally {
+      window.clearTimeout(timer)
+      signal.removeEventListener('abort', stopAttempt)
     }
   }
 }

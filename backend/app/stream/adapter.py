@@ -109,12 +109,16 @@ def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneM
         if spec.start_seconds > 0:
             args += ["-ss", f"{spec.start_seconds:.3f}"]
         # -re paces reading at native speed: JSMpeg plays frames as they arrive with no
-        # client-side buffering, so an unpaced encode would just flood the socket. The
-        # WebCodecs player does buffer, so it gets the first 2 s as a burst: a cushion
-        # against 4G hiccups from the start.
-        if spec.output is OutputFormat.H264_TS:
-            args += ["-readrate_initial_burst", "2"]
-        args += ["-re", "-i", spec.input_url, "-t", str(spec.max_duration_seconds)]
+        # client-side buffering, so an unpaced encode would just flood the socket. A
+        # WebCodecs player that buffers but doesn't do flow control gets the first 2 s as
+        # a burst. One that does flow control (spec.paced False) gets the stream as fast
+        # as ffmpeg makes it until it says "hold": while we don't read ffmpeg's output,
+        # the pipe fills and ffmpeg waits.
+        if spec.paced:
+            if spec.output is OutputFormat.H264_TS:
+                args += ["-readrate_initial_burst", "2"]
+            args += ["-re"]
+        args += ["-i", spec.input_url, "-t", str(spec.max_duration_seconds)]
         video_in = f"[0:{spec.video_stream_index}]" if spec.video_stream_index is not None else "[0:v:0]"
         # Trailing "?" = optional: a file without audio still streams.
         audio_map = f"0:{spec.audio_stream_index}" if spec.audio_stream_index is not None else "0:a:0?"

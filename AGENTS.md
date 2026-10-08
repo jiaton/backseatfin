@@ -233,10 +233,27 @@ by design.
        connection, which resumes in place. 20 s without a first frame is an error.
      - **Pause holds the stream** (engines with `pause()`/`resume()`: WebCodecs, HLS):
        the clock freezes and everything buffered stays, so play() continues at once with
-       no new request. HLS keeps fetching up to its 9 s lead, then waits. Our server's
-       WebSocket keeps streaming in real time while paused; it's closed (freeing the
-       server's ffmpeg) after 60 s or 30 s buffered, and play() then reconnects. Seeking,
-       a new choice (`reload()`) or leaving (`stop()`) let a held stream go.
+       no new request. Seeking, a new choice (`reload()`) or leaving (`stop()`) let a held
+       stream go.
+     - **Our server's stream (WebCodecs) is one long WebSocket, kept healthy by the
+       client** (`webcodecs-engine.ts`):
+       - Flow control (`flow=1`): the server sends unpaced (no `-re`) and the client says
+         `hold` above 20 s buffered and `go` below 15 s (text frames; the server stops
+         reading ffmpeg, whose pipe then fills and it waits). JSMpeg stays paced.
+       - Data watchdog: no bytes for 5 s while expecting some (not held) = stuck (mobile
+         networks hang without closing). The socket is dropped and a new one opened
+         **spliced** onto the buffer: it starts (`t`) where the buffer ends and its first
+         keyframe is placed there (`pipeline.spliceAt`), so playback doesn't stop.
+         Retried every 2 s; if the buffer runs out first, car-video's stall/outage
+         handling takes over.
+       - Paused: the stream is kept (held) for 60 s, then closed to free ffmpeg; play()
+         continues from the buffer and splices a new stream on with 10 s left.
+       - A clean close (1000) after data = the server finished the film: nothing retried.
+       - Tested through toxiproxy: 15 s of a hung connection, 40 s at 1 Mbps, a 30 s cut —
+         no second without progress.
+     - HLS (Jellyfin) is segments of 3 s, up to 9 s ahead; a segment with no bytes for
+       5 s (15 s before its first byte) is aborted and fetched again, skipping the bytes
+       already pushed (segments are files on the server, the same bytes each time).
      - Network outages are not errors. A close without a server reason, or a hung
        connect (8 s per attempt), retries every 2 s at the same position and says it's
        reconnecting. It only gives up after 90 s. A close *with* a reason (the server

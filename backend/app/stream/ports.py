@@ -101,6 +101,9 @@ class StreamSpec:
     input_url: str | None
     output: OutputFormat
     start_seconds: float = 0.0
+    # True: read the input at native speed (the stream arrives in real time). False: as
+    # fast as the client takes it; the client holds it back by flow control.
+    paced: bool = True
     max_height: int = 720
     # Fit within max_width × max_height keeping the aspect ratio; None = height only.
     max_width: int | None = None
@@ -134,6 +137,8 @@ class StreamRequest:
     # The player's display box in device pixels, if it said: output never exceeds it.
     max_width: int | None = None
     max_height: int | None = None
+    # The client does flow control (see stream.routes): no real-time pacing.
+    paced: bool = True
 
 
 @dataclass(frozen=True)
