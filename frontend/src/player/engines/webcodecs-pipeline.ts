@@ -94,6 +94,14 @@ export interface Pipeline extends StreamEngine {
   onDestroy: (() => void) | null
   /** Asked on resume: false = the input gave up while paused (reconnect instead). */
   canResume: () => boolean
+  /** Pts of the first and the newest video received (null before any). */
+  receivedRange(): { first: number; last: number } | null
+  /**
+   * Continues the stream from a second connection that starts at `cut` (a pts on this
+   * stream's timeline): buffered media from `cut` on is dropped, and what's pushed from
+   * now on is a new MPEG-TS stream whose first keyframe is placed at `cut`.
+   */
+  spliceAt(cut: number): void
   inputStats: InputStats
 }
 
@@ -137,6 +145,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   let skippedChunks = 0
   let startOffset = 0
   let lastReceived: number | null = null // pts of the newest video received
+  let firstReceived: number | null = null
   let codec = ''
   let decoderResets = 0
   const frames: VideoFrame[] = [] // decoded, waiting for their time
@@ -303,6 +312,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
     }
     lastReceived = Math.max(lastReceived ?? s.pts, s.pts)
+    firstReceived ??= s.pts
     pending.push({
       chunk: new EncodedVideoChunk({ type: s.key ? 'key' : 'delta', timestamp: Math.round(s.pts * 1e6), data: s.data }),
       dts: s.dts,
@@ -389,7 +399,29 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     pump()
   }
 
-  const demuxer = new TsDemuxer(onVideo, onAudio)
+  let demuxer = new TsDemuxer(onVideo, onAudio)
+
+  /** A demuxer for a second connection: its timestamps are moved so its first keyframe
+   * lands on `cut`; audio before that point duplicates what's already buffered. */
+  const splicedDemuxer = (cut: number) => {
+    let shift: number | null = null
+    const early: AudioSample[] = []
+    const audioAt = (a: AudioSample) => {
+      const pts = a.pts + shift!
+      if (pts >= cut - 0.001) onAudio({ ...a, pts })
+    }
+    return new TsDemuxer(
+      (v) => {
+        if (shift == null) {
+          if (!v.key) return
+          shift = cut - v.pts
+          for (const a of early.splice(0)) audioAt(a)
+        }
+        onVideo({ ...v, pts: v.pts + shift, dts: v.dts + shift })
+      },
+      (a) => (shift == null ? early.length < 500 && early.push(a) : audioAt(a)),
+    )
+  }
 
   /** Media time of the sound being heard right now, or null when there's none. */
   const heardMedia = (): number | null => {
@@ -514,6 +546,16 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     },
     onDestroy: null,
     canResume: () => true,
+    receivedRange: () => (firstReceived == null || lastReceived == null ? null : { first: firstReceived, last: lastReceived }),
+    spliceAt: (cut) => {
+      demuxer.flush()
+      const keep = (ts: number) => ts < cut - 0.001
+      for (let i = pending.length - 1; i >= 0; i--) if (!keep(pending[i].chunk.timestamp / 1e6)) pending.splice(i, 1)
+      for (let i = audioPending.length - 1; i >= 0; i--) if (!keep(audioPending[i].timestamp / 1e6)) audioPending.splice(i, 1)
+      audioReady = audioReady.filter((a) => keep(a.ts))
+      lastReceived = Math.min(lastReceived ?? cut, cut)
+      demuxer = splicedDemuxer(cut)
+    },
     inputStats: {},
     elapsed: () => {
       const now = mediaNow()
