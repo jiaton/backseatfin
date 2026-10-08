@@ -100,6 +100,8 @@ export interface Pipeline extends StreamEngine {
 interface ReadyAudio {
   buffer: AudioBuffer
   ts: number // media seconds
+  /** Seconds at its start already heard (before a pause): skipped when rescheduled. */
+  skip?: number
 }
 
 interface ScheduledAudio extends ReadyAudio {
@@ -172,8 +174,9 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       ? anchorMedia + (heardTime(audio) - anchorCtx)
       : anchorMedia + (performance.now() / 1000 - anchorWall)
   }
-  /** Takes back whatever WebAudio hasn't played yet, to be rescheduled on a new anchor. */
-  const unschedule = () => {
+  /** Takes back whatever WebAudio hasn't played yet, to be rescheduled on a new anchor.
+   * `cut`: the media time heard last (a pause); sound before it isn't played again. */
+  const unschedule = (cut?: number) => {
     const back: ReadyAudio[] = []
     for (const s of scheduled) {
       s.node.onended = null
@@ -183,7 +186,9 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
         // never started
       }
       s.node.disconnect()
-      back.push({ buffer: s.buffer, ts: s.ts })
+      const start = s.ts + (s.skip ?? 0)
+      if (cut != null && s.ts + s.buffer.duration <= cut) continue
+      back.push({ buffer: s.buffer, ts: s.ts, skip: cut != null && start < cut ? cut - s.ts : s.skip })
     }
     scheduled = []
     played = []
@@ -338,19 +343,20 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     }
     const ctxNow = audio.currentTime
     while (audioReady.length) {
-      const { buffer, ts } = audioReady[0]
-      let when = anchorCtx + (ts - anchorMedia)
+      const { buffer, ts, skip = 0 } = audioReady[0]
+      let when = anchorCtx + (ts + skip - anchorMedia)
       if (when > ctxNow + AUDIO_SCHEDULE_AHEAD_S) break
       audioReady.shift()
       // Back to back with the previous buffer unless it has drifted noticeably.
       if (lastScheduledEnd && Math.abs(when - lastScheduledEnd) < AUDIO_SNAP_S) when = lastScheduledEnd
-      const offset = Math.max(0, ctxNow - when) // partly past: play the rest
+      const offset = skip + Math.max(0, ctxNow - when) // partly past: play the rest
       if (offset >= buffer.duration) continue
       const node = audio.createBufferSource()
       node.buffer = buffer
       node.connect(out)
       node.start(Math.max(when, ctxNow), offset)
-      const item: ScheduledAudio = { buffer, ts, node, when }
+      // `when` as if the whole buffer had played from its start (for heardMedia).
+      const item: ScheduledAudio = { buffer, ts, node, when: when - skip }
       node.onended = () => {
         scheduled = scheduled.filter((s) => s !== item)
         node.disconnect()
@@ -359,7 +365,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
         played = played.filter((p) => p.when + p.buffer.duration > heard - 1)
       }
       scheduled.push(item)
-      lastScheduledEnd = when + buffer.duration
+      lastScheduledEnd = when - skip + buffer.duration
       audioScheduledCount++
     }
   }
@@ -525,7 +531,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       if (paused || destroyed) return
       pausedMedia = mediaNow() ?? firstPts ?? 0
       paused = true
-      unschedule() // silence at once; the sound not yet heard is kept for later
+      unschedule(pausedMedia) // silence at once; the sound not yet heard is kept for later
     },
     resume: () => {
       if (destroyed) return false
