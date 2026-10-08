@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 
-import { detectLang, translator } from './i18n'
+import { detectLang, LANGS, type StringKey, TABLE_KEYS, translator } from './i18n'
 
 const store = (v: string | null) => ({ getItem: () => v })
 
@@ -21,4 +21,23 @@ it('survives storage that throws', () => {
 it('fills in variables', () => {
   expect(translator('en')('loading', { time: '1:02' })).toBe('Loading… 1:02')
   expect(translator('zh')('backTo', { server: 'Emby' })).toBe('返回 Emby')
+})
+
+it('knows Spanish, Japanese and Korean too', () => {
+  expect(detectLang(store(null), ['es-MX'])).toBe('es')
+  expect(detectLang(store(null), ['ja-JP'])).toBe('ja')
+  expect(detectLang(store(null), ['ko'])).toBe('ko')
+})
+
+it('has every string, with the same {variables}, in every language', () => {
+  const vars = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
+  const en = translator('en')
+  for (const lang of LANGS) {
+    const t = translator(lang)
+    for (const key of Object.keys(TABLE_KEYS) as StringKey[]) {
+      // translator() leaves {vars} in place, so the raw strings can be compared
+      expect(t(key), `${lang}.${key}`).toBeTruthy()
+      expect(vars(t(key)), `${lang}.${key}`).toEqual(vars(en(key)))
+    }
+  }
 })

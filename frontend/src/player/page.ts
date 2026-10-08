@@ -7,11 +7,13 @@ import 'media-chrome/dist/media-control-bar.js'
 import 'media-chrome/dist/media-play-button.js'
 import 'media-chrome/dist/media-time-range.js'
 import 'media-chrome/dist/media-time-display.js'
+import 'media-chrome/dist/lang/es.js'
 import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
-import { detectLang, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
+import { diagnose } from './diagnose'
+import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { loadQuality, type Quality, QUALITY_HEIGHTS, QUALITY_VALUES, saveQuality } from './quality'
 import type { PlaybackSource, StreamChoice, Track } from './source'
@@ -20,14 +22,19 @@ import './page.css'
 const PROGRESS_EVERY_MS = 10_000
 const SUBTITLE_POLL_MS = 3000
 const AUTOHIDE_S = 3
+const STATS_EVERY_MS = 500
+const STATS_KEY = 'backseatfin:stats'
+
+/** Media Chrome ships labels for some of our languages only; the rest stay English. */
+const MEDIA_CHROME_LANG: Partial<Record<Lang, string>> = { zh: 'zh-CN', es: 'es' }
 
 let lang: Lang = 'en'
 let t: Translate = translator('en')
 function switchLang(next: Lang) {
   lang = next
   t = translator(next)
-  document.documentElement.lang = next === 'zh' ? 'zh-CN' : 'en'
-  setLanguage(next === 'zh' ? 'zh-CN' : 'en') // Media Chrome's own labels
+  document.documentElement.lang = HTML_LANG[next]
+  setLanguage(MEDIA_CHROME_LANG[next] ?? 'en') // Media Chrome's own labels
 }
 switchLang(detectLang())
 defineCarVideo()
@@ -135,8 +142,9 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
   const errorBack = h('button', { class: 'cm-button' })
   const errorPanel = h('div', { class: 'cm-error', role: 'alert', hidden: '' }, errorMessage, h('div', { class: 'cm-row' }, retry, errorBack))
   const sheet = h('div', { class: 'cm-sheet', role: 'dialog', hidden: '' })
+  const statsPanel = h('pre', { class: 'cm-stats', 'aria-live': 'off', hidden: '' })
 
-  document.body.replaceChildren(controller, status, subChip, unlock, errorPanel, sheet)
+  document.body.replaceChildren(controller, status, subChip, unlock, errorPanel, statsPanel, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -187,7 +195,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
   const goBack = () => {
     // Stop fetching first: a segment request still in flight after the "stopped"
     // report would make the server start transcoding again.
-    video.pause()
+    video.stop()
     reportStopped(true)
     // As a layer over the server's page: inject.js removes us (the page stays as it
     // was). Standalone: navigate back into it.
@@ -315,6 +323,13 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
     const notes = [t('screenNote', { size: `${box.w}×${box.h}` })]
     if (video.videoWidth) notes.push(t('playingNow', { size: `${video.videoWidth}×${video.videoHeight}` }))
     quality.append(...notes.map((n) => h('p', { class: 'cm-note' }, n)))
+    // The stats panel sits right here, one tap away from the quality it explains.
+    const statsToggle = h('button', { class: 'cm-option cm-stats-toggle', 'aria-pressed': String(statsOn) }, t('stats'))
+    statsToggle.addEventListener('click', () => {
+      showStats(!statsOn)
+      renderSheet()
+    })
+    quality.append(statsToggle)
     const groups = [quality]
     if (item.audioTracks.length > 1) {
       groups.push(
@@ -362,6 +377,54 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
     controller.setAttribute('autohide', String(AUTOHIDE_S))
   }
   settings.addEventListener('click', () => (sheet.hidden ? openSheet() : closeSheet()))
+
+  // --- stats for nerds -----------------------------------------------------------------
+  let statsOn = false
+  let statsTimer = 0
+  try {
+    statsOn = localStorage.getItem(STATS_KEY) === '1'
+  } catch {
+    // storage unavailable: off
+  }
+  function showStats(on: boolean) {
+    statsOn = on
+    try {
+      if (on) localStorage.setItem(STATS_KEY, '1')
+      else localStorage.removeItem(STATS_KEY)
+    } catch {
+      // remembered for this page only
+    }
+    statsPanel.hidden = !on
+    window.clearInterval(statsTimer)
+    if (on) {
+      renderStats()
+      statsTimer = window.setInterval(renderStats, STATS_EVERY_MS)
+    }
+  }
+  const ms = (v: number | undefined) => (v == null ? '–' : `${Math.round(v)} ms`)
+  const signed = (v: number | undefined) => (v == null ? '–' : `${v > 0 ? '+' : ''}${Math.round(v)} ms`)
+  const mbit = (kbps: number | undefined) => (kbps == null ? '–' : `${(kbps / 1000).toFixed(2)} Mbps`)
+  function renderStats() {
+    const s = video.stats()
+    const d = diagnose({ paused: video.paused, retrying: video.retrying, started: video.readyState >= 4, stats: s })
+    const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize
+    const lines = [
+      t(d.key, d.vars),
+      '',
+      `engine   ${s.engine} · ${s.codec || '–'} · ${s.videoWidth || 0}×${s.videoHeight || 0} · ${(s.fps ?? 0).toFixed(0)} fps`,
+      `network  in ${mbit(s.receiveKbps)} · stream ${mbit(s.streamKbps)}${s.realtime != null ? ` (${s.realtime.toFixed(2)}× real time)` : ''}`,
+      `buffer   ${(s.bufferAheadS ?? 0).toFixed(1)} s video · ${(s.audioBufferedS ?? 0).toFixed(1)} s audio`,
+    ]
+    if (s.segment != null) lines.push(`segment  #${s.segment} · server ${ms(s.segmentWaitMs)} · total ${ms(s.segmentLoadMs)}`)
+    lines.push(
+      `decoder  latency ${ms(s.decodeMs)} · queue ${s.decodeQueue ?? 0} · waiting ${s.chunksPending ?? 0} · late ${s.framesLate ?? 0} · skipped ${s.chunksSkipped ?? 0}${s.decoderResets ? ` · resets ${s.decoderResets}` : ''}`,
+      `a/v      picture ${signed(s.avOffsetMs)} vs sound · behind clock ${ms(s.videoBehindMs)}`,
+      `audio    ${s.audioFormat ?? '–'} · output latency ${ms(s.outputLatencyMs)} · clock ${s.audioClock ?? '–'}`,
+      `session  ${formatClock(video.currentTime)} · ${t(QUALITY_NAME[state.quality])} ${QUALITY_HEIGHTS[video.engine][state.quality]}p · connects ${s.connects}${heap ? ` · JS ${(heap / 1048576).toFixed(1)} MB` : ''}`,
+    )
+    statsPanel.textContent = lines.join('\n')
+  }
+  if (statsOn) showStats(true)
 
   // --- text subtitles: extracted in the background ------------------------------------
   // Emby reads the whole file to extract an embedded subtitle (a minute on a big mkv),

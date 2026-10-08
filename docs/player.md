@@ -111,6 +111,23 @@ Findings that changed the code:
 - **Leaving left a transcode running** when a segment request was still in flight after
   the "stopped" report; the page now stops the stream first.
 
+## A/V sync, pause and stats (2026-10-08)
+Reported: picture and sound out of step after starting mid-film or resuming, settling
+only after a while; and every resume reloaded from the network.
+- Cause (sync): the picture followed `AudioContext.currentTime`, but sound is heard an
+  output latency later — tens of ms on a desktop, possibly hundreds through car audio,
+  and PulseAudio-style backends shrink it over the first seconds (hence "settles after
+  a while"). Also, audio decoded before playback started was thrown away.
+- Fix: the clock follows the sound being heard (`getOutputTimestamp()`); audio is kept
+  until it can be scheduled; frames are drawn 20 ms early. Measured in headless
+  Chromium (Jellyfin, 360p film, output latency 85 ms): picture minus sound median
+  11–20 ms, max ≤ 35 ms at start, after 10 s, after resuming and after a seek. Under
+  heavy CPU load (software decoding next to a 2K software transcode) the decoder falls
+  behind instead; the stats panel says so, and a decoder reset now catches up.
+- Pause keeps the stream and its buffer: play continues in ~0.2 s plus the tap, with no
+  request (HLS) or reconnect (WebSocket, up to 60 s / 30 s buffered).
+- Memory unchanged: 6 min steady, JS heap 2.6–4.7 MB, renderer ~570 MB, flat.
+
 ## Later
 - Lower the quality by itself when the network can't carry the stream (1 Mbps above).
 - Memory readings from the car itself.

@@ -230,3 +230,85 @@ describe('<car-video>', () => {
     expect(v.seekable.end(0)).toBe(3600)
   })
 })
+
+describe('<car-video> holding the stream on pause', () => {
+  // An engine that can freeze in place (WebCodecs, HLS).
+  function holdable(resumeOk = true) {
+    const base = CarVideoElement.engineFactory
+    CarVideoElement.engineFactory = async (...args) => {
+      const e = (await base(...args)) as FakeEngine & { pause(): void; resume(): boolean; pausedNow: boolean }
+      e.pausedNow = false
+      e.pause = () => void (e.pausedNow = true)
+      e.resume = () => {
+        e.pausedNow = false
+        return resumeOk
+      }
+      return e
+    }
+  }
+
+  async function playing() {
+    const { v, events } = setup()
+    await v.play()
+    await flush()
+    latest().cb.onFirstFrame()
+    latest().elapsedValue = 30
+    return { v, events }
+  }
+
+  it('pause keeps the stream; play continues it without reconnecting', async () => {
+    holdable()
+    const { v, events } = await playing()
+    const e = latest()
+    v.pause()
+    expect(e.destroyed).toBe(false)
+    expect(v.paused).toBe(true)
+    expect(v.currentTime).toBe(130)
+    await v.play()
+    expect(engines).toHaveLength(1)
+    expect(events.slice(-2)).toEqual(['play', 'playing'])
+    expect(v.paused).toBe(false)
+  })
+
+  it('reconnects when the held stream gave up while paused', async () => {
+    holdable(false)
+    const { v } = await playing()
+    v.pause()
+    await v.play()
+    await flush()
+    expect(engines).toHaveLength(2)
+    expect(engines[0].destroyed).toBe(true)
+    expect(latest().url).toContain('t=130')
+  })
+
+  it('seeking, a new choice or leaving lets the held stream go', async () => {
+    holdable()
+    const { v } = await playing()
+    v.pause()
+    v.currentTime = 500
+    expect(engines[0].destroyed).toBe(true)
+    await v.play()
+    await flush()
+    expect(latest().url).toContain('t=500')
+    latest().cb.onFirstFrame()
+    v.pause()
+    v.reload() // e.g. another audio track: the held stream has the old URL
+    await flush()
+    expect(engines).toHaveLength(3)
+    latest().cb.onFirstFrame()
+    v.stop()
+    expect(latest().destroyed).toBe(true)
+    expect(v.paused).toBe(true)
+  })
+
+  it('a held stream failing while paused is dropped quietly', async () => {
+    holdable()
+    const { v, events } = await playing()
+    v.pause()
+    latest().cb.onError('connection closed', 'network')
+    expect(latest().destroyed).toBe(true)
+    expect(v.error).toBeNull()
+    expect(events).not.toContain('retrying')
+    expect(v.currentTime).toBe(130)
+  })
+})

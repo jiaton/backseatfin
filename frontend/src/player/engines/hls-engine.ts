@@ -80,7 +80,8 @@ function classify(e: unknown): { message: string; kind: EngineErrorKind } {
  * A media server's HLS transcode (H.264 with B-frames + AAC in MPEG-TS segments) → the
  * WebCodecs pipeline. Starts at the segment holding the requested time; fetches
  * segments one after another, streaming each into the demuxer as it arrives, and stays
- * at most MAX_AHEAD_S ahead of the clock. `url` = playlist URL + `#t=<start seconds>`.
+ * at most MAX_AHEAD_S ahead of the clock — also while paused, so playing again continues
+ * from the buffer and then the next segments. `url` = playlist URL + `#t=<start seconds>`.
  */
 export function createHlsEngine(
   canvas: HTMLCanvasElement,
@@ -104,6 +105,7 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
     pipeline.setStartOffset(segments[i].start - start)
     for (; i < segments.length; i++) {
       while (pipeline.bufferedAhead() > MAX_AHEAD_S) await sleep(WAIT_POLL_MS, signal)
+      pipeline.inputStats.segment = i
       await fetchSegment(pipeline, segments[i].url, headers, signal)
     }
     pipeline.flush()
@@ -117,12 +119,18 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
 async function fetchSegment(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
   for (let attempt = 0; ; attempt++) {
     let received = false
+    const asked = performance.now()
     try {
       const response = await get(url, headers, signal)
       const reader = response.body!.getReader()
       for (;;) {
         const { done, value } = await reader.read()
-        if (done) return
+        if (done) {
+          // Waiting = the server preparing the segment; the rest = the network.
+          pipeline.inputStats.segmentLoadMs = Math.round(performance.now() - asked)
+          return
+        }
+        if (!received) pipeline.inputStats.segmentWaitMs = Math.round(performance.now() - asked)
         received = true
         pipeline.push(value)
       }

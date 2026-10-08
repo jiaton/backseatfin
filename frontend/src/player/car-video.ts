@@ -162,6 +162,7 @@ export class CarVideoElement extends HTMLElement {
     if (kind === this.#engineKind) return
     this.#engineKind = kind
     if (!this.#paused) this.#connect(this.currentTime)
+    else this.#release()
   }
 
   /** Reopens the stream at the current position (after the source's URL changed, e.g. a
@@ -169,6 +170,7 @@ export class CarVideoElement extends HTMLElement {
   reload() {
     this.#error = null
     if (this.#paused) {
+      this.#release() // a held stream has the old URL
       void this.play()
       return
     }
@@ -202,7 +204,8 @@ export class CarVideoElement extends HTMLElement {
   }
 
   get currentTime(): number {
-    const t = this.#engine && !this.#paused ? this.#base + this.#engine.elapsed() : this.#base
+    // A paused stream that's held (see pause()) reports its frozen position.
+    const t = this.#engine ? this.#base + this.#engine.elapsed() : this.#base
     return Number.isFinite(this.duration) ? Math.min(t, this.duration) : t
   }
 
@@ -214,6 +217,7 @@ export class CarVideoElement extends HTMLElement {
     this.#seeking = true
     this.#emit('seeking')
     if (this.#paused) {
+      this.#stopStream() // the held buffer is for the old position
       this.#base = target
       this.#seeking = false
       this.#emit('timeupdate')
@@ -268,22 +272,45 @@ export class CarVideoElement extends HTMLElement {
     this.#paused = false
     this.#error = null
     this.#emit('play')
+    // A held stream plays on from its buffer, at once and with no new request.
+    if (this.#engine?.resume?.()) {
+      this.#ticker = window.setInterval(() => this.#tick(), TICK_MS)
+      this.#emit('playing')
+      return Promise.resolve()
+    }
+    this.#release()
     this.#connect(this.#base)
     return Promise.resolve()
   }
 
+  /** Pausing a playing stream that can hold (WebCodecs, HLS) freezes it in place and
+   * keeps its buffer, so play() continues without reconnecting; anything else is
+   * stopped and play() reconnects at the same position. */
   pause() {
     this.#outageSince = null
     if (this.#paused) return
-    this.#base = this.currentTime
     this.#paused = true
-    this.#stopStream()
-    this.#readyState = HAVE_METADATA
+    const engine = this.#engine
+    if (engine?.pause && this.#readyState === HAVE_ENOUGH_DATA) {
+      engine.pause()
+      window.clearInterval(this.#ticker)
+      this.#ticker = 0
+    } else {
+      this.#release()
+      this.#readyState = HAVE_METADATA
+    }
     this.#emit('timeupdate')
     this.#emit('pause')
   }
 
   // --- extras ------------------------------------------------------------------------
+
+  /** Pauses and lets go of the stream and its buffer (leaving the player). */
+  stop() {
+    this.pause()
+    this.#release()
+    this.#readyState = HAVE_METADATA
+  }
 
   /** Size of the picture being played (0 before the first frame), as on <video>. */
   get videoWidth() {
@@ -322,6 +349,13 @@ export class CarVideoElement extends HTMLElement {
 
   #applyVolume() {
     this.#engine?.setVolume(this.#muted ? 0 : this.#volume)
+  }
+
+  /** Stops the stream, keeping its position. */
+  #release() {
+    if (!this.#engine) return
+    this.#base = this.currentTime
+    this.#stopStream()
   }
 
   #stopStream() {
@@ -408,6 +442,12 @@ export class CarVideoElement extends HTMLElement {
   }
 
   #onEngineError(message: string, kind: EngineErrorKind, engine: EngineKind, closeCode?: number) {
+    if (this.#paused) {
+      // A held stream failed while paused: drop it; play() reconnects.
+      this.#release()
+      this.#readyState = HAVE_METADATA
+      return
+    }
     if (kind === 'network') {
       this.#retryAfterOutage(message)
       return

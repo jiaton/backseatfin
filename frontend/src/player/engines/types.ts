@@ -33,6 +33,37 @@ export interface EngineStats {
   /** Size of the picture being drawn (what the server actually sends). */
   videoWidth?: number
   videoHeight?: number
+  // For the stats panel ("stats for nerds"):
+  codec?: string
+  /** Frames drawn per second, over the last 2 s. */
+  fps?: number
+  bytesReceived?: number
+  /** Receive rate over the last few seconds. */
+  receiveKbps?: number
+  /** The stream's own bitrate (bytes received per media second). */
+  streamKbps?: number
+  /** Media seconds received per second: below 1 = arriving slower than it plays. */
+  realtime?: number
+  /** Seconds of video received but not yet shown. */
+  bufferAheadS?: number
+  /** Average time from handing a frame to the decoder to getting it back (includes
+   * frames held back for B-frame reordering). */
+  decodeMs?: number
+  decodeQueue?: number
+  /** Times the decoder was reset to jump ahead (it had fallen too far behind). */
+  decoderResets?: number
+  /** How far the picture lags the clock (decoder or input falling behind). */
+  videoBehindMs?: number
+  /** Picture minus sound being heard, ms: positive = picture ahead. */
+  avOffsetMs?: number
+  outputLatencyMs?: number
+  audioClock?: 'audio' | 'wall'
+  audioFormat?: string
+  audioBufferedS?: number
+  /** HLS: the last segment's time to first byte / to the end, and its number. */
+  segmentWaitMs?: number
+  segmentLoadMs?: number
+  segment?: number
 }
 
 export interface StreamEngine {
@@ -46,6 +77,10 @@ export interface StreamEngine {
   setVolume(volume: number): void
   /** Counters for diagnostics and tests. */
   stats(): EngineStats
+  /** Optional: freeze in place, keeping what's buffered. */
+  pause?(): void
+  /** After pause(): true = playing again from the buffer; false = can't (reconnect). */
+  resume?(): boolean
   destroy(): void
 }
 

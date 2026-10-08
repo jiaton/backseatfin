@@ -2,7 +2,7 @@ import { avcCodecString } from './annexb'
 import { type AacConfig, type AudioSample, TsDemuxer, type VideoSample } from './mpegts'
 
 import { AAC_CODEC, H264_CODEC } from './detect'
-import type { EngineCallbacks, EngineErrorKind, StreamEngine } from './types'
+import type { EngineCallbacks, EngineErrorKind, EngineStats, StreamEngine } from './types'
 
 /** Buffered picture needed before playback starts. */
 const START_LEAD_S = 0.5
@@ -19,10 +19,26 @@ const MAX_QUEUED_FRAMES = 24
  * up (slow device, or a backlog after a network hiccup): jump to the newest keyframe
  * instead of decoding stale frames, so the backlog can't grow without bound. */
 const CATCH_UP_S = 1
-
+/** If the picture is this far behind and the decoder still holds a backlog, catching up
+ * on the input isn't enough: reset the decoder and restart at the newest keyframe. */
+const RESET_BEHIND_S = 1.5
+/** Audio is decoded this far ahead of the clock (PCM is ~0.4 MB per second)… */
+const AUDIO_DECODE_AHEAD_S = 1.5
+/** …and handed to WebAudio this far ahead of what's being heard. */
+const AUDIO_SCHEDULE_AHEAD_S = 0.5
+/** Sound starts this long after the clock is anchored, so the first buffers can be
+ * scheduled in time instead of being late. */
+const AUDIO_START_LEAD_S = 0.1
 /** Two consecutive audio buffers closer than this to "back to back" are played
  * back to back: per-buffer rounding otherwise leaves µs gaps/overlaps that crackle. */
 const AUDIO_SNAP_S = 0.05
+/** A frame is drawn on the screen refresh after it comes due (half a refresh late on
+ * average) and shows a moment after that: draw it this much early, so the picture
+ * doesn't trail the sound (people notice sound leading the picture sooner than the
+ * other way round). */
+const PRESENT_LEAD_S = 0.02
+/** Window for the receive-rate statistics (long enough to span an HLS segment). */
+const RATE_WINDOW_MS = 6000
 
 let sharedAudio: AudioContext | null = null
 /** One AudioContext for the page: once a tap unlocks it, reconnects (seek, pause,
@@ -33,10 +49,31 @@ function audioContext(): AudioContext {
   return sharedAudio
 }
 
+/** The AudioContext time of the sound coming out of the speakers right now. The graph
+ * runs ahead of the speakers by the output latency (tens of ms on a desktop, hundreds
+ * through some car or Bluetooth audio, and it can change while playing); the picture
+ * follows what's heard, not what's been handed to the audio system. */
+export function heardTime(audio: AudioContext): number {
+  const ts = audio.getOutputTimestamp?.()
+  if (ts?.contextTime && ts.performanceTime) {
+    const t = ts.contextTime + (performance.now() - ts.performanceTime) / 1000
+    if (t <= audio.currentTime) return t
+  }
+  return Math.max(0, audio.currentTime - (audio.outputLatency || 0) - (audio.baseLatency || 0))
+}
+
 export interface PipelineOptions {
   /** The stream may have B-frames (decode order ≠ display order): let the decoder
    * reorder instead of asking it to output each frame at once. */
   reorder?: boolean
+}
+
+/** Counters a pipeline's input adds to the statistics. */
+export interface InputStats {
+  /** Last HLS segment: time to first byte and to the last, ms (server vs network). */
+  segmentWaitMs?: number
+  segmentLoadMs?: number
+  segment?: number
 }
 
 /** The decoding half of a WebCodecs engine. An input (WebSocket, HLS) feeds it MPEG-TS
@@ -52,20 +89,34 @@ export interface Pipeline extends StreamEngine {
   bufferedAhead(): number
   fail(message: string, kind: EngineErrorKind, closeCode?: number): void
   readonly destroyed: boolean
+  readonly paused: boolean
   /** Called once on destroy, for the input to stop. */
   onDestroy: (() => void) | null
+  /** Asked on resume: false = the input gave up while paused (reconnect instead). */
+  canResume: () => boolean
+  inputStats: InputStats
+}
+
+interface ReadyAudio {
+  buffer: AudioBuffer
+  ts: number // media seconds
+}
+
+interface ScheduledAudio extends ReadyAudio {
+  node: AudioBufferSourceNode
+  when: number // context time it starts
 }
 
 /**
  * H.264 + AAC in MPEG-TS → hardware VideoDecoder + AudioDecoder → canvas + WebAudio.
  *
- * Clock: presentation follows the audio clock (AudioContext.currentTime) once audio is
- * running, and the wall clock until then (e.g. before a tap unlocks sound); switching
- * re-anchors at the current media time, so the picture never jumps. Audio buffers
- * are scheduled at their exact timestamps on that clock; video frames are drawn when
- * their (presentation) timestamp comes due. Compressed video waits in decode order and
- * is fed to the decoder by its decode timestamp. Everything this engine plays goes
- * through one GainNode, so destroy() silences already-scheduled audio at once.
+ * Clock: once sound runs, media time follows the sound being *heard* (see heardTime);
+ * before that (e.g. until a tap unlocks sound) it follows the wall clock, and switching
+ * re-anchors at the current media time. Audio buffers are scheduled on the AudioContext
+ * so they're heard exactly when the picture shows the same moment; video frames are
+ * drawn when their (presentation) timestamp comes due. Both video and audio wait
+ * *compressed* and are decoded shortly before they're needed. Pausing freezes the clock
+ * and keeps everything buffered, so playing again needs no reconnect.
  */
 export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, opts: PipelineOptions = {}): Pipeline {
   const ctx2d = canvas.getContext('2d')
@@ -73,46 +124,83 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   const out = audio.createGain()
   out.connect(audio.destination)
 
-  // Diagnostics on the canvas (data-* attributes): frames drawn, audio buffers
-  // scheduled, which clock drives playback. Cheap, and visible to tests and devtools.
-  let drawnCount = 0
-  let audioCount = 0
   canvas.dataset.engine = 'webcodecs'
-
+  let drawnCount = 0
   let destroyed = false
+  let paused = false
   let firstFrameShown = false
   let lastFrameAt = performance.now()
+  let lastDrawnTs: number | null = null
   let lateFrames = 0
   let skippedChunks = 0
   let startOffset = 0
   let lastReceived: number | null = null // pts of the newest video received
+  let codec = ''
+  let decoderResets = 0
   const frames: VideoFrame[] = [] // decoded, waiting for their time
   const pending: { chunk: EncodedVideoChunk; dts: number }[] = [] // received, not yet decoded
+  const audioPending: EncodedAudioChunk[] = [] // received, not yet decoded
+  let audioReady: ReadyAudio[] = [] // decoded, not yet scheduled
+  let scheduled: ScheduledAudio[] = [] // handed to WebAudio
+  // Recently finished buffers: WebAudio reports a buffer "ended" when the graph is done
+  // with it, an output latency before it's heard. Kept briefly for heardMedia().
+  let played: ScheduledAudio[] = []
+  let audioScheduledCount = 0
+  let lastScheduledEnd = 0
+  let audioConfig: AacConfig | null = null
+
+  // Statistics: bytes and media seconds received, per arrival, for rates over a window.
+  let bytesTotal = 0
+  const arrivals: { at: number; bytes: number; media: number | null }[] = []
+  const decodeStarted = new Map<number, number>() // chunk timestamp → performance.now()
+  const decodeTimes: number[] = []
+  let drawnWindow: number[] = [] // performance.now() of recent draws
 
   // --- clock ---------------------------------------------------------------------------
   let firstPts: number | null = null // media time the stream starts at
   let firstDecodedAt = 0 // performance.now() when the first frame decoded
   let anchorMedia: number | null = null
-  let anchorAudio = 0
+  let anchorCtx = 0 // heard-time (context seconds) at which anchorMedia plays
   let anchorWall = 0
   let onAudioClock = false
+  let pausedMedia = 0
 
   const mediaNow = (): number | null => {
     if (anchorMedia == null) return null
+    if (paused) return pausedMedia
     return onAudioClock
-      ? anchorMedia + (audio.currentTime - anchorAudio)
+      ? anchorMedia + (heardTime(audio) - anchorCtx)
       : anchorMedia + (performance.now() / 1000 - anchorWall)
   }
+  /** Takes back whatever WebAudio hasn't played yet, to be rescheduled on a new anchor. */
+  const unschedule = () => {
+    const back: ReadyAudio[] = []
+    for (const s of scheduled) {
+      s.node.onended = null
+      try {
+        s.node.stop()
+      } catch {
+        // never started
+      }
+      s.node.disconnect()
+      back.push({ buffer: s.buffer, ts: s.ts })
+    }
+    scheduled = []
+    played = []
+    audioReady = [...back, ...audioReady]
+    lastScheduledEnd = 0
+  }
   const anchor = (media: number) => {
+    unschedule()
     anchorMedia = media
-    anchorAudio = audio.currentTime
     anchorWall = performance.now() / 1000
     onAudioClock = audio.state === 'running'
-    nextAudioAt = 0
+    // On the audio clock, the picture holds for a moment until sound catches up with it.
+    anchorCtx = onAudioClock ? audio.currentTime + AUDIO_START_LEAD_S : 0
   }
   const onAudioState = () => {
     const now = mediaNow()
-    if (now != null && audio.state === 'running' && !onAudioClock) anchor(now) // wall → audio, seamlessly
+    if (now != null && !paused && audio.state === 'running' && !onAudioClock) anchor(now) // wall → audio
     cb.onAudioLocked(audio.state !== 'running')
   }
   audio.addEventListener('statechange', onAudioState)
@@ -124,6 +212,12 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   // --- video ---------------------------------------------------------------------------
   const videoDecoder: VideoDecoder = new VideoDecoder({
     output: (frame) => {
+      const started = decodeStarted.get(frame.timestamp)
+      if (started != null) {
+        decodeStarted.delete(frame.timestamp)
+        decodeTimes.push(performance.now() - started)
+        if (decodeTimes.length > 60) decodeTimes.shift()
+      }
       if (destroyed) return frame.close()
       if (firstPts == null) {
         firstPts = frame.timestamp / 1e6
@@ -136,30 +230,61 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     error: (e) => fail(`video decoder: ${e.message}`, 'decode'),
   })
 
-  /** Feeds the decoder up to DECODE_AHEAD_S past the clock (by decode time). Before
-   * playback starts it fills the start lead instead; until the very first frame comes
-   * out it feeds freely (bounded by the frame cap), since some decoders want a few
-   * inputs before any output — with B-frames, several. */
+  /** Feeds the decoders: video up to DECODE_AHEAD_S past the clock (by decode time),
+   * audio up to AUDIO_DECODE_AHEAD_S. Before playback starts, video fills the start
+   * lead; until the very first frame comes out it feeds freely (bounded by the frame
+   * cap), since some decoders want a few inputs before any output — with B-frames,
+   * several. */
   const pump = () => {
-    if (videoDecoder.state !== 'configured') return
     const now = mediaNow()
-    if (now != null && pending.length && pending[0].dts < now - CATCH_UP_S) {
-      for (let i = pending.length - 1; i > 0; i--) {
-        if (pending[i].chunk.type === 'key' && pending[i].dts <= now + DECODE_AHEAD_S) {
-          pending.splice(0, i)
-          skippedChunks += i
-          break
+    if (videoDecoder.state === 'configured') {
+      if (
+        now != null &&
+        !paused &&
+        lastDrawnTs != null &&
+        now - lastDrawnTs > RESET_BEHIND_S &&
+        videoDecoder.decodeQueueSize > 0
+      ) {
+        const key = pending.findLastIndex((p) => p.chunk.type === 'key' && p.dts <= now + DECODE_AHEAD_S)
+        if (key >= 0) {
+          videoDecoder.reset() // drops everything queued inside the decoder
+          videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
+          for (const f of frames.splice(0)) f.close()
+          decodeStarted.clear()
+          pending.splice(0, key)
+          skippedChunks += key
+          decoderResets++
+          lastDrawnTs = null
         }
       }
+      if (now != null && !paused && pending.length && pending[0].dts < now - CATCH_UP_S) {
+        for (let i = pending.length - 1; i > 0; i--) {
+          if (pending[i].chunk.type === 'key' && pending[i].dts <= now + DECODE_AHEAD_S) {
+            pending.splice(0, i)
+            skippedChunks += i
+            break
+          }
+        }
+      }
+      const horizon =
+        now != null ? now + DECODE_AHEAD_S : firstPts != null ? firstPts + START_LEAD_S + 0.1 : Number.POSITIVE_INFINITY
+      while (
+        pending.length &&
+        pending[0].dts <= horizon &&
+        frames.length + videoDecoder.decodeQueueSize < MAX_QUEUED_FRAMES
+      ) {
+        const { chunk } = pending.shift()!
+        decodeStarted.set(chunk.timestamp, performance.now())
+        if (decodeStarted.size > 120) decodeStarted.delete(decodeStarted.keys().next().value!)
+        videoDecoder.decode(chunk)
+      }
     }
-    const horizon =
-      now != null ? now + DECODE_AHEAD_S : firstPts != null ? firstPts + START_LEAD_S + 0.1 : Number.POSITIVE_INFINITY
-    while (
-      pending.length &&
-      pending[0].dts <= horizon &&
-      frames.length + videoDecoder.decodeQueueSize < MAX_QUEUED_FRAMES
-    ) {
-      videoDecoder.decode(pending.shift()!.chunk)
+    if (audioDecoder?.state === 'configured') {
+      const base = now ?? firstPts ?? (audioPending.length ? audioPending[0].timestamp / 1e6 : 0)
+      const audioHorizon = base + (now == null ? START_LEAD_S + AUDIO_DECODE_AHEAD_S : AUDIO_DECODE_AHEAD_S)
+      while (audioPending.length && audioPending[0].timestamp / 1e6 <= audioHorizon) {
+        audioDecoder.decode(audioPending.shift()!)
+      }
     }
   }
   videoDecoder.addEventListener('dequeue', pump)
@@ -169,7 +294,8 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       if (!s.key) return // a decoder must start on a keyframe
       // optimizeForLatency: output each frame as soon as it's decoded. Only without
       // B-frames — with them, frames must wait for later ones to come out in order.
-      videoDecoder.configure({ codec: avcCodecString(s.data) ?? H264_CODEC, optimizeForLatency: !opts.reorder })
+      codec = avcCodecString(s.data) ?? H264_CODEC
+      videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
     }
     lastReceived = Math.max(lastReceived ?? s.pts, s.pts)
     pending.push({
@@ -182,32 +308,59 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   // --- audio ---------------------------------------------------------------------------
   let audioDecoder: AudioDecoder | null = null
   let audioConfigKey = ''
-  let nextAudioAt = 0 // AudioContext time where the previous buffer ends
-  const playAudio = (data: AudioData) => {
+  const onAudioData = (data: AudioData) => {
     try {
+      if (destroyed) return
       const now = mediaNow()
-      if (now == null || !onAudioClock || destroyed) return // not playing yet, or sound still locked
-      const ideal = anchorAudio + (data.timestamp / 1e6 - anchorMedia!)
-      // Back to back with the previous buffer unless it has drifted noticeably.
-      const when = nextAudioAt && Math.abs(ideal - nextAudioAt) < AUDIO_SNAP_S ? nextAudioAt : ideal
-      if (when < audio.currentTime) {
-        nextAudioAt = 0 // late: skip, and re-sync on the next buffer
-        return
-      }
+      const end = data.timestamp / 1e6 + data.numberOfFrames / data.sampleRate
+      if (now != null && end < now) return // already past: nothing to play it for
       const buffer = audio.createBuffer(data.numberOfChannels, data.numberOfFrames, data.sampleRate)
       for (let ch = 0; ch < data.numberOfChannels; ch++) {
         const plane = new Float32Array(data.numberOfFrames)
         data.copyTo(plane, { planeIndex: ch, format: 'f32-planar' })
         buffer.copyToChannel(plane, ch)
       }
-      const source = audio.createBufferSource()
-      source.buffer = buffer
-      source.connect(out)
-      source.start(when)
-      nextAudioAt = when + buffer.duration
-      canvas.dataset.audioScheduled = String(++audioCount)
+      audioReady.push({ buffer, ts: data.timestamp / 1e6 })
+      scheduleAudio()
     } finally {
       data.close()
+    }
+  }
+  /** Hands decoded audio to WebAudio, timed so it's heard when the picture shows the
+   * same moment, up to AUDIO_SCHEDULE_AHEAD_S ahead. */
+  const scheduleAudio = () => {
+    if (destroyed || paused || anchorMedia == null) return
+    if (!onAudioClock) {
+      // Sound is held back (no tap yet): drop what the picture has already passed.
+      const now = mediaNow() ?? 0
+      while (audioReady.length && audioReady[0].ts + audioReady[0].buffer.duration < now) audioReady.shift()
+      return
+    }
+    const ctxNow = audio.currentTime
+    while (audioReady.length) {
+      const { buffer, ts } = audioReady[0]
+      let when = anchorCtx + (ts - anchorMedia)
+      if (when > ctxNow + AUDIO_SCHEDULE_AHEAD_S) break
+      audioReady.shift()
+      // Back to back with the previous buffer unless it has drifted noticeably.
+      if (lastScheduledEnd && Math.abs(when - lastScheduledEnd) < AUDIO_SNAP_S) when = lastScheduledEnd
+      const offset = Math.max(0, ctxNow - when) // partly past: play the rest
+      if (offset >= buffer.duration) continue
+      const node = audio.createBufferSource()
+      node.buffer = buffer
+      node.connect(out)
+      node.start(Math.max(when, ctxNow), offset)
+      const item: ScheduledAudio = { buffer, ts, node, when }
+      node.onended = () => {
+        scheduled = scheduled.filter((s) => s !== item)
+        node.disconnect()
+        played.push(item)
+        const heard = heardTime(audio)
+        played = played.filter((p) => p.when + p.buffer.duration > heard - 1)
+      }
+      scheduled.push(item)
+      lastScheduledEnd = when + buffer.duration
+      audioScheduledCount++
     }
   }
   const configureAudio = (config: AacConfig) => {
@@ -215,7 +368,8 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     if (key === audioConfigKey && audioDecoder) return
     audioDecoder?.close()
     audioConfigKey = key
-    audioDecoder = new AudioDecoder({ output: playAudio, error: (e) => fail(`audio decoder: ${e.message}`, 'decode') })
+    audioConfig = config
+    audioDecoder = new AudioDecoder({ output: onAudioData, error: (e) => fail(`audio decoder: ${e.message}`, 'decode') })
     audioDecoder.configure({
       codec: AAC_CODEC,
       sampleRate: config.sampleRate,
@@ -225,11 +379,20 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   }
   const onAudio = (s: AudioSample) => {
     configureAudio(s.config)
-    if (audioDecoder?.state !== 'configured') return
-    audioDecoder.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.pts * 1e6), data: s.data }))
+    audioPending.push(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.pts * 1e6), data: s.data }))
+    pump()
   }
 
   const demuxer = new TsDemuxer(onVideo, onAudio)
+
+  /** Media time of the sound being heard right now, or null when there's none. */
+  const heardMedia = (): number | null => {
+    const t = heardTime(audio)
+    for (const s of [...played, ...scheduled]) {
+      if (t >= s.when && t < s.when + s.buffer.duration) return s.ts + (t - s.when)
+    }
+    return null
+  }
 
   // --- presentation loop ---------------------------------------------------------------
   let raf = 0
@@ -241,10 +404,11 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       if (buffered >= START_LEAD_S || performance.now() - firstDecodedAt > START_MAX_WAIT_MS) anchor(firstPts)
     }
     pump()
+    scheduleAudio()
     const now = mediaNow()
-    if (now == null) return
+    if (now == null || paused) return
     let due: VideoFrame | null = null
-    while (frames.length && frames[0].timestamp / 1e6 <= now) {
+    while (frames.length && frames[0].timestamp / 1e6 <= now + PRESENT_LEAD_S) {
       if (due) {
         due.close() // late frames are skipped; only the newest due one is drawn
         lateFrames++
@@ -257,8 +421,11 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       canvas.height = due.displayHeight
     }
     ctx2d?.drawImage(due, 0, 0)
+    lastDrawnTs = due.timestamp / 1e6
     due.close()
     lastFrameAt = performance.now()
+    drawnWindow.push(lastFrameAt)
+    if (drawnWindow.length > 120) drawnWindow = drawnWindow.slice(-60)
     canvas.dataset.framesDrawn = String(++drawnCount)
     canvas.dataset.clock = onAudioClock ? 'audio' : 'wall'
     if (!firstFrameShown) {
@@ -269,14 +436,60 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   }
   raf = requestAnimationFrame(render)
 
+  const stats = (): EngineStats => {
+    const nowMs = performance.now()
+    while (arrivals.length && arrivals[0].at < nowMs - RATE_WINDOW_MS) arrivals.shift()
+    const windowBytes = arrivals.reduce((n, a) => n + a.bytes, 0)
+    const span = arrivals.length ? Math.max(1000, nowMs - arrivals[0].at) : RATE_WINDOW_MS
+    // Media seconds that arrived in the window, against the bytes they took: the stream's
+    // own bitrate, and how much faster than real time it's coming in.
+    const first = arrivals.find((a) => a.media != null)
+    const last = arrivals.at(-1)
+    const mediaIn = first && last?.media != null ? last.media - first.media! : 0
+    const streamKbps = mediaIn > 0.5 ? Math.round((windowBytes * 8) / mediaIn / 1000) : undefined
+    const recent = drawnWindow.filter((t) => t > nowMs - 2000)
+    const heard = heardMedia()
+    const now = mediaNow()
+    return {
+      framesDrawn: drawnCount,
+      framesLate: lateFrames,
+      framesQueued: frames.length,
+      chunksPending: pending.length,
+      chunksSkipped: skippedChunks,
+      decoderResets,
+      audioScheduled: audioScheduledCount,
+      videoWidth: drawnCount ? canvas.width : 0,
+      videoHeight: drawnCount ? canvas.height : 0,
+      codec,
+      fps: recent.length / 2,
+      bytesReceived: bytesTotal,
+      receiveKbps: Math.round((windowBytes * 8) / span),
+      streamKbps,
+      realtime: arrivals.length ? Math.round((mediaIn / (span / 1000)) * 100) / 100 : undefined,
+      bufferAheadS: lastReceived == null ? 0 : Math.max(0, lastReceived - (now ?? firstPts ?? lastReceived)),
+      decodeMs: decodeTimes.length ? decodeTimes.reduce((a, b) => a + b, 0) / decodeTimes.length : undefined,
+      decodeQueue: videoDecoder.state === 'configured' ? videoDecoder.decodeQueueSize : 0,
+      videoBehindMs: now != null && lastDrawnTs != null && !paused ? Math.round((now - lastDrawnTs) * 1000) : undefined,
+      avOffsetMs: heard != null && lastDrawnTs != null ? Math.round((lastDrawnTs - heard) * 1000) : undefined,
+      outputLatencyMs: Math.round(((audio.outputLatency || 0) + (audio.baseLatency || 0)) * 1000),
+      audioClock: onAudioClock ? 'audio' : 'wall',
+      audioFormat: audioConfig ? `AAC ${audioConfig.sampleRate / 1000} kHz ${audioConfig.channels} ch` : undefined,
+      audioBufferedS: audioReady.reduce((n, a) => n + a.buffer.duration, 0) + audioPending.length * 0.021,
+      ...pipeline.inputStats,
+    }
+  }
+
   const pipeline: Pipeline = {
     push: (bytes) => {
       if (destroyed) return
+      bytesTotal += bytes.length
       try {
         demuxer.push(bytes)
       } catch (err) {
         fail(`demux: ${err instanceof Error ? err.message : String(err)}`, 'decode')
       }
+      arrivals.push({ at: performance.now(), bytes: bytes.length, media: lastReceived })
+      if (arrivals.length > 4000) arrivals.splice(0, 2000)
     },
     flush: () => demuxer.flush(),
     setStartOffset: (seconds) => {
@@ -290,7 +503,12 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     get destroyed() {
       return destroyed
     },
+    get paused() {
+      return paused
+    },
     onDestroy: null,
+    canResume: () => true,
+    inputStats: {},
     elapsed: () => {
       const now = mediaNow()
       return now == null || firstPts == null ? 0 : now - firstPts + startOffset
@@ -299,18 +517,24 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     setVolume: (volume) => {
       out.gain.value = volume
     },
-    stats: () => ({
-      framesDrawn: drawnCount,
-      framesLate: lateFrames,
-      framesQueued: frames.length,
-      chunksPending: pending.length,
-      chunksSkipped: skippedChunks,
-      audioScheduled: audioCount,
-      videoWidth: drawnCount ? canvas.width : 0,
-      videoHeight: drawnCount ? canvas.height : 0,
-    }),
+    stats,
     unlockAudio: () => {
       if (audio.state !== 'running') void audio.resume()
+    },
+    pause: () => {
+      if (paused || destroyed) return
+      pausedMedia = mediaNow() ?? firstPts ?? 0
+      paused = true
+      unschedule() // silence at once; the sound not yet heard is kept for later
+    },
+    resume: () => {
+      if (destroyed) return false
+      if (!paused) return true
+      if (!pipeline.canResume()) return false
+      paused = false
+      if (anchorMedia != null) anchor(pausedMedia)
+      lastFrameAt = performance.now() // the stall watchdog counts from here
+      return true
     },
     destroy: () => {
       if (destroyed) return
@@ -318,9 +542,12 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       cancelAnimationFrame(raf)
       audio.removeEventListener('statechange', onAudioState)
       pipeline.onDestroy?.()
+      unschedule()
       out.disconnect() // silences audio already scheduled ahead
       for (const f of frames.splice(0)) f.close()
       pending.length = 0
+      audioPending.length = 0
+      audioReady = []
       if (videoDecoder.state !== 'closed') videoDecoder.close()
       if (audioDecoder && audioDecoder.state !== 'closed') audioDecoder.close()
     },

@@ -326,3 +326,24 @@ car-video {
   outline: 3px solid var(--cm-accent);
   outline-offset: 2px;
 }
+
+/* Stats for nerds: on top of the picture, never in the way of a tap. */
+.cm-stats {
+  position: fixed;
+  top: 72px;
+  left: 16px;
+  z-index: 1;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--cm-scrim);
+  color: var(--cm-fg);
+  font: 13px/1.45 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.cm-stats-toggle {
+  margin-top: 12px;
+}

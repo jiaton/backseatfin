@@ -231,6 +231,12 @@ by design.
        bar or tapping +30 s three times opens one server stream.
      - 4 s with no new frame means the end (within 10 s of the runtime) or a dropped
        connection, which resumes in place. 20 s without a first frame is an error.
+     - **Pause holds the stream** (engines with `pause()`/`resume()`: WebCodecs, HLS):
+       the clock freezes and everything buffered stays, so play() continues at once with
+       no new request. HLS keeps fetching up to its 9 s lead, then waits. Our server's
+       WebSocket keeps streaming in real time while paused; it's closed (freeing the
+       server's ffmpeg) after 60 s or 30 s buffered, and play() then reconnects. Seeking,
+       a new choice (`reload()`) or leaving (`stop()`) let a held stream go.
      - Network outages are not errors. A close without a server reason, or a hung
        connect (8 s per attempt), retries every 2 s at the same position and says it's
        reconnecting. It only gives up after 90 s. A close *with* a reason (the server
@@ -248,9 +254,10 @@ by design.
        opacity 0 in Media Chrome, so CSS turns their pointer events off. A tap that
        wakes the controls swallows its trailing click, which would otherwise hit the
        play button that just appeared under the finger.
-   - **Language** (`player/i18n.ts`; the admin site shares its saved choice): English
-     and Chinese. It defaults to the browser's language (zh* → Chinese, anything else →
-     English); the switch applies in place and is remembered in localStorage. Engines
+   - **Language** (`player/i18n.ts`; the admin site shares its saved choice): English,
+     Chinese, Spanish, Japanese and Korean. It defaults to the browser's language (else
+     English); the switch applies in place and is remembered in localStorage. Media
+     Chrome has labels for en/zh/es only; ja/ko fall back to English there (aria labels). Engines
      and `<car-video>` report technical English detail plus a reason
      (`decode`/`refused`/`timeout`/`outage`, with the WS close code), and the page
      words it. Server close reasons and subtitle errors are English.
@@ -275,10 +282,27 @@ by design.
        (~3 MB each at 1080p; car decoders have few output buffers). Uses
        `optimizeForLatency`. A backlog more than 1 s behind the clock jumps to the
        newest due keyframe, so a slow decoder can't build an unbounded queue.
-     - The presenter uses the audio clock once the shared AudioContext runs and the
-       wall clock before that (re-anchored seamlessly). It waits for 0.5 s of buffer
-       (max 1.5 s) before starting, and routes audio through a per-stream GainNode, so
-       pause/seek silence it at once.
+     - **Clock = the sound being heard**: once the shared AudioContext runs, media time
+       follows `heardTime()` (`getOutputTimestamp()`: the context time at the speakers,
+       i.e. `currentTime` minus the output latency, which can be hundreds of ms through
+       car audio and changes while playing). Following `currentTime` instead put the
+       picture ahead of the sound by that latency. Before sound is unlocked it's the wall
+       clock (re-anchored on switching). Sound starts `AUDIO_START_LEAD_S` after the
+       anchor, so the first buffers are on time; frames are drawn `PRESENT_LEAD_S` early
+       (they show on the next refresh). Measured offset: median 11–20 ms, ≤ 35 ms.
+     - Audio waits compressed too, is decoded 1.5 s ahead and handed to WebAudio 0.5 s
+       ahead; what WebAudio hasn't played yet is taken back on pause/re-anchor and
+       rescheduled. Playback waits for 0.5 s of buffer (max 1.5 s) before starting, and
+       audio goes through a per-stream GainNode, so destroy() silences it at once.
+     - Far behind (picture > 1.5 s behind the clock with a decoder backlog): the decoder
+       is reset and restarts at the newest keyframe.
+   - **Stats for nerds** (`page.ts` + `diagnose.ts`; toggle in the settings sheet's
+     quality section, remembered): a panel over the picture, updated twice a second,
+     with one sentence on how playback is going or why it stutters (network: data
+     arriving slower than real time with a low buffer; server: HLS segments slow to
+     start; decoder: picture behind the clock), then engine/codec/size/fps, receive rate
+     vs the stream's own bitrate, buffer, last HLS segment's server wait and load time,
+     decoder latency/queue/late/skipped/resets, picture-vs-sound offset, output latency.
    - **Quality presets** (`stream.ports.Quality`, mirrored in `player/quality.ts`,
      remembered per browser in localStorage), per codec:
 
