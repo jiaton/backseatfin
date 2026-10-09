@@ -7,15 +7,19 @@ where the car blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Ch
 1. **Jellyfin: a plugin, no server** (`jellyfin-plugin/`, GPLv3). It serves the player
    at `<jellyfin>/BackseatFin/` and adds `inject.js` to Jellyfin's web app. The player
    plays Jellyfin's own HLS transcode (engine `hls`). See "Jellyfin" below.
-2. **Emby: the car host** (Emby + the car player): Emby's own web app, except that its
-   `index.html` also loads `inject.js`, which hands Play to our player. The player draws
-   on a `<canvas>`. The default engine is **WebCodecs**: ffmpeg re-encodes to H.264 + AAC
-   in MPEG-TS, pushed over a WebSocket, demuxed in the browser, video decoded by the
-   car's hardware decoder and audio played through WebAudio. **JSMpeg** (MPEG-1/MP2
-   decoded in WebAssembly) is the fallback where WebCodecs can't do H.264 + AAC.
-3. **YouTube → Emby** (optional): poll YouTube playlists and download new videos into an
-   Emby "TV shows" library, one channel per show.
-4. **The admin site** (Emby setup): playlists, download queue, devices, the car test page.
+2. **Emby: the car host, no server** (the `frontend` image's nginx on `:8080`): Emby's
+   own web app, except that its `index.html` also loads `inject.js`, which hands Play to
+   our player. The player plays **Emby's own HLS transcode** exactly like Jellyfin's
+   (`sources/mediaserver.ts`, engine `hls`): the two servers share this API. Emby has
+   no plugin hook for web scripts, hence the nginx (`sub_filter`) instead of a plugin.
+3. **The BackseatFin server** (optional, `backend/`, compose profile `server`), for Emby:
+   - **HDR / Dolby Vision tone mapping** that works (Emby's often doesn't): the player's
+     "Auto" transcoder sends HDR films here (`player/transcoder.ts`).
+     ffmpeg re-encodes to H.264 + AAC in MPEG-TS, pushed over a WebSocket (engine
+     **WebCodecs**), or MPEG-1/MP2 for **JSMpeg** where WebCodecs can't do H.264 + AAC.
+   - **YouTube → Emby**: poll YouTube playlists and download new videos into an Emby
+     "TV shows" library, one channel per show.
+   - **The admin site**: playlists, download queue, devices, the car test page.
 
 Self-hosted and single-household. Talks to YouTube (yt-dlp), Emby (HTTP API, as the
 viewer or with the server key) and the folder that Emby also indexes.
@@ -70,14 +74,16 @@ GitHub Pages.
     `dist-jellyfin/`: `play.html` (`player/jellyfin-main.ts`), `car.html` (car-mode
     switch) and `inject.js`. The plugin embeds these files.
 - The `frontend` image is nginx with two servers:
-  - `:80`, the admin site. It proxies `/api` (WebSocket upgrade on `/api/stream/ws`),
+  - `:80`, the admin site (needs the server). It proxies `/api` (WebSocket upgrade on `/api/stream/ws`),
     resolving `backend` per request through Docker DNS, so a backend-only recreate
     recovers in ~10 s. `/assets/` is immutable; everything else is `no-cache`, so
     `inject.js` and the HTML pages update at once.
   - `:8080`, the car host (`templates/car-host.conf.template`, `EMBY_URL` filled in by
-    the image's entrypoint). It routes `/car/*` (prefix stripped) to `:80`,
-    `/web/index.html` to the backend's `/api/emby/web-index`, and everything else to
-    Emby.
+    the image's entrypoint). It serves Emby's `/web/` and `/web/index.html` with the
+    script tag added (`sub_filter`, `Accept-Encoding` cleared), the player's static files
+    at `/car/*` (prefix stripped), `/car/api/*` and `/car/health` to the optional server
+    (resolved per request: no server = 502, and the player lets Emby transcode), and
+    everything else to Emby.
 - Users put both ports behind their own HTTPS reverse proxy (`docs/reverse-proxy.md`).
   WebCodecs needs a secure context.
 - Jellyfin plugin: C# on .NET 10, built against `Jellyfin.Controller` 12.0.0 (loads on
@@ -91,12 +97,11 @@ GitHub Pages.
 ## Layering: domain folders + explicit ports (backend)
 
 Domains: `auth/` (device cookies, pairing, Emby player sessions), `youtube/` (sources,
-queue, download worker), `emby/` (playback info, progress reports, injected page, and
-the `emby` stream resolver), `stream/` (resolver dispatch + ffmpeg), `diagnostics/`
+queue, download worker), `emby/` (playback info, progress reports, and the `emby`
+stream resolver), `stream/` (resolver dispatch + ffmpeg), `diagnostics/`
 (car test reports). Per domain: `routes.py` → `service.py` → `ports.py` (Protocol) ←
 `adapter.py` (the only file importing yt_dlp, calling Emby over HTTP, or running
-ffmpeg). `youtube/worker.py` holds the background loops; `youtube/layout.py` and
-`emby/service.py: inject_script` are pure. `diagnostics/` and `auth/` have no external
+ffmpeg). `youtube/worker.py` holds the background loops; `youtube/layout.py` is pure. `diagnostics/` and `auth/` have no external
 adapter of their own (DB session + in-memory stores); `auth/ports.py` declares the
 Emby token check that `emby.adapter.EmbyHttpApi` implements. `auth/deps.py` holds every
 auth dependency (`require_auth`, `require_player`, `require_ws_player`, `viewer_for`).
@@ -152,7 +157,7 @@ by design.
   `POST /api/emby/items/{id}/subtitles/{i}/prepare`, shows "Loading subtitles…", and
   reconnects once it's ready.
 
-## Jellyfin (no server)
+## Emby and Jellyfin without a server
 
 - **Which browsers:** the plugin setting `CarHostnames`. Set → only requests for those
   hosts get the script tag (like Emby's car host). Empty → every page gets it with
@@ -163,10 +168,15 @@ by design.
   `ApiClient`, `video.htmlvideoplayer`, `/Videos/{id}/…` URLs). Jellyfin's routes are
   `#/video`/`#/queue`; its own HLS player writes item ids as dashed GUIDs. `inject.js`
   finds the player next to itself (`new URL('play', import.meta.url)`).
-- **Player:** `sources/jellyfin.ts` calls Jellyfin's API from the browser with the
-  viewer's session (inject.js leaves `{token, userId}` in sessionStorage; else
-  `jellyfin_credentials`), as its own device (`backseatfin:device`, so stopping our
-  transcodes never touches the web app's).
+- **Player:** `sources/mediaserver.ts` calls the server's API from the browser with the
+  viewer's session (inject.js leaves `{token, userId}` in sessionStorage; else the web
+  app's `jellyfin_credentials` / `servercredentials3`), as its own device
+  (`backseatfin:device`, so stopping our transcodes never touches the web app's). Emby
+  and Jellyfin differ only in that storage key: same `Authorization: MediaBrowser …`
+  header, `/Users/{user}/Items/{id}`, HLS parameters, `ActiveEncodings` and
+  `/Sessions/Playing`. The server checks every request itself; nothing of ours sees the
+  token. Emby 4.8 at 1.5 Mbps sends 1280×532 H.264 Main with B-frames; a first segment
+  mid-film with PGS burned in took ~4.4 s, then ~0.4 s each.
   - Stream = `/Videos/{id}/master.m3u8` with `VideoCodec=h264`, `AudioCodec=aac`,
     `MaxAudioChannels=2`, `SegmentContainer=ts`, the level's bitrate, `MaxHeight` = min(level,
     screen height), `MaxWidth` = screen width, and `SubtitleMethod=Encode` (burned in).
@@ -179,10 +189,17 @@ by design.
     request would restart the encoder.
   - Progress: `/Sessions/Playing` (+ `/Progress`, `/Stopped`) in ticks, `keepalive`
     when leaving.
-  - No JSMpeg fallback (nothing to transcode MPEG-1): without WebCodecs the page says so.
+  - No JSMpeg fallback without the server (nothing to transcode MPEG-1): without
+    WebCodecs the page says so.
+- **Who transcodes** (`player/start.ts`, Emby only): the page probes `health` next to
+  itself (the car host's `/car/health`). With the server there, `transcoder.ts` picks:
+  `auto` (default) = the server for HDR items (`VideoRange` ≠ SDR) or without WebCodecs,
+  Emby otherwise; `server` / `backseatfin` force one (localStorage
+  `backseatfin:transcoder`). The settings sheet offers the choice only when the server
+  answers; switching reloads the page at the current position with the same tracks.
 - **`hls` engine** (`engines/hls-engine.ts` + `hls.ts`): master → first variant → media
   playlist (cached per URL, so a seek costs one segment request); segments fetched one
-  at a time and streamed into the demuxer, at most `MAX_AHEAD_S` (9 s) ahead of the clock.
+  at a time and streamed into the demuxer, at most `MAX_AHEAD_S` (20 s, like the WebSocket's flow control) ahead of the clock.
   A failed segment is retried in place only before any of its bytes arrived and only
   for transient errors; otherwise the player reconnects in place (`network`) or shows
   the error (`connection`, e.g. 401, 500).
@@ -208,15 +225,18 @@ by design.
      transcode per hand-off. Answering it with an empty playlist made Emby's player
      throw instead.
    - If `ApiClient` has no session, playback is left alone.
-3. `play.html` POSTs the token to `/api/auth/player-session` (token only in the body).
+   - A playback already handed off (same `PlaySessionId`) never opens the player again:
+     the web app's player can outlive our layer and retry its held request seconds later.
+3. With the server transcoding (`sources/backseatfin.ts`), `play.html` POSTs the token
+   to `/api/auth/player-session` (token only in the body).
    Emby verifies it (`GET /Users/{id}` with it), and the page gets `bsf_player`
    (HttpOnly, 12 h sliding, in memory). That cookie authorizes the stream WS and
    `/api/emby/*` only, never admin routes.
 4. **The player page** lives in `frontend/src/player/` (design and measurements:
    `docs/player.md`). It's framework-free (no React or Tailwind), because it runs in
    the car for hours and will also ship as a standalone plugin.
-   - **Shape:** an entry (`player/main.ts` for Emby via our server,
-     `player/jellyfin-main.ts`) builds a `PlaybackSource` (`source.ts`: the item, its
+   - **Shape:** an entry (`player/main.ts` for Emby, `player/jellyfin-main.ts`, both via
+     `start.ts`) builds a `PlaybackSource` (`source.ts`: the item, its
      tracks, `streamUrl()`, `headers()`, `report()`, optional `prepareSubtitle()`) and
      hands it to `page.ts: mountPlayer`, which puts `<car-video>` under Media Chrome
      controls. Nothing in `page.ts` knows which server it is. ~45 KB gz of JS + CSS.
@@ -426,7 +446,7 @@ English first, then Chinese. A test checks the Chinese table has every key.
   `player/quality`), the TS demuxer, and the `<car-video>` state machine with a fake
   engine (`player/car-video.test.ts`: seek coalescing, stall resume, end, fallback,
   start timeout, outage retry, stale callbacks).
-- Jellyfin source (`sources/jellyfin.test.ts`): credentials, device id, the HLS
+- Media server source (`sources/mediaserver.test.ts`): credentials, device id, the HLS
   query, one transcode per choice and stopping the old one, progress reports.
 - Plugin (`jellyfin-plugin/…Tests`, xunit): which hosts get which script tag, the web
   index match, idempotent injection.

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.emby.ports import EmbyItem, EmbyNotFoundError, EmbyStream
-from app.emby.service import INJECT_TAG, EmbyPlaybackService, inject_script
+from app.emby.service import EmbyPlaybackService
 from app.emby.subtitles import SubtitleCache
 from app.stream.ports import (
     ImageSubtitle,
@@ -59,9 +59,6 @@ class FakeApi:
 
     async def report_playback(self, event, report, token):
         pass
-
-    async def fetch_web_index(self):
-        return "<html><head><title>Emby</title></HEAD><body></body></html>"
 
 
 def _svc(tmp_path, server_key="server-key"):
@@ -173,12 +170,3 @@ async def test_stream_service_removes_resolver_temp_files_when_the_stream_ends(t
     streams = StreamService(FakeTranscoder(), 1, {"emby": Resolver()})
     chunks = [c async for c in streams.open(StreamRequest("emby:5"), Viewer("t"), OutputFormat.JSMPEG_TS)]
     assert chunks == [b"ts"] and not temp.exists()
-
-
-def test_inject_script_is_idempotent_and_case_insensitive():
-    html = "<html><head><title>x</title></HEAD><body></body></html>"
-    once = inject_script(html)
-    assert once.count(INJECT_TAG) == 1 and once.index(INJECT_TAG) < once.index("</head>")
-    assert inject_script(once) == once
-    with pytest.raises(ValueError):
-        inject_script("<html><body>no head</body></html>")

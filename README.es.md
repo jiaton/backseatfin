@@ -26,16 +26,17 @@ conduce, pero siguen dibujando el `<canvas>`. BackseatFin añade un reproductor 
 canvas a la propia aplicación web de tu servidor multimedia: abre Jellyfin o Emby en
 el coche, pulsa Reproducir, y se reproduce.
 
-- **Jellyfin: solo un plugin.** Sin servidor adicional; la transcodificación la hace
-  Jellyfin.
+- **Sin servidor adicional.** Jellyfin: un plugin. Emby: un pequeño contenedor nginx.
+  La transcodificación la hace tu servidor multimedia, y el reproductor usa tu propia
+  sesión.
 - **Tu biblioteca, tu servidor.** La búsqueda, las pistas de audio, los subtítulos
   (incluido PGS), los puntos de reanudación y el estado de "visto" se sincronizan con
   el servidor.
 - **Ligero para el coche.** Usa el decodificador de hardware H.264 del coche mediante
   WebCodecs, con JSMpeg como alternativa. La transmisión se ajusta al tamaño de la
   pantalla y resiste las zonas sin señal.
-- **HDR y Dolby Vision** se mapean tonalmente (Emby: por el servidor de BackseatFin,
-  con una GPU Intel o la CPU; Jellyfin: por Jellyfin).
+- **HDR y Dolby Vision** se mapean tonalmente (Jellyfin: por Jellyfin; Emby: por el
+  servidor opcional de BackseatFin, con una GPU Intel o la CPU).
 - **YouTube sin la plataforma** (opcional, solo Emby): sigue listas de reproducción,
   descarga a tu propio disco y mira en Emby. Sin cuenta, sin tarifas, y los datos se
   quedan contigo.
@@ -51,16 +52,16 @@ el coche, pulsa Reproducir, y se reproduce.
 Repositories, instala **BackseatFin**, reinicia, y elige qué navegadores obtienen el
 reproductor del coche. Guía: [docs/jellyfin.md](docs/jellyfin.md).
 
-**Emby**: ejecuta el servidor de BackseatFin junto a él.
+**Emby**: ejecuta el car host junto a él.
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set API_KEY and EMBY_URL
+cp .env.example .env   # set EMBY_URL
 docker compose up -d
 ```
 
-Después, pon los dos puertos detrás de HTTPS ([ejemplos](docs/reverse-proxy.md)) y
-abre la dirección del car host en el coche. Guía:
+Después, ponlo detrás de HTTPS con su propio nombre de host
+([ejemplos](docs/reverse-proxy.md)) y abre esa dirección en el coche. Guía:
 [docs/install.md](docs/install.md).
 
 ## Cómo funciona
@@ -70,7 +71,8 @@ Jellyfin:  car browser ──► Jellyfin web app + plugin script
                               └─► /BackseatFin/play ◄── Jellyfin's HLS transcode (H.264)
 
 Emby:      car browser ──► car host (nginx) ──► Emby web app + inject.js
-                              └─► /car/play ◄── BackseatFin server (ffmpeg, H.264 over WebSocket)
+                              └─► /car/play ◄── Emby's HLS transcode (H.264)
+                                            ◄── optional BackseatFin server (HDR, YouTube)
 ```
 
 Al pulsar Reproducir se abre el reproductor sobre la página del servidor. Decodifica
@@ -80,7 +82,7 @@ un canvas. Los detalles para colaboradores están en [AGENTS.md](AGENTS.md) y
 
 ## Hoja de ruta
 
-- [x] Emby, a través del car host (inyección por proxy inverso)
+- [x] Emby, a través del car host (inyección por proxy inverso), con el HLS de Emby
 - [x] Plugin de Jellyfin, que reproduce el propio HLS de Jellyfin (sin servidor
       adicional)
 - [x] Mapeo tonal de HDR / Dolby Vision (GPU Intel, CPU)

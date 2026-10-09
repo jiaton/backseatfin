@@ -2,12 +2,16 @@ import { firstVariant, parseMediaPlaylist, type Segment, segmentAt, splitStart }
 import type { EngineCallbacks, EngineErrorKind, StreamEngine } from './types'
 import { createPipeline, type Pipeline } from './webcodecs-pipeline'
 
-/** Compressed video fetched ahead of the clock (≈ three 3 s segments). Segments past
- * that wait: the server transcodes on demand, and the car's memory stays flat. */
-const MAX_AHEAD_S = 9
+/** Compressed video fetched ahead of the clock (about seven 3 s segments; 4–8 MB at
+ * 1.5–3 Mbps). Rides out a mobile dead zone of that length, like the WebSocket engine's
+ * BUFFER_HIGH_S; segments past it wait, so the car's memory stays flat. */
+export const MAX_AHEAD_S = 20
 /** A failed segment fetch is retried in place this many times before the engine gives
- * up and lets the player reconnect. */
+ * up and lets the player reconnect (which starts over with an empty buffer)… */
 const SEGMENT_RETRIES = 3
+/** …but while more than this is still buffered, network failures are retried for as long
+ * as they last: the buffer plays on meanwhile, and the next segment continues it. */
+const KEEP_TRYING_S = 1
 const RETRY_DELAY_MS = 1000
 /** No bytes for this long = the request is stuck (mobile networks stall without
  * failing): abort it and ask again, picking up where it stopped. */
@@ -125,7 +129,8 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
 
 export async function fetchSegment(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
   let pushed = 0 // bytes of this segment already handed on (a retry skips them)
-  for (let attempt = 0; ; attempt++) {
+  let failures = 0 // failures with nothing buffered to cover them
+  for (;;) {
     const asked = performance.now()
     // Its own abort, so a stalled attempt can be dropped without stopping the engine.
     const attemptAbort = new AbortController()
@@ -166,7 +171,9 @@ export async function fetchSegment(pipeline: Pipeline, url: string, headers: Rec
     } catch (e) {
       if (signal.aborted) throw e
       const retryable = stalled || !(e instanceof HttpError) || TRANSIENT.has(e.status)
-      if (!retryable || attempt >= SEGMENT_RETRIES) throw stalled ? new Error('segment stalled') : e
+      const covered = (pipeline.bufferedAhead?.() ?? 0) > KEEP_TRYING_S
+      if (!retryable || (!covered && ++failures > SEGMENT_RETRIES)) throw stalled ? new Error('segment stalled') : e
+      pipeline.inputStats.segmentRetries = (pipeline.inputStats.segmentRetries ?? 0) + 1
       await sleep(RETRY_DELAY_MS, signal)
     } finally {
       window.clearTimeout(timer)

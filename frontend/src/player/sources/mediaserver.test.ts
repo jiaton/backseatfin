@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CREDENTIALS_KEY } from '../params'
 import type { StreamChoice } from '../source'
-import { authorization, createJellyfinSource, deviceId, readJellyfinCredentials, serverRoot, streamQuery } from './jellyfin'
+import { authorization, createServerSource, deviceId, readServerCredentials, serverRoot, streamQuery } from './mediaserver'
 
 const mem = (entries: [string, string][] = []) => {
   const m = new Map(entries)
@@ -11,20 +11,25 @@ const mem = (entries: [string, string][] = []) => {
 
 const CHOICE: StreamChoice = { quality: 'medium', audio: 2, sub: 3, box: { w: 1600, h: 900 } }
 
-describe('jellyfin source helpers', () => {
+describe('media server source helpers', () => {
   it('finds the server root before /BackseatFin/', () => {
     expect(serverRoot('/BackseatFin/play')).toBe('')
     expect(serverRoot('/jellyfin/BackseatFin/play')).toBe('/jellyfin')
     expect(serverRoot('/car/play')).toBe('')
+    expect(serverRoot('/emby/car/play')).toBe('/emby')
+    expect(serverRoot('/play')).toBe('')
   })
 
-  it("reads the session inject.js left, else Jellyfin's own", () => {
+  it("reads the session inject.js left, else the web app's own", () => {
     const left = mem([[CREDENTIALS_KEY, JSON.stringify({ token: 't1', userId: 'u1' })]])
     const jf = mem([['jellyfin_credentials', JSON.stringify({ Servers: [{ Id: 's', AccessToken: 't2', UserId: 'u2' }] })]])
-    expect(readJellyfinCredentials(left, jf)).toEqual({ token: 't1', userId: 'u1' })
-    expect(readJellyfinCredentials(mem(), jf)).toEqual({ token: 't2', userId: 'u2' })
-    expect(readJellyfinCredentials(mem(), mem([['jellyfin_credentials', '{"Servers":[{}]}']]))).toBeNull()
-    expect(readJellyfinCredentials(mem(), mem([['jellyfin_credentials', 'nope']]))).toBeNull()
+    expect(readServerCredentials('Jellyfin', left, jf)).toEqual({ token: 't1', userId: 'u1' })
+    expect(readServerCredentials('Jellyfin', mem(), jf)).toEqual({ token: 't2', userId: 'u2' })
+    expect(readServerCredentials('Emby', mem(), jf)).toBeNull()
+    const emby = mem([['servercredentials3', JSON.stringify({ Servers: [{ AccessToken: 't3', UserId: 'u3' }] })]])
+    expect(readServerCredentials('Emby', mem(), emby)).toEqual({ token: 't3', userId: 'u3' })
+    expect(readServerCredentials('Jellyfin', mem(), mem([['jellyfin_credentials', '{"Servers":[{}]}']]))).toBeNull()
+    expect(readServerCredentials('Jellyfin', mem(), mem([['jellyfin_credentials', 'nope']]))).toBeNull()
   })
 
   it('keeps one device id per browser', () => {
@@ -60,7 +65,7 @@ describe('jellyfin source helpers', () => {
   })
 })
 
-describe('createJellyfinSource', () => {
+describe('createServerSource', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     sessionStorage.clear()
@@ -69,7 +74,7 @@ describe('createJellyfinSource', () => {
   const ITEM = {
     Id: 'abc', Name: 'Pilot', SeriesName: 'Show', ParentIndexNumber: 1, IndexNumber: 2, RunTimeTicks: 36_000_000_000,
     MediaSources: [{ Id: 'ms1', MediaStreams: [
-      { Type: 'Video', Index: 0 },
+      { Type: 'Video', Index: 0, VideoRange: 'HDR 10' },
       { Type: 'Audio', Index: 1, DisplayTitle: 'English AAC 5.1', IsDefault: true },
       { Type: 'Audio', Index: 2, DisplayTitle: 'Japanese' },
       { Type: 'Subtitle', Index: 3, DisplayTitle: 'English', IsTextSubtitleStream: true },
@@ -86,17 +91,18 @@ describe('createJellyfinSource', () => {
         body: init.body ? JSON.parse(String(init.body)) : undefined,
         auth: (init.headers as Record<string, string>).Authorization,
       })
-      return new Response(url.startsWith('/jf/Items/') ? JSON.stringify(ITEM) : null, { status: url.startsWith('/jf/Items/') ? 200 : 204 })
+      return new Response(url.startsWith('/jf/Users/u1/Items/') ? JSON.stringify(ITEM) : null, { status: url.startsWith('/jf/Users/u1/Items/') ? 200 : 204 })
     }))
     return calls
   }
 
   it('loads the item as the viewer and maps its tracks', async () => {
     const calls = setup()
-    const source = await createJellyfinSource('abc', '/jf')
-    expect(calls[0]).toMatchObject({ method: 'GET', url: '/jf/Items/abc?userId=u1' })
+    const source = await createServerSource('Jellyfin', 'abc', '/jf')
+    expect(calls[0]).toMatchObject({ method: 'GET', url: '/jf/Users/u1/Items/abc' })
     expect(calls[0].auth).toContain('Token="tok"')
-    expect(source.item).toMatchObject({ title: 'Show S1E2 · Pilot', duration: 3600 })
+    expect(source.item).toMatchObject({ title: 'Show S1E2 · Pilot', duration: 3600, hdr: true })
+    expect(source.server).toBe('Jellyfin')
     expect(source.item.audioTracks.map((t) => [t.index, t.title, t.isDefault])).toEqual([
       [1, 'English AAC 5.1', true],
       [2, 'Japanese', false],
@@ -108,7 +114,7 @@ describe('createJellyfinSource', () => {
 
   it('keeps one transcode across seeks, starts a new one (and stops the old) on a new choice', async () => {
     const calls = setup()
-    const source = await createJellyfinSource('abc', '/jf')
+    const source = await createServerSource('Jellyfin', 'abc', '/jf')
     const a = new URL(source.streamUrl(0, 'hls', CHOICE))
     const b = new URL(source.streamUrl(600, 'hls', CHOICE))
     expect(a.pathname).toBe('/jf/Videos/abc/master.m3u8')
@@ -125,7 +131,7 @@ describe('createJellyfinSource', () => {
 
   it('reports progress in ticks with the tracks, and stops the transcode when leaving', async () => {
     const calls = setup()
-    const source = await createJellyfinSource('abc', '/jf')
+    const source = await createServerSource('Jellyfin', 'abc', '/jf')
     source.streamUrl(0, 'hls', CHOICE)
     source.report('progress', 12.5, CHOICE, { paused: true })
     source.report('stopped', 30, CHOICE, { leaving: true })
@@ -137,6 +143,6 @@ describe('createJellyfinSource', () => {
   })
 
   it('says "not signed in" without a session', async () => {
-    await expect(createJellyfinSource('abc')).rejects.toMatchObject({ status: 401 })
+    await expect(createServerSource('Emby', 'abc')).rejects.toMatchObject({ status: 401 })
   })
 })

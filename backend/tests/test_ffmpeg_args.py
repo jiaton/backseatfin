@@ -61,7 +61,7 @@ def test_text_subtitle_is_burned_in_with_seek_offset():
     graph = _graph(build_ffmpeg_args(_spec(start_seconds=1800, subtitle=TextSubtitle(Path("/app/data/tmp/subs/ab12.ass")))))
     assert graph == (
         "[0:v:0]setpts=PTS+1800.000/TB,subtitles=filename=/app/data/tmp/subs/ab12.ass,"
-        "setpts=PTS-STARTPTS,scale=-2:'min(720,ih)'[v]"
+        "setpts=PTS-STARTPTS,scale=-2:'min(720,ih)',setsar=1[v]"
     )
 
 
@@ -142,7 +142,7 @@ def test_gpu_tone_mapping_decodes_scales_and_maps_on_the_igpu():
     assert "vaapi=va:/dev/dri/renderD128" in args
     graph = _graph(args)
     assert graph.startswith("[0:0]scale_vaapi=w=-2:h='min(1080,ih)':format=p010,hwmap=derive_device=opencl")
-    assert "tonemap_opencl=" in graph and graph.endswith("hwdownload,format=nv12,format=yuv420p[v]")
+    assert "tonemap_opencl=" in graph and graph.endswith("hwdownload,format=nv12,format=yuv420p,setsar=1[v]")
 
 
 def test_cpu_tone_mapping_is_capped_at_720p():

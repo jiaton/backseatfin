@@ -75,3 +75,8 @@ it('acts always on a car-only page, and only in car mode when opted in', () => {
   expect(isActive('opt-in', '0')).toBe(false)
   expect(isActive('opt-in', '1')).toBe(true)
 })
+
+it("keeps the server's PlaySessionId (a retry of a handed-off playback has the same one)", () => {
+  expect(parsePlaybackUrl('/videos/77/master.m3u8?PlaySessionId=abc', 'https://car.example.com/web/')?.session).toBe('abc')
+  expect(parsePlaybackUrl('/videos/77/stream.mkv?Static=true', 'https://car.example.com/web/')?.session).toBeUndefined()
+})

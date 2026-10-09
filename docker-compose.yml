@@ -1,10 +1,14 @@
-# BackseatFin. Configure with .env (copy .env.example), then: docker compose up -d
+# BackseatFin for Emby. Configure with .env (copy .env.example), then: docker compose up -d
+#   frontend: the car host (Emby + the car player). All you need: Emby transcodes.
+#   backend:  the optional BackseatFin server (YouTube, HDR tone mapping, the admin
+#             site). Turn it on with COMPOSE_PROFILES=server in .env.
 name: backseatfin
 
 services:
   backend:
     image: ghcr.io/jiaton/backseatfin-server:${BACKSEATFIN_VERSION:-latest}
     build: ./backend
+    profiles: [server]
     env_file: .env
     volumes:
       - data:/app/data
@@ -23,10 +27,8 @@ services:
     environment:
       EMBY_URL: ${EMBY_URL:?Set EMBY_URL in .env}
     ports:
-      - ${ADMIN_PORT:-8098}:80
       - ${CAR_PORT:-8097}:8080
-    depends_on:
-      - backend
+      - ${ADMIN_PORT:-8098}:80
     restart: unless-stopped
     logging:
       driver: json-file

@@ -54,6 +54,11 @@ const en = {
   statsSlowData: 'Data arrives slower than the stream needs ({rate} of {need} Mbps), so it will stutter. A lower quality helps.',
   statsSlowServer: 'The server is slow to prepare the stream ({ms} ms per segment).',
   statsSlowDecoder: "This device can't decode fast enough: the picture is {ms} ms behind.",
+  transcoder: 'Transcoding',
+  transcoderAuto: 'Auto',
+  transcoderServer: '{server}',
+  transcoderOurs: 'BackseatFin server',
+  transcoderNow: 'Now: {name}. Auto uses the BackseatFin server for HDR films (better tone mapping) and {server} for the rest.',
 }
 export type StringKey = keyof typeof en
 /** Every key (for tests). */
@@ -104,6 +109,11 @@ const zh: Record<StringKey, string> = {
   statsSlowData: '数据到达的速度跟不上视频（{rate} / {need} Mbps），会卡顿。降低画质会好些。',
   statsSlowServer: '服务器准备视频太慢（每个分片 {ms} 毫秒）。',
   statsSlowDecoder: '这台设备解码跟不上：画面落后 {ms} 毫秒。',
+  transcoder: '转码',
+  transcoderAuto: '自动',
+  transcoderServer: '{server}',
+  transcoderOurs: 'BackseatFin 服务',
+  transcoderNow: '当前：{name}。自动模式下，HDR 影片由 BackseatFin 服务转码（色调映射更准），其他由 {server} 转码。',
 }
 
 const es: Record<StringKey, string> = {
@@ -152,6 +162,11 @@ const es: Record<StringKey, string> = {
   statsSlowData: 'Los datos llegan más despacio de lo que necesita el vídeo ({rate} de {need} Mbps), así que se entrecortará. Una calidad más baja ayuda.',
   statsSlowServer: 'El servidor tarda en preparar el vídeo ({ms} ms por segmento).',
   statsSlowDecoder: 'Este dispositivo no decodifica lo bastante rápido: la imagen va {ms} ms por detrás.',
+  transcoder: 'Transcodificación',
+  transcoderAuto: 'Automática',
+  transcoderServer: '{server}',
+  transcoderOurs: 'Servidor BackseatFin',
+  transcoderNow: 'Ahora: {name}. En automático, las películas HDR las transcodifica el servidor BackseatFin (mejor mapeo de tonos) y el resto {server}.',
 }
 
 const ja: Record<StringKey, string> = {
@@ -200,6 +215,11 @@ const ja: Record<StringKey, string> = {
   statsSlowData: 'データの到着が動画に追いついていません（{rate} / {need} Mbps）。途切れます。画質を下げると改善します。',
   statsSlowServer: 'サーバーの動画準備が遅れています（1 セグメントあたり {ms} ms）。',
   statsSlowDecoder: 'この端末のデコードが追いついていません。映像が {ms} ms 遅れています。',
+  transcoder: 'トランスコード',
+  transcoderAuto: '自動',
+  transcoderServer: '{server}',
+  transcoderOurs: 'BackseatFin サーバー',
+  transcoderNow: '現在：{name}。自動では HDR 作品を BackseatFin サーバー（トーンマッピングがより正確）、それ以外を {server} がトランスコードします。',
 }
 
 const ko: Record<StringKey, string> = {
@@ -248,6 +268,11 @@ const ko: Record<StringKey, string> = {
   statsSlowData: '데이터가 영상에 필요한 속도보다 느리게 들어옵니다 ({rate} / {need} Mbps). 끊길 수 있으니 화질을 낮춰 보세요.',
   statsSlowServer: '서버가 영상을 준비하는 속도가 느립니다 (세그먼트당 {ms} ms).',
   statsSlowDecoder: '이 기기의 디코딩이 따라가지 못합니다. 화면이 {ms} ms 늦습니다.',
+  transcoder: '트랜스코딩',
+  transcoderAuto: '자동',
+  transcoderServer: '{server}',
+  transcoderOurs: 'BackseatFin 서버',
+  transcoderNow: '현재: {name}. 자동에서는 HDR 영화는 BackseatFin 서버(더 정확한 톤 매핑)가, 나머지는 {server}가 트랜스코딩합니다.',
 }
 
 const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko }

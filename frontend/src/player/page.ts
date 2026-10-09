@@ -17,6 +17,7 @@ import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type Str
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { loadQuality, type Quality, QUALITY_HEIGHTS, QUALITY_VALUES, saveQuality } from './quality'
 import type { PlaybackSource, StreamChoice, Track } from './source'
+import { type Transcoder, TRANSCODERS } from './transcoder'
 import './page.css'
 
 const PROGRESS_EVERY_MS = 10_000
@@ -100,7 +101,18 @@ export function showMessage(key: StringKey, server: string, vars: Record<string,
   )
 }
 
-export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
+export interface MountOptions {
+  /** Offered when the BackseatFin server could transcode instead of the media server.
+   * `pick` restarts the player with the new choice at `at`. */
+  transcoder?: {
+    value: Transcoder
+    pick(next: Transcoder, at: { t: number; audio?: number; sub?: number }): void
+  }
+}
+
+const TRANSCODER_NAME = { auto: 'transcoderAuto', server: 'transcoderServer', backseatfin: 'transcoderOurs' } as const
+
+export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: MountOptions = {}) {
   const { item, server } = source
   const defaultAudio = item.audioTracks.find((t) => t.isDefault)?.index ?? item.audioTracks[0]?.index
   const state = {
@@ -347,6 +359,25 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
         ]),
       )
     }
+    const { transcoder } = opts
+    if (transcoder) {
+      const ours = source.engines[0] !== 'hls'
+      const section = group(
+        t('transcoder'),
+        TRANSCODERS.map((v) => ({
+          label: t(TRANSCODER_NAME[v], { server }),
+          selected: v === transcoder.value,
+          pick: () => {
+            if (v === transcoder.value) return closeSheet()
+            video.stop()
+            reportStopped(false)
+            transcoder.pick(v, { t: video.currentTime, audio: state.audio, sub: state.sub })
+          },
+        })),
+      )
+      section.append(h('p', { class: 'cm-note' }, t('transcoderNow', { name: ours ? t('transcoderOurs') : server, server })))
+      groups.push(section)
+    }
     // Switching language re-labels the page in place; the stream keeps playing.
     groups.push(
       group(
@@ -415,7 +446,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams) {
       `network  in ${mbit(s.receiveKbps)} · stream ${mbit(s.streamKbps)}${s.realtime != null ? ` (${s.realtime.toFixed(2)}× real time)` : ''}`,
       `buffer   ${(s.bufferAheadS ?? 0).toFixed(1)} s video · ${(s.audioBufferedS ?? 0).toFixed(1)} s audio`,
     ]
-    if (s.segment != null) lines.push(`segment  #${s.segment} · server ${ms(s.segmentWaitMs)} · total ${ms(s.segmentLoadMs)}`)
+    if (s.segment != null) lines.push(`segment  #${s.segment} · server ${ms(s.segmentWaitMs)} · total ${ms(s.segmentLoadMs)}${s.segmentRetries ? ` · retried ${s.segmentRetries}` : ''}`)
     lines.push(
       `decoder  latency ${ms(s.decodeMs)} · queue ${s.decodeQueue ?? 0} · waiting ${s.chunksPending ?? 0} · late ${s.framesLate ?? 0} · skipped ${s.chunksSkipped ?? 0}${s.decoderResets ? ` · resets ${s.decoderResets}` : ''}`,
       `a/v      picture ${signed(s.avOffsetMs)} vs sound · behind clock ${ms(s.videoBehindMs)}`,

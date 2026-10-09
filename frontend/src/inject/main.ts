@@ -1,6 +1,6 @@
 /**
- * Loaded by the media server's own web page: Emby's on our car host (the backend adds
- * the <script> tag), or Jellyfin's (the BackseatFin plugin adds it). The web app stays
+ * Loaded by the media server's own web page: Emby's on our car host (its nginx adds the
+ * <script> tag), or Jellyfin's (the BackseatFin plugin adds it). The web app stays
  * entirely stock for browsing; the moment its player starts a video, this opens the car
  * player (`play`, next to this script) as a full-screen layer over the page. The car
  * player renders on a <canvas>, which the car doesn't block while driving. Closing the
@@ -24,6 +24,10 @@ const PLAYER_PATH = new URL('play', import.meta.url).pathname
 // the request itself. Answering it instead (e.g. an empty playlist) makes the web app's
 // player error out on an element that's already gone.
 const heldRequests = new WeakSet<XMLHttpRequest>()
+// Playbacks already handed to the car player. The web app's player can outlive our layer
+// for a while and retry its (held) playlist request; that's the same PlaySessionId and
+// must not open the player again. A new Play always gets a new id.
+const handedOff = new Set<string>()
 
 interface ServerApiClient {
   accessToken(): string | null
@@ -66,11 +70,13 @@ function install() {
 
   function handoff(h: Handoff): boolean {
     if (layer()) return true // already playing: swallow the web app's duplicate requests
+    if (h.session && handedOff.has(h.session)) return true // its player retrying: keep it held
     const token = window.ApiClient?.accessToken()
     const userId = window.ApiClient?.getCurrentUserId()
     if (!token || !userId) return false
     // Same tab, same origin: the player picks the credentials up from here.
     sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ token, userId }))
+    if (h.session) handedOff.add(h.session)
 
     const frame = document.createElement('iframe')
     frame.id = LAYER_ID

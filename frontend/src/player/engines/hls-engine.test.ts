@@ -59,4 +59,22 @@ describe('fetchSegment', () => {
     expect(calls).toBe(2)
     expect(got).toEqual(Array.from(whole)) // no gap, no repeat
   })
+
+  it('keeps retrying a failing segment while the buffer covers it, then gives up', async () => {
+    vi.useFakeTimers()
+    let calls = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls++
+      throw new TypeError('Failed to fetch') // network down
+    }))
+    let buffered = 20
+    const pipeline = { push: () => {}, inputStats: {}, bufferedAhead: () => buffered } as unknown as Pipeline
+    const done = fetchSegment(pipeline, 'https://jf.example.com/seg/1.ts', {}, new AbortController().signal)
+    const failed = done.then(() => 'resolved', () => 'failed')
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(calls).toBeGreaterThan(10) // still trying: the buffer plays on
+    buffered = 0 // the buffer ran out: three more tries, then the player reconnects
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(await failed).toBe('failed')
+  })
 })

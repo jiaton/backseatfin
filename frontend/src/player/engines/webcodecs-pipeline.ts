@@ -74,6 +74,8 @@ export interface InputStats {
   segmentWaitMs?: number
   segmentLoadMs?: number
   segment?: number
+  /** Segment requests retried (network failures, stalls). */
+  segmentRetries?: number
 }
 
 /** The decoding half of a WebCodecs engine. An input (WebSocket, HLS) feeds it MPEG-TS
@@ -129,7 +131,8 @@ interface ScheduledAudio extends ReadyAudio {
  * and keeps everything buffered, so playing again needs no reconnect.
  */
 export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, opts: PipelineOptions = {}): Pipeline {
-  const ctx2d = canvas.getContext('2d')
+  // Opaque: video has no transparency, and the browser can skip blending the canvas.
+  const ctx2d = canvas.getContext('2d', { alpha: false })
   const audio = audioContext()
   const out = audio.createGain()
   out.connect(audio.destination)

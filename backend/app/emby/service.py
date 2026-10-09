@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 from app.emby.ports import EmbyApiPort, EmbyItem, EmbyNotFoundError, EmbyStream, PlaybackEvent, PlaybackReport
@@ -15,20 +14,6 @@ from app.stream.ports import (
     mpeg1_frame_rate,
     output_size,
 )
-
-INJECT_TAG = '<script type="module" src="/car/inject.js"></script>'
-_HEAD_CLOSE = re.compile(r"</head>", re.IGNORECASE)
-
-
-def inject_script(html: str) -> str:
-    """Adds the car player hand-off script to Emby's index.html (idempotent)."""
-    if INJECT_TAG in html:
-        return html
-    injected, n = _HEAD_CLOSE.subn(INJECT_TAG + "\n</head>", html, count=1)
-    if n == 0:
-        raise ValueError("Emby index.html has no </head>; refusing to serve an uninjected page")
-    return injected
-
 
 def default_audio(streams: list[EmbyStream]) -> EmbyStream | None:
     audio = [s for s in streams if s.type == "Audio" and not s.is_external]
@@ -66,9 +51,6 @@ class EmbyPlaybackService:
         self, item_id: str, media_source_id: str, index: int, viewer: Viewer
     ) -> tuple[SubtitleStatus, str | None]:
         return self.subtitles.status(item_id, media_source_id, index, self._token(viewer))
-
-    async def injected_web_index(self) -> str:
-        return inject_script(await self._api.fetch_web_index())
 
     async def resolve(self, source_id: str, request: StreamRequest, viewer: Viewer, output: OutputFormat) -> ResolvedInput:
         token = self._token(viewer)

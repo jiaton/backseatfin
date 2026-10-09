@@ -4,11 +4,15 @@ import { H264_KBPS, QUALITY_HEIGHTS } from '../quality'
 import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoice, type Track } from '../source'
 
 /**
- * Jellyfin, straight from the browser — no BackseatFin server. Jellyfin transcodes to
- * HLS (H.264 + AAC in MPEG-TS, subtitles burned in) and the `hls` engine plays it on a
- * canvas. The player page is served by the BackseatFin Jellyfin plugin on Jellyfin's
- * own origin, so it uses the viewer's Jellyfin session as is.
+ * Emby or Jellyfin, straight from the browser — no BackseatFin server. The media server
+ * transcodes to HLS (H.264 + AAC in MPEG-TS, subtitles burned in) and the `hls` engine
+ * plays it on a canvas. The player page is served on the media server's own origin (by
+ * the Jellyfin plugin, or by the car host in front of Emby), so it uses the viewer's
+ * session as is: the server checks every request itself. Both servers share this API
+ * (Jellyfin forked from Emby): same paths, header and parameters.
  */
+
+export type MediaServer = 'Emby' | 'Jellyfin'
 
 export const CLIENT_NAME = 'BackseatFin'
 const CLIENT_VERSION = '0.1.0'
@@ -16,7 +20,7 @@ const DEVICE_KEY = 'backseatfin:device'
 const TICKS_PER_SECOND = 10_000_000
 const AUDIO_BITRATE = 128_000
 
-export class JellyfinError extends Error {
+export class ServerError extends Error {
   readonly status: number
 
   constructor(status: number, message: string) {
@@ -25,32 +29,37 @@ export class JellyfinError extends Error {
   }
 }
 
-/** Where Jellyfin lives: the path before the plugin's /BackseatFin/ (Jellyfin may run
- * under a base URL such as /jellyfin). */
+/** Where the media server lives: the path before the player's /BackseatFin/ (Jellyfin's
+ * plugin; Jellyfin may run under a base URL such as /jellyfin) or /car/ (the Emby car
+ * host). */
 export function serverRoot(pathname: string): string {
-  const i = pathname.toLowerCase().indexOf('/backseatfin/')
-  return i < 0 ? '' : pathname.slice(0, i)
+  const m = /\/(?:backseatfin|car)\//i.exec(pathname)
+  return m ? pathname.slice(0, m.index) : ''
 }
 
-/** The session inject.js left in this tab, else the one Jellyfin's web app keeps. */
-export function readJellyfinCredentials(
+/** Where each web app keeps its sign-ins. */
+const WEB_APP_CREDENTIALS: Record<MediaServer, string> = { Emby: 'servercredentials3', Jellyfin: 'jellyfin_credentials' }
+
+/** The session inject.js left in this tab, else the one the server's web app keeps. */
+export function readServerCredentials(
+  server: MediaServer,
   session: Pick<Storage, 'getItem'> = sessionStorage,
   local: Pick<Storage, 'getItem'> = localStorage,
 ): SessionCredentials | null {
   const left = readSessionCredentials(session)
   if (left) return left
   try {
-    const stored = JSON.parse(local.getItem('jellyfin_credentials') ?? 'null') as {
+    const stored = JSON.parse(local.getItem(WEB_APP_CREDENTIALS[server]) ?? 'null') as {
       Servers?: { AccessToken?: string; UserId?: string }[]
     } | null
-    const server = stored?.Servers?.find((s) => s.AccessToken && s.UserId)
-    return server ? { token: server.AccessToken!, userId: server.UserId! } : null
+    const signedIn = stored?.Servers?.find((s) => s.AccessToken && s.UserId)
+    return signedIn ? { token: signedIn.AccessToken!, userId: signedIn.UserId! } : null
   } catch {
     return null
   }
 }
 
-/** A stable id for this browser as a Jellyfin device (its own, not the web app's, so
+/** A stable id for this browser as a media server device (its own, not the web app's, so
  * stopping our transcodes never touches the web app's). */
 export function deviceId(storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage): string {
   try {
@@ -83,6 +92,7 @@ interface JfStream {
   Language?: string
   IsDefault?: boolean
   IsTextSubtitleStream?: boolean
+  VideoRange?: string
 }
 
 interface JfItem {
@@ -93,6 +103,12 @@ interface JfItem {
   IndexNumber?: number
   RunTimeTicks?: number
   MediaSources?: { Id: string; MediaStreams?: JfStream[] }[]
+}
+
+/** HDR or Dolby Vision ("HDR", "HDR 10", "DolbyVision"… — anything but SDR). */
+const isHdr = (streams: JfStream[]) => {
+  const range = streams.find((s) => s.Type === 'Video')?.VideoRange
+  return Boolean(range) && range!.toUpperCase() !== 'SDR'
 }
 
 function track(s: JfStream): Track {
@@ -142,9 +158,9 @@ export function streamQuery(
 
 const choiceKey = (c: StreamChoice) => JSON.stringify([c.quality, c.audio, c.sub, c.box.w, c.box.h])
 
-export async function createJellyfinSource(itemId: string, root = ''): Promise<PlaybackSource> {
-  const credentials = readJellyfinCredentials()
-  if (!credentials) throw new JellyfinError(401, 'not signed in')
+export async function createServerSource(server: MediaServer, itemId: string, root = ''): Promise<PlaybackSource> {
+  const credentials = readServerCredentials(server)
+  if (!credentials) throw new ServerError(401, 'not signed in')
   const device = deviceId()
   const auth = authorization(credentials.token, device)
 
@@ -155,18 +171,18 @@ export async function createJellyfinSource(itemId: string, root = ''): Promise<P
       body: body === undefined ? undefined : JSON.stringify(body),
       keepalive,
     })
-    if (!response.ok) throw new JellyfinError(response.status, `${method} ${path.split('?')[0]}: HTTP ${response.status}`)
+    if (!response.ok) throw new ServerError(response.status, `${method} ${path.split('?')[0]}: HTTP ${response.status}`)
     return response
   }
 
   const item = (await (
-    await call('GET', `/Items/${encodeURIComponent(itemId)}?userId=${encodeURIComponent(credentials.userId)}`)
+    await call('GET', `/Users/${encodeURIComponent(credentials.userId)}/Items/${encodeURIComponent(itemId)}`)
   ).json()) as JfItem
   const media = item.MediaSources?.[0]
-  if (!media) throw new JellyfinError(404, 'no playable media')
+  if (!media) throw new ServerError(404, 'no playable media')
   const streams = media.MediaStreams ?? []
 
-  // One Jellyfin transcode per choice of tracks/quality/size. Seeking keeps it (Jellyfin
+  // One server transcode per choice of tracks/quality/size. Seeking keeps it (the server
   // restarts its encoder at the segment we ask for); a new choice gets a new one, and the
   // old one is stopped so the server doesn't keep encoding for nobody.
   let session = { key: '', id: '' }
@@ -191,13 +207,14 @@ export async function createJellyfinSource(itemId: string, root = ''): Promise<P
   }
 
   return {
-    server: 'Jellyfin',
+    server,
     item: {
       id: item.Id,
       title: episodeTitle(item.Name, item.SeriesName, item.ParentIndexNumber, item.IndexNumber),
       duration: item.RunTimeTicks ? item.RunTimeTicks / TICKS_PER_SECOND : Number.NaN,
       audioTracks: streams.filter((s) => s.Type === 'Audio').map(track),
       subtitleTracks: streams.filter((s) => s.Type === 'Subtitle').map(track),
+      hdr: isHdr(streams),
     },
     engines: ['hls'],
     streamUrl: (start, _engine, choice) => {

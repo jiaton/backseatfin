@@ -135,8 +135,3 @@ class EmbyHttpApi:
             # Progress reporting is best-effort: a missed report only costs resume accuracy.
             log.warning("Emby playback report (%s) failed: %s", event, e)
 
-    async def fetch_web_index(self) -> str:
-        async with httpx.AsyncClient(timeout=10) as c:
-            resp = await c.get(self._base.removesuffix("/emby") + "/web/index.html")
-            resp.raise_for_status()
-            return resp.text

@@ -68,6 +68,8 @@ export interface EngineStats {
   segmentWaitMs?: number
   segmentLoadMs?: number
   segment?: number
+  /** HLS: segment requests retried (network failures, stalls). */
+  segmentRetries?: number
 }
 
 export interface StreamEngine {

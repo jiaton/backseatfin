@@ -55,7 +55,7 @@ def _text_subtitle(spec: StreamSpec, sub: TextSubtitle) -> str:
     return f"setpts=PTS+{t}/TB,subtitles=filename={sub.path},setpts=PTS-STARTPTS"
 
 
-def _video_graph(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None = None) -> str:
+def _video_chain(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None = None) -> str:
     sub = spec.subtitle
     # Input seeking (-ss before -i) shifts an image subtitle stream together with the
     # video, so an overlay lines up without any timestamp adjustment. It's drawn at the
@@ -65,23 +65,29 @@ def _video_graph(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None =
 
     if tone_map is None:
         if image:
-            return f"{video_in}{image}overlay,{_scale(spec.max_height, spec.max_width)}[v]"
-        return f"{video_in}{','.join(filter(None, [text, _scale(spec.max_height, spec.max_width)]))}[v]"
+            return f"{video_in}{image}overlay,{_scale(spec.max_height, spec.max_width)}"
+        return f"{video_in}{','.join(filter(None, [text, _scale(spec.max_height, spec.max_width)]))}"
 
     # HDR: subtitles go on after tone mapping, so their colours aren't tone-mapped too.
     if tone_map.gpu_device:
         if image:
-            return f"{video_in}{_GPU_TO_SDR}[sdr];[sdr]{image}overlay,{_scale(spec.max_height, spec.max_width)}[v]"
+            return f"{video_in}{_GPU_TO_SDR}[sdr];[sdr]{image}overlay,{_scale(spec.max_height, spec.max_width)}"
         box = _scale(spec.max_height, spec.max_width).removeprefix("scale=")
         if spec.max_width is None:
             box = f"w=-2:h='min({spec.max_height},ih)'"
         gpu_scale = f"scale_vaapi={box}:format=p010"
-        return f"{video_in}{','.join(filter(None, [gpu_scale, _GPU_TO_SDR, text]))}[v]"
+        return f"{video_in}{','.join(filter(None, [gpu_scale, _GPU_TO_SDR, text]))}"
     height = min(spec.max_height, CPU_TONE_MAP_MAX_HEIGHT)
     if image:
         # 10-bit overlay keeps the HDR signal (and Dolby Vision metadata) for tonemapx.
-        return f"{video_in}{image}overlay=format=yuv420p10,{_scale(height, spec.max_width)},{_CPU_TO_SDR}[v]"
-    return f"{video_in}{','.join(filter(None, [_scale(height, spec.max_width), _CPU_TO_SDR, text]))}[v]"
+        return f"{video_in}{image}overlay=format=yuv420p10,{_scale(height, spec.max_width)},{_CPU_TO_SDR}"
+    return f"{video_in}{','.join(filter(None, [_scale(height, spec.max_width), _CPU_TO_SDR, text]))}"
+
+
+def _video_graph(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None = None) -> str:
+    # Square pixels: scaling to fit can leave a sample aspect ratio like 641:640, and the
+    # browser then has to resample every frame to draw it (measured ~30x the draw cost).
+    return f"{_video_chain(spec, video_in, tone_map)},setsar=1[v]"
 
 
 def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneMapping | None = None) -> list[str]:

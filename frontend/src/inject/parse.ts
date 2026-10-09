@@ -23,6 +23,9 @@ export interface Handoff {
   t: number
   audio?: number
   sub?: number
+  /** The server's id for this playback, when the URL has one: the same id again is its
+   * player retrying, not a new Play. */
+  session?: string
 }
 
 // Playback URLs: direct play (/Videos/{id}/stream[.ext]), HLS transcode
@@ -60,6 +63,7 @@ export function parsePlaybackUrl(raw: string, base: string): Handoff | null {
     audio: intParam(params, 'AudioStreamIndex', 'audioStreamIndex'),
     // -1 means "no subtitles"; intParam only accepts non-negative integers.
     sub: intParam(params, 'SubtitleStreamIndex', 'subtitleStreamIndex'),
+    session: params.get('PlaySessionId') ?? params.get('playSessionId') ?? undefined,
   }
 }
 

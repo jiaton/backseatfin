@@ -2,7 +2,7 @@
 // mode, Play in Jellyfin's web app opens the BackseatFin player; other browsers keep
 // Jellyfin's own player. Used when the plugin has no car-only hostname configured.
 import { detectLang } from './i18n'
-import { serverRoot } from './sources/jellyfin'
+import { serverRoot } from './sources/mediaserver'
 import './page.css'
 
 /** Must equal inject/parse.ts CAR_MODE_KEY (a copy; car-mode.test.ts checks). */

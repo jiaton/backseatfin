@@ -23,13 +23,14 @@ Car browsers such as Tesla's stop `<video>` while driving, but they keep drawing
 `<canvas>`. BackseatFin adds a canvas player to your media server's own web app: open
 Jellyfin or Emby in the car, press Play, and it plays.
 
-- **Jellyfin: just a plugin.** No extra server; Jellyfin does the transcoding.
+- **No extra server.** Jellyfin: a plugin. Emby: one small nginx container. Your media
+  server does the transcoding, and the player uses your own sign-in.
 - **Your library, your server.** Seeking, audio tracks, subtitles (including PGS), resume
   points and "watched" all sync with the server.
 - **Light on the car.** It uses the car's hardware H.264 decoder via WebCodecs, falling
   back to JSMpeg. The stream is sized to the screen, and it rides out dead zones.
-- **HDR and Dolby Vision** are tone-mapped (Emby: by BackseatFin's server, on an Intel GPU
-  or the CPU; Jellyfin: by Jellyfin).
+- **HDR and Dolby Vision** are tone-mapped (Jellyfin: by Jellyfin; Emby: by the optional
+  BackseatFin server, on an Intel GPU or the CPU).
 - **YouTube without the platform** (optional, Emby): follow playlists, download to your
   own disk, watch in Emby. No account, no fees, and the data stays with you.
 
@@ -44,16 +45,16 @@ Jellyfin or Emby in the car, press Play, and it plays.
 Repositories, install **BackseatFin**, restart, and choose which browsers get the car
 player. Guide: [docs/jellyfin.md](docs/jellyfin.md).
 
-**Emby**: run the BackseatFin server next to it.
+**Emby**: run the car host next to it.
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set API_KEY and EMBY_URL
+cp .env.example .env   # set EMBY_URL
 docker compose up -d
 ```
 
-Then put the two ports behind HTTPS ([examples](docs/reverse-proxy.md)) and open the car
-host in the car. Guide: [docs/install.md](docs/install.md).
+Then put it behind HTTPS on its own hostname ([examples](docs/reverse-proxy.md)) and open
+that in the car. Guide: [docs/install.md](docs/install.md).
 
 ## How it works
 
@@ -62,7 +63,8 @@ Jellyfin:  car browser ──► Jellyfin web app + plugin script
                               └─► /BackseatFin/play ◄── Jellyfin's HLS transcode (H.264)
 
 Emby:      car browser ──► car host (nginx) ──► Emby web app + inject.js
-                              └─► /car/play ◄── BackseatFin server (ffmpeg, H.264 over WebSocket)
+                              └─► /car/play ◄── Emby's HLS transcode (H.264)
+                                            ◄── optional BackseatFin server (HDR, YouTube)
 ```
 
 Pressing Play opens the player over the server's page. It decodes the H.264 stream with
@@ -71,7 +73,7 @@ are in [AGENTS.md](AGENTS.md) and [docs/player.md](docs/player.md).
 
 ## Roadmap
 
-- [x] Emby, via the car host (reverse-proxy injection)
+- [x] Emby, via the car host (reverse-proxy injection), playing Emby's own HLS
 - [x] Jellyfin plugin, playing Jellyfin's own HLS (no extra server)
 - [x] HDR / Dolby Vision tone mapping (Intel GPU, CPU)
 - [x] YouTube playlists → Emby library

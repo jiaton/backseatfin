@@ -1,9 +1,11 @@
 # The car host: Emby's own web app, with two changes so that pressing Play in the car
 # opens the canvas player instead of Emby's <video> player (which the car blocks while
 # driving):
-#   /car/*            → our player, inject.js and API (the admin server below, /car stripped)
-#   /web/index.html   → Emby's index.html with the inject.js <script> added (the backend
-#                       fetches it from Emby)
+#   /web/index.html   → Emby's page with the inject.js <script> added (sub_filter)
+#   /car/*            → the car player and inject.js (static files in this image)
+#   /car/api/*        → the optional BackseatFin server (YouTube, HDR tone mapping); the
+#                       player works without it: Emby transcodes, and the player talks to
+#                       Emby with the viewer's own session
 #   everything else   → Emby, untouched
 # Put this port behind your HTTPS reverse proxy: the player needs a secure context.
 map $http_upgrade $car_host_connection {
@@ -14,15 +16,31 @@ map $http_upgrade $car_host_connection {
 server {
   listen 8080;
 
-  # Emby's address, read at request time (resolver above), so Emby restarting under
-  # a new container IP doesn't need an nginx restart.
+  # Read at request time (resolver in nginx.conf): Emby or the server restarting under
+  # a new container IP doesn't need an nginx restart, and a missing server is a 502
+  # (the player then lets Emby transcode) instead of nginx refusing to start.
   set $emby ${EMBY_URL};
+  set $backend http://backend:8000;
 
   # Uploads (artwork, subtitles) go to Emby unchanged.
   client_max_body_size 0;
 
-  location /car/ {
-    proxy_pass http://127.0.0.1:80/;
+  # Emby's page, plus our script. Uncompressed from Emby, so sub_filter can see it.
+  location ~ ^/web/(index\.html)?$ {
+    proxy_pass $emby;
+    proxy_set_header Host $host;
+    proxy_set_header Accept-Encoding "";
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    sub_filter '</head>' '<script type="module" src="/car/inject.js"></script></head>';
+    sub_filter_once on;
+    proxy_hide_header Cache-Control;
+    add_header Cache-Control "no-cache";
+  }
+
+  # The optional BackseatFin server: its API (with the stream WebSocket) and health.
+  location ~ ^/car/(api/|health$) {
+    rewrite ^/car/(.*)$ /$1 break;
+    proxy_pass $backend;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $car_host_connection;
@@ -31,15 +49,25 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-    # A movie is one long-lived stream.
+    # A film is one long-lived stream.
     proxy_buffering off;
     proxy_read_timeout 6h;
     proxy_send_timeout 6h;
   }
 
-  location = /web/index.html {
-    proxy_pass http://127.0.0.1:80/api/emby/web-index;
-    proxy_set_header Host $host;
+  # The player's static files. Hashed assets never change under the same name; the
+  # pages and inject.js (loaded by a fixed name) are revalidated so updates reach the
+  # car at once.
+  location /car/assets/ {
+    rewrite ^/car/(.*)$ /$1 break;
+    root /usr/share/nginx/html;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+  }
+  location /car/ {
+    rewrite ^/car/(.*)$ /$1 break;
+    root /usr/share/nginx/html;
+    try_files $uri $uri.html =404;
+    add_header Cache-Control "no-cache";
   }
 
   location / {

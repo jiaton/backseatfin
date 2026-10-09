@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import HTMLResponse
 
 from app.auth.deps import require_player, viewer_for
 from app.auth.service import Principal
@@ -68,12 +67,3 @@ async def report_playback(item_id: str, body: PlaybackReportIn, principal: Princ
         await emby_playback.report(body.event, report, viewer_for(principal))
     except SourceUnavailableError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
-
-
-@router.get("/web-index", response_class=HTMLResponse, include_in_schema=False)
-async def web_index():
-    """Emby's own index.html plus the hand-off script. The web container's car host
-    routes /web/index.html here; nothing else about Emby's page changes. Public, like the
-    original page."""
-    html = await emby_playback.injected_web_index()
-    return HTMLResponse(html, headers={"Cache-Control": "no-store"})

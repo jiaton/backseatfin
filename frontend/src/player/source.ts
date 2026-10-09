@@ -1,9 +1,9 @@
 import type { EngineKind } from './engines/types'
 import type { Quality } from './quality'
 
-/** Everything the player page needs from a media server, whichever one it is: our own
- * server in front of Emby (`sources/backseatfin.ts`) or Jellyfin directly from the
- * browser (`sources/jellyfin.ts`). */
+/** Everything the player page needs from a media server, whichever one it is: Emby or
+ * Jellyfin transcoding themselves, straight from the browser (`sources/mediaserver.ts`),
+ * or the optional BackseatFin server transcoding Emby (`sources/backseatfin.ts`). */
 
 export interface Track {
   /** The server's stream index (what it's asked for by). */
@@ -22,6 +22,8 @@ export interface PlayerItem {
   duration: number
   audioTracks: Track[]
   subtitleTracks: Track[]
+  /** HDR or Dolby Vision (the BackseatFin server tone-maps those better than Emby). */
+  hdr?: boolean
 }
 
 /** What the viewer picked; every change reconnects the stream. */

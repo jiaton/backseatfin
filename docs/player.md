@@ -128,6 +128,33 @@ only after a while; and every resume reloaded from the network.
   request (HLS) or reconnect (WebSocket, up to 60 s / 30 s buffered).
 - Memory unchanged: 6 min steady, JS heap 2.6–4.7 MB, renderer ~570 MB, flat.
 
+## Emby without the server: its HLS vs our WebSocket stream (2026-10-08)
+
+Same film (HEVC 1080p, PGS subtitles) from a real Emby 4.8, played through toxiproxy at
+"Standard" quality, headless Chromium on an Intel iGPU (`--use-angle=gl-egl`; without a
+GPU every `drawImage` is software and the numbers say nothing about a car). Seconds the
+picture stood still per phase:
+
+| Phase | Emby HLS, 9 s buffer | Emby HLS, 20 s buffer | + retry under buffer | Our stream (WebSocket) |
+|---|---|---|---|---|
+| normal 35 s | 0 | 0 | 0 | 0 |
+| data stops 15 s, connection open | 1 + 2 after | 0 + 1 after | 0 | 0 |
+| 1 Mbps + 200 ms jitter, 40 s | 0 | 0 | 0 | 0 |
+| network cut 30 s | 27 | 25 | **6** | 3 |
+| after the cut | 2 | 2 | 1 | 2 |
+
+- The buffer is what rides out a dead zone, so the HLS engine now fetches up to 20 s
+  ahead (`MAX_AHEAD_S`), like the WebSocket's flow control. 4–8 MB of compressed video.
+- A failed segment used to end the engine after three tries, and the player's reconnect
+  threw the whole buffer away (25 s frozen of a 30 s cut). Now network failures are
+  retried for as long as more than 1 s is buffered (`KEEP_TRYING_S`); the buffer plays on.
+- Main thread over the whole run: HLS 5.4 %, WebSocket 14.5 % (its unpaced refills); both
+  ~6 % in steady playback, `drawImage` ~0.4 ms a frame. JS heap 3–4 MB either way.
+- Emby picks the picture size from the bitrate: 1.5 Mbps gave 720×300 for a 2.39:1 film,
+  3 Mbps 1280×533. Our server sized it to the window (1280×534) at 1.5 Mbps.
+- Our server's scale filter left a 641:640 sample aspect ratio, so every frame was
+  resampled to draw it; it now ends with `setsar=1`.
+
 ## Later
 - Lower the quality by itself when the network can't carry the stream (1 Mbps above).
 - Memory readings from the car itself.
