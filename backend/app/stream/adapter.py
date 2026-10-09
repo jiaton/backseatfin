@@ -86,7 +86,7 @@ def _video_chain(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None =
 
 def _video_graph(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None = None) -> str:
     # Square pixels: scaling to fit can leave a sample aspect ratio like 641:640, and the
-    # browser then has to resample every frame to draw it (measured ~30x the draw cost).
+    # browser then has to resample every frame to draw it at its display size.
     return f"{_video_chain(spec, video_in, tone_map)},setsar=1[v]"
 
 
