@@ -1,6 +1,6 @@
 import { withStart } from '../engines/hls'
 import { readSessionCredentials, type SessionCredentials } from '../params'
-import { H264_KBPS, QUALITY_HEIGHTS } from '../quality'
+import { type Level, MEDIA_SERVER_LEVELS } from '../quality'
 import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoice, type Track } from '../source'
 
 /**
@@ -120,14 +120,14 @@ function track(s: JfStream): Track {
   }
 }
 
-/** HLS transcode parameters for one choice of tracks, quality and screen size. */
+/** HLS transcode parameters for one choice of tracks, quality level and screen size. */
 export function streamQuery(
   mediaSourceId: string,
   playSessionId: string,
   device: string,
   choice: StreamChoice,
+  level: Level,
 ): URLSearchParams {
-  const level = QUALITY_HEIGHTS.hls[choice.quality]
   const { w, h } = choice.box
   const fits = w >= 160 && h >= 120
   const q = new URLSearchParams({
@@ -140,12 +140,13 @@ export function streamQuery(
     MaxAudioChannels: '2',
     TranscodingMaxAudioChannels: '2',
     SegmentContainer: 'ts',
-    VideoBitrate: String(H264_KBPS[choice.quality] * 1000),
+    // The server picks the width from this (see MEDIA_SERVER_LEVELS).
+    VideoBitrate: String(level.kbps * 1000),
     AudioBitrate: String(AUDIO_BITRATE),
     // Never more than the level, and never more than the screen can show.
-    MaxHeight: String(fits ? Math.min(level, h) : level),
+    MaxHeight: String(fits ? Math.min(level.height, h) : level.height),
+    MaxWidth: String(fits ? Math.min(level.width, w) : level.width),
   })
-  if (fits) q.set('MaxWidth', String(w))
   if (choice.audio != null) q.set('AudioStreamIndex', String(choice.audio))
   if (choice.sub != null) {
     q.set('SubtitleStreamIndex', String(choice.sub))
@@ -217,8 +218,9 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
       hdr: isHdr(streams),
     },
     engines: ['hls'],
+    levels: () => MEDIA_SERVER_LEVELS[server],
     streamUrl: (start, _engine, choice) => {
-      const q = streamQuery(media.Id, sessionFor(choice), device, choice)
+      const q = streamQuery(media.Id, sessionFor(choice), device, choice, MEDIA_SERVER_LEVELS[server][choice.quality])
       return withStart(`${window.location.origin}${root}/Videos/${encodeURIComponent(item.Id)}/master.m3u8?${q}`, start)
     },
     headers: () => ({ Authorization: auth }),

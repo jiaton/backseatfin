@@ -1,5 +1,5 @@
 import type { EngineKind } from './engines/types'
-import type { Quality } from './quality'
+import type { Level, Quality } from './quality'
 
 /** Everything the player page needs from a media server, whichever one it is: Emby or
  * Jellyfin transcoding themselves, straight from the browser (`sources/mediaserver.ts`),
@@ -45,6 +45,8 @@ export interface PlaybackSource {
   readonly item: PlayerItem
   /** Engines this source can stream to, preferred first. */
   readonly engines: readonly EngineKind[]
+  /** What each quality level sends with this engine (size cap and bitrate). */
+  levels(engine: EngineKind): Record<Quality, Level>
   streamUrl(startSeconds: number, engine: EngineKind, choice: StreamChoice): string
   headers?(): Record<string, string>
   /** Best effort: resume points and "watched" stay in sync with the server's other

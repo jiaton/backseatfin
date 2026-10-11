@@ -1,22 +1,57 @@
-import type { EngineKind } from './engines/types'
-
-/** Stream quality presets (mirrors backend `stream.ports.QUALITY_PRESETS` and
- * `H264_QUALITY_PRESETS`; the WS query param is not part of the OpenAPI schema, so
- * this is the one hand-kept mirror). Same four levels, different resolutions per engine:
- * hardware H.264 decodes 1080p easily, JS-decoded MPEG-1 doesn't. */
+/** Stream quality: four levels the viewer picks from. What each one sends depends on
+ * who transcodes (each source says, see `PlaybackSource.levels`). */
 export const QUALITY_VALUES = ['low', 'medium', 'high', 'max'] as const
 export type Quality = (typeof QUALITY_VALUES)[number]
 
-/** Output height per level and engine (the level's name comes from i18n). */
-export const QUALITY_HEIGHTS: Record<EngineKind, Record<Quality, number>> = {
-  webcodecs: { low: 480, medium: 720, high: 1080, max: 1080 },
-  jsmpeg: { low: 480, medium: 720, high: 720, max: 1080 },
-  hls: { low: 480, medium: 720, high: 1080, max: 1080 },
+/** A level: the largest picture it sends (fitted into this box at the film's aspect
+ * ratio, and never larger than the screen) and its video bitrate. */
+export interface Level {
+  width: number
+  height: number
+  kbps: number
 }
 
-/** H.264 video bitrate per level, kbit/s (mirrors the server's H264_QUALITY_PRESETS;
- * a media server's HLS transcode is asked for the same). */
-export const H264_KBPS: Record<Quality, number> = { low: 800, medium: 1500, high: 3000, max: 6000 }
+const level = (width: number, height: number, kbps: number): Level => ({ width, height, kbps })
+
+/** Our server: it scales to the box and encodes at the bitrate it's given (mirrors the
+ * backend's `stream.ports.QUALITY_PRESETS` / `H264_QUALITY_PRESETS` heights and rates;
+ * the WS query param is not part of the OpenAPI schema, so this is a hand-kept mirror).
+ * JS-decoded MPEG-1 can't do what hardware H.264 does. */
+export const SERVER_LEVELS: Record<'webcodecs' | 'jsmpeg', Record<Quality, Level>> = {
+  webcodecs: { low: level(854, 480, 800), medium: level(1280, 720, 1500), high: level(1920, 1080, 3000), max: level(1920, 1080, 6000) },
+  jsmpeg: { low: level(854, 480, 1000), medium: level(1280, 720, 2000), high: level(1280, 720, 3500), max: level(1920, 1080, 5000) },
+}
+
+/**
+ * Emby and Jellyfin choose the picture *width* from the bitrate they're asked for, and
+ * MaxWidth/MaxHeight only lower it further (an explicit Width is ignored). So each level
+ * asks for at least the bitrate that buys its width. Measured from the master playlists
+ * (2026-10-10):
+ * - Emby 4.8: under 0.6 Mbps 426 wide, under 1 Mbps 640, under 3 Mbps 720, under
+ *   4 Mbps 1280, from 4 Mbps 1920 (the same for 16:9 and 2.39:1 films).
+ * - Jellyfin 12: under 1.5 Mbps 960, under 2.5 Mbps 1280, from 2.5 Mbps 1920.
+ */
+export const MEDIA_SERVER_LEVELS: Record<'Emby' | 'Jellyfin', Record<Quality, Level>> = {
+  Emby: { low: level(720, 480, 1000), medium: level(1280, 720, 3000), high: level(1920, 1080, 4000), max: level(1920, 1080, 6000) },
+  Jellyfin: { low: level(854, 480, 800), medium: level(1280, 720, 1500), high: level(1920, 1080, 3000), max: level(1920, 1080, 6000) },
+}
+
+/** The picture a level sends into a display box (0 = unknown) at an aspect ratio. */
+export function fitLevel(l: Level, box: { w: number; h: number }, aspect: number): { w: number; h: number } {
+  const maxW = Math.min(l.width, box.w || l.width)
+  const maxH = Math.min(l.height, box.h || l.height)
+  let h = maxH
+  let w = h * aspect
+  if (w > maxW) {
+    w = maxW
+    h = w / aspect
+  }
+  const even = (n: number) => Math.round(n / 2) * 2
+  return { w: even(w), h: even(h) }
+}
+
+/** Data a level uses per hour, in GB (video + 128 kbit/s audio). */
+export const gbPerHour = (l: Level) => ((l.kbps + 128) * 3600) / 8 / 1e6
 
 const KEY = 'backseatfin:quality'
 // 720p by default: in the car responsiveness beats picture quality, and half the

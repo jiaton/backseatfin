@@ -2,6 +2,7 @@ import { createReporter, fetchItem, prepareSubtitle, startPlayerSession } from '
 import { ENGINE_FORMAT, type EngineKind } from '../engines/types'
 import { wsUrl } from '../net'
 import { readSessionCredentials } from '../params'
+import { SERVER_LEVELS } from '../quality'
 import { episodeTitle, type PlaybackSource } from '../source'
 
 /** Emby through our own server: it transcodes (H.264 for WebCodecs, MPEG-1 for JSMpeg)
@@ -23,6 +24,7 @@ export async function createBackseatfinSource(itemId: string, engine: EngineKind
     },
     // WebCodecs falls back to JSMpeg on its own (car-video); start with what fits.
     engines: [engine],
+    levels: (kind) => SERVER_LEVELS[kind === 'jsmpeg' ? 'jsmpeg' : 'webcodecs'],
     streamUrl: (start, kind, choice) => {
       const format = kind === 'jsmpeg' ? ENGINE_FORMAT.jsmpeg : ENGINE_FORMAT.webcodecs
       const q = new URLSearchParams({ source: `emby:${item.id}`, t: String(Math.floor(start)), quality: choice.quality, format })

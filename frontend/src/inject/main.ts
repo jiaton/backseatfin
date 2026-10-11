@@ -1,5 +1,5 @@
 /**
- * Loaded by the media server's own web page: Emby's on our car host (its nginx adds the
+ * Loaded by the media server's own web page: Emby's on our car host (which adds the
  * <script> tag), or Jellyfin's (the BackseatFin plugin adds it). The web app stays
  * entirely stock for browsing; the moment its player starts a video, this opens the car
  * player (`play`, next to this script) as a full-screen layer over the page. The car

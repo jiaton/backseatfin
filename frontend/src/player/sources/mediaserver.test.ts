@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CREDENTIALS_KEY } from '../params'
+import { MEDIA_SERVER_LEVELS } from '../quality'
 import type { StreamChoice } from '../source'
 import { authorization, createServerSource, deviceId, readServerCredentials, serverRoot, streamQuery } from './mediaserver'
 
@@ -45,23 +46,26 @@ describe('media server source helpers', () => {
     )
   })
 
-  it('asks Jellyfin for H.264/AAC stereo in TS segments, sized to the level and the screen', () => {
-    const q = streamQuery('ms', 'ps', 'dev', CHOICE)
+  const JF = MEDIA_SERVER_LEVELS.Jellyfin
+
+  it('asks for H.264/AAC stereo in TS segments, sized to the level and the screen', () => {
+    const q = streamQuery('ms', 'ps', 'dev', CHOICE, JF.medium)
     expect(Object.fromEntries(q)).toMatchObject({
       MediaSourceId: 'ms', PlaySessionId: 'ps', DeviceId: 'dev', VideoCodec: 'h264', AudioCodec: 'aac',
-      MaxAudioChannels: '2', SegmentContainer: 'ts', VideoBitrate: '1500000', MaxHeight: '720', MaxWidth: '1600',
+      MaxAudioChannels: '2', SegmentContainer: 'ts', VideoBitrate: '1500000', MaxHeight: '720', MaxWidth: '1280',
       AudioStreamIndex: '2', SubtitleStreamIndex: '3', SubtitleMethod: 'Encode',
     })
     // a small window caps the height; no subtitles is -1
-    const small = streamQuery('ms', 'ps', 'dev', { quality: 'high', box: { w: 800, h: 334 } })
+    const small = streamQuery('ms', 'ps', 'dev', { quality: 'high', box: { w: 800, h: 334 } }, JF.high)
     expect(small.get('MaxHeight')).toBe('334')
+    expect(small.get('MaxWidth')).toBe('800')
     expect(small.get('SubtitleStreamIndex')).toBe('-1')
     expect(small.has('SubtitleMethod')).toBe(false)
     expect(small.has('AudioStreamIndex')).toBe(false)
     // unknown box (not laid out yet): the level alone
-    const unknown = streamQuery('ms', 'ps', 'dev', { quality: 'low', box: { w: 0, h: 0 } })
+    const unknown = streamQuery('ms', 'ps', 'dev', { quality: 'low', box: { w: 0, h: 0 } }, JF.low)
     expect(unknown.get('MaxHeight')).toBe('480')
-    expect(unknown.has('MaxWidth')).toBe(false)
+    expect(unknown.get('MaxWidth')).toBe('854')
   })
 })
 
@@ -110,6 +114,15 @@ describe('createServerSource', () => {
     expect(source.item.subtitleTracks.map((t) => t.kind)).toEqual(['text', 'image'])
     expect(source.engines).toEqual(['hls'])
     expect(source.prepareSubtitle).toBeUndefined()
+  })
+
+  it("asks Emby for the bitrate that buys each level's width", async () => {
+    sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ token: 'tok', userId: 'u1' }))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(ITEM))))
+    const source = await createServerSource('Emby', 'abc')
+    const url = new URL(source.streamUrl(0, 'hls', CHOICE)) // medium
+    expect(url.searchParams.get('VideoBitrate')).toBe('3000000') // Emby: 1280 wide from 3 Mbps
+    expect(source.levels('hls').medium).toEqual({ width: 1280, height: 720, kbps: 3000 })
   })
 
   it('keeps one transcode across seeks, starts a new one (and stops the old) on a new choice', async () => {

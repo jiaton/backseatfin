@@ -178,8 +178,14 @@ by design.
   token. Emby 4.8 at 1.5 Mbps sends 1280×532 H.264 Main with B-frames; a first segment
   mid-film with PGS burned in took ~4.4 s, then ~0.4 s each.
   - Stream = `/Videos/{id}/master.m3u8` with `VideoCodec=h264`, `AudioCodec=aac`,
-    `MaxAudioChannels=2`, `SegmentContainer=ts`, the level's bitrate, `MaxHeight` = min(level,
-    screen height), `MaxWidth` = screen width, and `SubtitleMethod=Encode` (burned in).
+    `MaxAudioChannels=2`, `SegmentContainer=ts`, the level's bitrate, `MaxWidth`/`MaxHeight`
+    = the level's box capped to the screen, and `SubtitleMethod=Encode` (burned in).
+  - **Quality levels are sizes** (`quality.ts`, `PlaybackSource.levels`). Both servers pick
+    the picture *width* from the bitrate (an explicit `Width` is ignored), with different
+    tiers: Emby 4.8 gives 720 wide under 3 Mbps, 1280 from 3, 1920 from 4; Jellyfin 12
+    gives 960 under 1.5, 1280 from 1.5, 1920 from 2.5. So `MEDIA_SERVER_LEVELS` asks each
+    for the bitrate that buys the level's width (Emby "Standard" = 3 Mbps). The settings
+    sheet shows each level's real size in this window, bitrate and GB per hour.
     Jellyfin refuses `StartTimeTicks` on segments: the playlist covers the whole film, and
     the `hls` engine starts at the segment holding the position (`#t=` on the URL).
   - One `PlaySessionId` per choice of tracks/quality/size: seeks reuse it (Jellyfin

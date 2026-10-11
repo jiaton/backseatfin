@@ -15,7 +15,7 @@ import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video
 import { diagnose } from './diagnose'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
-import { loadQuality, type Quality, QUALITY_HEIGHTS, QUALITY_VALUES, saveQuality } from './quality'
+import { fitLevel, gbPerHour, loadQuality, type Quality, QUALITY_VALUES, saveQuality } from './quality'
 import type { PlaybackSource, StreamChoice, Track } from './source'
 import { type Transcoder, TRANSCODERS } from './transcoder'
 import './page.css'
@@ -307,27 +307,21 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     })
     return h('section', {}, h('h2', {}, label), h('div', { class: 'cm-options' }, ...buttons))
   }
-  /** What a level really sends in this window: its height, fitted into the display
-   * box at the film's aspect ratio (known once a picture is playing). */
-  function effectiveSize(levelHeight: number) {
-    const box = displayBox()
+  /** What a level really sends in this window: its size cap fitted into the display
+   * box at the film's aspect ratio (known once a picture is playing), and its data rate. */
+  function levelText(q: Quality) {
+    const l = source.levels(video.engine)[q]
     const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9
-    let h = Math.min(levelHeight, box.h || levelHeight)
-    let w = h * aspect
-    if (box.w && w > box.w) {
-      w = box.w
-      h = w / aspect
-    }
-    return `${Math.round(w / 2) * 2}×${Math.round(h / 2) * 2}`
+    const { w, h } = fitLevel(l, displayBox(), aspect)
+    return `${w}×${h} · ${(l.kbps / 1000).toFixed(1)} Mbps · ${gbPerHour(l).toFixed(1)} GB/h`
   }
   function renderSheet() {
-    const heights = QUALITY_HEIGHTS[video.engine]
     const box = displayBox()
     const quality = group(
       t('quality'),
       QUALITY_VALUES.map((q: Quality) => ({
-        label: `${t(QUALITY_NAME[q])} ${heights[q]}p`,
-        detail: `≈ ${effectiveSize(heights[q])}`,
+        label: t(QUALITY_NAME[q]),
+        detail: levelText(q),
         selected: q === state.quality,
         pick: () => choose({ quality: q }),
       })),
@@ -451,7 +445,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       `decoder  latency ${ms(s.decodeMs)} · queue ${s.decodeQueue ?? 0} · waiting ${s.chunksPending ?? 0} · late ${s.framesLate ?? 0} · skipped ${s.chunksSkipped ?? 0}${s.decoderResets ? ` · resets ${s.decoderResets}` : ''}`,
       `a/v      picture ${signed(s.avOffsetMs)} vs sound · behind clock ${ms(s.videoBehindMs)}`,
       `audio    ${s.audioFormat ?? '–'} · output latency ${ms(s.outputLatencyMs)} · clock ${s.audioClock ?? '–'}`,
-      `session  ${formatClock(video.currentTime)} · ${t(QUALITY_NAME[state.quality])} ${QUALITY_HEIGHTS[video.engine][state.quality]}p · connects ${s.connects}${s.reconnects ? ` + ${s.reconnects} spliced` : ''}${s.held ? ' · server holding (buffer full)' : ''}${heap ? ` · JS ${(heap / 1048576).toFixed(1)} MB` : ''}`,
+      `session  ${formatClock(video.currentTime)} · ${t(QUALITY_NAME[state.quality])} (${levelText(state.quality)}) · connects ${s.connects}${s.reconnects ? ` + ${s.reconnects} spliced` : ''}${s.held ? ' · server holding (buffer full)' : ''}${heap ? ` · JS ${(heap / 1048576).toFixed(1)} MB` : ''}`,
     )
     statsPanel.textContent = lines.join('\n')
   }
