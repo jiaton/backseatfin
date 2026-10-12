@@ -3,6 +3,8 @@ import type { components } from '@/lib/api/schema' // types only: no runtime cos
 import { API_PREFIX } from './net'
 
 export type PlaybackItem = components['schemas']['PlaybackItemOut']
+export type TubeVideo = components['schemas']['TubeVideoOut']
+type TubeProgress = components['schemas']['TubeProgressIn']
 export type Track = components['schemas']['TrackOut']
 export type SubtitleStatus = components['schemas']['SubtitleStatusOut']
 type ReportIn = components['schemas']['PlaybackReportIn']
@@ -71,4 +73,18 @@ export function createReporter(itemId: string, mediaSourceId: string) {
     // Best-effort: a lost progress report only costs resume accuracy.
     call('POST', path, body).catch(() => {})
   }
+}
+
+export const fetchTubeVideo = (videoId: string) => call<TubeVideo>('GET', `/api/tube/videos/${encodeURIComponent(videoId)}`)
+
+/** Remembers how far a YouTube video got (the home screen's "continue watching").
+ * `leaving`: the page is going away, so a beacon carries it. */
+export function reportTubeProgress(videoId: string, positionSeconds: number, durationSeconds: number | null, leaving = false) {
+  const path = `/api/tube/videos/${encodeURIComponent(videoId)}/progress`
+  const body: TubeProgress = { position_seconds: Math.max(0, positionSeconds), duration_seconds: durationSeconds }
+  if (leaving) {
+    navigator.sendBeacon(`${API_PREFIX}${path}`, new Blob([JSON.stringify(body)], { type: 'application/json' }))
+    return
+  }
+  call('POST', path, body).catch(() => {})
 }

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     playlist_sync_interval_seconds: int = 900
     download_max_height: int = 1080
 
+    # How often followed YouTube channels are re-read for the home feed.
+    feed_refresh_interval_seconds: int = 1800
+
     # Each car stream is one live ffmpeg encode.
     max_concurrent_streams: int = 2
 
@@ -31,7 +34,8 @@ class Settings(BaseSettings):
     hdr_ffmpeg_path: str = "/usr/lib/jellyfin-ffmpeg/ffmpeg"
     gpu_render_device: str = "/dev/dri/renderD128"
 
-    # Emby, reached directly (not through the reverse proxy). The API key is optional:
+    # Emby, reached directly (not through the reverse proxy). Optional: without Emby,
+    # only YouTube is offered. The API key is optional too:
     # without it the library still picks new files up via Emby's own real-time folder
     # monitoring, just less promptly.
     emby_url: str = "http://emby:8096"

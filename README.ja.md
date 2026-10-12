@@ -2,7 +2,7 @@
 
 # BackseatFin
 
-**車が走行中でも、車内のブラウザで自分の Jellyfin または Emby ライブラリを視聴できます。**
+**車が走行中でも、車内のブラウザで Jellyfin・Emby のライブラリと YouTube を視聴できます。**
 
 [![CI](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml/badge.svg)](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jiaton/backseatfin?include_prereleases)](https://github.com/jiaton/backseatfin/releases)
@@ -27,7 +27,7 @@ Tesla などの車載ブラウザは走行中に `<video>` を停止しますが
 - **自分のライブラリ、自分のサーバー。** シーク、音声トラック、字幕（PGS を含む）、再生位置の再開、「視聴済み」のステータスはすべてサーバーと同期します。
 - **車への負荷が小さい。** WebCodecs 経由で車のハードウェア H.264 デコーダーを使用し、対応していない場合は JSMpeg にフォールバックします。ストリームは画面サイズに合わせて調整され、通信の途切れも乗り越えます。
 - **HDR と Dolby Vision** はトーンマッピングされます（Jellyfin の場合：Jellyfin 自身が処理／Emby の場合：オプションの BackseatFin サーバーが Intel GPU または CPU 上で処理）。
-- **プラットフォームを介さない YouTube**（任意機能、Emby のみ）：プレイリストをフォローし、自分のディスクにダウンロードして Emby で視聴します。アカウント登録も料金も不要で、データは自分の手元に残ります。
+- **セルフホストの YouTube。** 車向けの画面で検索し、チャンネルをフォローし、止めたところから続きを見られます。動画は自分のサーバーを通って YouTube のエンコードのまま届き（再エンコードなし）、Google アカウントは不要で、視聴履歴は手元に残ります。Emby へのダウンロードもできます。
 
 > [!WARNING]
 > 同乗者向けの機能です。運転者は必ず前方を注視してください。運転中に動画を視聴することは危険であり、多くの地域で違法です。
@@ -36,15 +36,15 @@ Tesla などの車載ブラウザは走行中に `<video>` を停止しますが
 
 **Jellyfin**（12.0 以降）：Dashboard → Plugins → Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、**BackseatFin** をインストールして再起動し、どのブラウザで車載プレーヤーを使うかを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
 
-**Emby**：car host を Emby と並べて動かします。
+**YouTube と Emby**：Docker で BackseatFin を動かします。
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set EMBY_URL
+cp .env.example .env   # API_KEY（YouTube）と EMBY_URL（Emby）を必要に応じて設定
 docker compose up -d
 ```
 
-その後、専用のホスト名で HTTPS の背後に置き（[例](docs/reverse-proxy.md)）、車内でそのアドレスを開いてください。ガイド：[docs/install.md](docs/install.md)。
+その後、HTTPS の背後に置き（[例](docs/reverse-proxy.md)）、車内で開いてください。ガイド：[docs/install.md](docs/install.md)。
 
 ## 動作の仕組み
 
@@ -54,7 +54,10 @@ Jellyfin:  car browser ──► Jellyfin web app + plugin script
 
 Emby:      car browser ──► car host (nginx) ──► Emby web app + inject.js
                               └─► /car/play ◄── Emby's HLS transcode (H.264)
-                                            ◄── optional BackseatFin server (HDR, YouTube)
+                                            ◄── optional BackseatFin server (HDR)
+
+YouTube:   car browser ──► BackseatFin app (search, channels, history)
+                              └─► /play ◄── BackseatFin server ◄── YouTube's H.264, passed through
 ```
 
 再生ボタンを押すと、プレーヤーがサーバーのページの上に開きます。車のハードウェアデコーダー（WebCodecs）で H.264 ストリームをデコードし、canvas に描画します。コントリビューター向けの詳細は [AGENTS.md](AGENTS.md) と [docs/player.md](docs/player.md) にあります。
@@ -65,7 +68,8 @@ Emby:      car browser ──► car host (nginx) ──► Emby web app + injec
 - [x] Jellyfin プラグイン、Jellyfin 自身の HLS を再生（追加サーバー不要）
 - [x] HDR / Dolby Vision トーンマッピング（Intel GPU、CPU）
 - [x] YouTube プレイリスト → Emby ライブラリ
-- [ ] YouTube UI：チャンネルのフォロー、直接ダウンロードまたはストリーミング
+- [x] 車で YouTube：検索、チャンネルのフォロー、ライブ再生、続きから再生
+- [ ] スマホから車へ動画を送る、再生リストの連続再生、字幕、ライブ配信
 - [ ] NVIDIA および AMD の GPU
 
 ## ライセンス

@@ -124,10 +124,27 @@ def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneM
             if spec.output is OutputFormat.H264_TS:
                 args += ["-readrate_initial_burst", "2"]
             args += ["-re"]
-        args += ["-i", spec.input_url, "-t", str(spec.max_duration_seconds)]
+        args += ["-i", spec.input_url]
+        if spec.audio_url:
+            # The same seek and pacing for the sound's own input.
+            args += ["-ss", f"{spec.start_seconds:.3f}"] if spec.start_seconds > 0 else []
+            args += ["-re"] if spec.paced else []
+            args += ["-i", spec.audio_url]
+        args += ["-t", str(spec.max_duration_seconds)]
         video_in = f"[0:{spec.video_stream_index}]" if spec.video_stream_index is not None else "[0:v:0]"
         # Trailing "?" = optional: a file without audio still streams.
-        audio_map = f"0:{spec.audio_stream_index}" if spec.audio_stream_index is not None else "0:a:0?"
+        audio_map = (
+            "1:a:0" if spec.audio_url
+            else f"0:{spec.audio_stream_index}" if spec.audio_stream_index is not None else "0:a:0?"
+        )
+        if spec.copy_video and spec.output is OutputFormat.H264_TS:
+            # Passed through as it is (it may have B-frames: the player reorders), sound
+            # made AAC 48 kHz stereo like every other stream.
+            return args + [
+                "-map", "0:v:0", "-map", audio_map, "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
+                "-f", "mpegts", "-muxdelay", "0", "pipe:1",
+            ]
 
     args += ["-filter_complex", _video_graph(spec, video_in, tone_map), "-map", "[v]"]
     if spec.output is not OutputFormat.H264_ANNEXB:

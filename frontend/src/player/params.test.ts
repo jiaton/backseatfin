@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 
 import { CLOSE_MESSAGE as INJECT_CLOSE, CREDENTIALS_KEY as INJECT_CREDENTIALS } from '@/inject/parse'
 
-import { CLOSE_MESSAGE, CREDENTIALS_KEY, formatClock, readPlayerParams, readSessionCredentials } from './params'
+import { CLOSE_MESSAGE, CREDENTIALS_KEY, formatClock, readPlayerParams, readSessionCredentials, readTubeParams } from './params'
 
 it('parses player params and confines back to Emby', () => {
   expect(readPlayerParams('?item=5&t=90&audio=2&sub=4&back=%2Fweb%2Findex.html%23!%2Fitem%3Fid%3D5')).toEqual({
@@ -35,4 +35,11 @@ it('formats clock times', () => {
 it('shares the close-message protocol with inject.js', () => {
   expect(CLOSE_MESSAGE).toBe(INJECT_CLOSE)
   expect(CREDENTIALS_KEY).toBe(INJECT_CREDENTIALS)
+})
+
+it('reads a YouTube play link and keeps "back" inside this app', () => {
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&t=61&back=%2Fv%2Faqz-KE-bpKQ')).toEqual({ item: 'aqz-KE-bpKQ', t: 61, back: '/v/aqz-KE-bpKQ', embed: false })
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&back=//evil.example.com')?.back).toBe('/')
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&back=https://evil.example.com')?.back).toBe('/')
+  expect(readTubeParams('?yt=../../x')).toBeNull()
 })

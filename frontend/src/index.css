@@ -43,6 +43,10 @@
     --color-status-warning: var(--status-warning);
     --color-status-critical: var(--status-critical);
     --color-status-muted: var(--status-muted);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-watched: var(--watched);
+    --color-scrim: var(--scrim);
     --color-qr-light: var(--qr-light);
     --color-qr-dark: var(--qr-dark);
     --radius-sm: calc(var(--radius) * 0.6);
@@ -94,6 +98,12 @@
     --status-critical: #d03b3b;
     --status-muted: #898781;
 
+    /* The car app's accent (the player's blue), the "watched" bar on thumbnails, and the
+       dark wash behind text laid over pictures (durations on thumbnails). */
+    --brand: oklch(0.55 0.17 255);
+    --brand-foreground: oklch(0.98 0 0);
+    --watched: oklch(0.6 0.22 27);
+    --scrim: oklch(0 0 0 / 0.78);
     /* QR codes must stay dark-on-light in both themes (scanners dislike inverted codes) */
     --qr-light: #ffffff;
     --qr-dark: #000000;
@@ -131,6 +141,10 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --brand: oklch(0.72 0.15 250);
+    --brand-foreground: oklch(0.15 0.02 250);
+    --watched: oklch(0.63 0.22 27);
+    --scrim: oklch(0 0 0 / 0.78);
 }
 
 @layer base {

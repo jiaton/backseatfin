@@ -112,6 +112,12 @@ class StreamSpec:
     frame_rate: str | None = None
     # Hard cap so a forgotten tab can't transcode forever.
     max_duration_seconds: int = 4 * 3600
+    # A separate audio input (YouTube serves picture and sound as two streams); None =
+    # the sound is in input_url.
+    audio_url: str | None = None
+    # H.264_TS only: the input's video is already H.264 the car decodes, so pass it
+    # through (no scaling, no subtitles, no tone mapping) and only re-encode the sound.
+    copy_video: bool = False
     # Sent with the input request (e.g. the Emby token) instead of in the URL, so it
     # can't leak through ffmpeg error messages or process listings of the URL.
     input_headers: dict[str, str] = field(default_factory=dict)

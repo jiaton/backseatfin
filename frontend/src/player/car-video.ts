@@ -13,6 +13,9 @@ export interface CarVideoSource {
   /** Request headers for engines that fetch over HTTP (`hls`), e.g. the media server's
    * authorization. */
   headers?(): Record<string, string>
+  /** The WebSocket stream may have B-frames (passed through from YouTube): the decoder
+   * must reorder frames. Our own encodes never do. */
+  reorder?: boolean
   /** Seconds; NaN if unknown. */
   duration: number
   /** Where playback starts (e.g. Emby's resume position). */
@@ -39,10 +42,11 @@ export type EngineFactory = (
   url: string,
   cb: EngineCallbacks,
   headers?: Record<string, string>,
+  opts?: { reorder?: boolean },
 ) => Promise<StreamEngine>
 
-export const defaultEngineFactory: EngineFactory = (kind, canvas, url, cb, headers) => {
-  if (kind === 'webcodecs') return Promise.resolve(createWebCodecsEngine(canvas, url, cb))
+export const defaultEngineFactory: EngineFactory = (kind, canvas, url, cb, headers, opts) => {
+  if (kind === 'webcodecs') return Promise.resolve(createWebCodecsEngine(canvas, url, cb, opts))
   if (kind === 'hls') return Promise.resolve(createHlsEngine(canvas, url, cb, headers))
   return createJsmpegEngine(canvas, url, cb)
 }
@@ -411,7 +415,7 @@ export class CarVideoElement extends HTMLElement {
         this.#emit('audiolockchange')
       },
     }
-    CarVideoElement.engineFactory(kind, this.#canvas, source.url(at, kind), callbacks, source.headers?.()).then(
+    CarVideoElement.engineFactory(kind, this.#canvas, source.url(at, kind), callbacks, source.headers?.(), { reorder: source.reorder }).then(
       (engine) => {
         if (!live()) return engine.destroy()
         this.#engine = engine

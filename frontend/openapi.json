@@ -467,6 +467,15 @@
         "title": "PlayerSessionCreate",
         "type": "object"
       },
+      "SearchKind": {
+        "enum": [
+          "videos",
+          "channels",
+          "playlists"
+        ],
+        "title": "SearchKind",
+        "type": "string"
+      },
       "SessionOut": {
         "properties": {
           "authenticated": {
@@ -711,6 +720,446 @@
           "kind"
         ],
         "title": "TrackOut",
+        "type": "object"
+      },
+      "TubeChannelCardOut": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subscriber_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscriber Count"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TubeChannelCardOut",
+        "type": "object"
+      },
+      "TubeChannelOut": {
+        "properties": {
+          "banner_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banner Url"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/TubeChannelCardOut"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "following": {
+            "title": "Following",
+            "type": "boolean"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Videos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channel",
+          "banner_url",
+          "description",
+          "videos",
+          "following"
+        ],
+        "title": "TubeChannelOut",
+        "type": "object"
+      },
+      "TubeChapterOut": {
+        "properties": {
+          "start_seconds": {
+            "title": "Start Seconds",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start_seconds",
+          "title"
+        ],
+        "title": "TubeChapterOut",
+        "type": "object"
+      },
+      "TubeHomeOut": {
+        "properties": {
+          "continue_watching": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Continue Watching",
+            "type": "array"
+          },
+          "feed": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Feed",
+            "type": "array"
+          },
+          "following": {
+            "items": {
+              "$ref": "#/components/schemas/TubeChannelCardOut"
+            },
+            "title": "Following",
+            "type": "array"
+          },
+          "later": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Later",
+            "type": "array"
+          }
+        },
+        "required": [
+          "continue_watching",
+          "feed",
+          "later",
+          "following"
+        ],
+        "title": "TubeHomeOut",
+        "type": "object"
+      },
+      "TubeLinkOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "\"video\", \"channel\" or \"playlist\"",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "TubeLinkOut",
+        "type": "object"
+      },
+      "TubePlaylistCardOut": {
+        "properties": {
+          "channel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "video_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Count"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "TubePlaylistCardOut",
+        "type": "object"
+      },
+      "TubePlaylistOut": {
+        "properties": {
+          "playlist": {
+            "$ref": "#/components/schemas/TubePlaylistCardOut"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Videos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "playlist",
+          "videos"
+        ],
+        "title": "TubePlaylistOut",
+        "type": "object"
+      },
+      "TubeProgressIn": {
+        "properties": {
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "position_seconds": {
+            "minimum": 0.0,
+            "title": "Position Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "position_seconds"
+        ],
+        "title": "TubeProgressIn",
+        "type": "object"
+      },
+      "TubeSearchOut": {
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/TubeChannelCardOut"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "playlists": {
+            "items": {
+              "$ref": "#/components/schemas/TubePlaylistCardOut"
+            },
+            "title": "Playlists",
+            "type": "array"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/TubeVideoCardOut"
+            },
+            "title": "Videos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "videos",
+          "channels",
+          "playlists"
+        ],
+        "title": "TubeSearchOut",
+        "type": "object"
+      },
+      "TubeVideoCardOut": {
+        "properties": {
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Id"
+          },
+          "channel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Name"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_live": {
+            "default": false,
+            "title": "Is Live",
+            "type": "boolean"
+          },
+          "position_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Seconds"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Count"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "TubeVideoCardOut",
+        "type": "object"
+      },
+      "TubeVideoOut": {
+        "properties": {
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/TubeChapterOut"
+            },
+            "title": "Chapters",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "boolean"
+          },
+          "following": {
+            "title": "Following",
+            "type": "boolean"
+          },
+          "later": {
+            "title": "Later",
+            "type": "boolean"
+          },
+          "video": {
+            "$ref": "#/components/schemas/TubeVideoCardOut"
+          }
+        },
+        "required": [
+          "video",
+          "description",
+          "chapters",
+          "finished",
+          "later",
+          "following"
+        ],
+        "title": "TubeVideoOut",
         "type": "object"
       },
       "ValidationError": {
@@ -1459,6 +1908,539 @@
         "summary": "Stream Mp4",
         "tags": [
           "stream"
+        ]
+      }
+    },
+    "/api/tube/channels/{channel_id}": {
+      "get": {
+        "operationId": "channel_api_tube_channels__channel_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeChannelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Channel",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/channels/{channel_id}/follow": {
+      "delete": {
+        "operationId": "unfollow_api_tube_channels__channel_id__follow_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unfollow",
+        "tags": [
+          "tube"
+        ]
+      },
+      "put": {
+        "operationId": "follow_api_tube_channels__channel_id__follow_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeChannelCardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Follow",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/history": {
+      "get": {
+        "operationId": "history_api_tube_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TubeVideoCardOut"
+                  },
+                  "title": "Response History Api Tube History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/history/{video_id}": {
+      "delete": {
+        "operationId": "forget_api_tube_history__video_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/home": {
+      "get": {
+        "operationId": "home_api_tube_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeHomeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/image": {
+      "get": {
+        "description": "A YouTube thumbnail or avatar, fetched by the server so the car never contacts\nGoogle for it.",
+        "operationId": "image_api_tube_image_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "u",
+            "required": true,
+            "schema": {
+              "maxLength": 1000,
+              "title": "U",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Image",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/later/{video_id}": {
+      "delete": {
+        "operationId": "remove_later_api_tube_later__video_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Later",
+        "tags": [
+          "tube"
+        ]
+      },
+      "put": {
+        "operationId": "add_later_api_tube_later__video_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Later",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/link": {
+      "get": {
+        "description": "What a pasted YouTube link points at.",
+        "operationId": "link_api_tube_link_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "maxLength": 500,
+              "minLength": 1,
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/playlists/{playlist_id}": {
+      "get": {
+        "operationId": "playlist_api_tube_playlists__playlist_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlist_id",
+            "required": true,
+            "schema": {
+              "title": "Playlist Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubePlaylistOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Playlist",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/search": {
+      "get": {
+        "operationId": "search_api_tube_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SearchKind",
+              "default": "videos"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/videos/{video_id}": {
+      "get": {
+        "operationId": "video_api_tube_videos__video_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TubeVideoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Video",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/videos/{video_id}/progress": {
+      "post": {
+        "operationId": "progress_api_tube_videos__video_id__progress_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TubeProgressIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Progress",
+        "tags": [
+          "tube"
         ]
       }
     },

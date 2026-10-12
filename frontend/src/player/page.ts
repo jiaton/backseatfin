@@ -89,14 +89,14 @@ function icon(name: keyof typeof ICONS): SVGSVGElement {
 }
 
 /** A page with just a message and the way back (nothing to play, not signed in…).
- * `root`: the server's base path, if any. */
-export function showMessage(key: StringKey, server: string, vars: Record<string, string> = {}, root = '') {
+ * `home`: where "back" goes (the media server's web app, or our own home). */
+export function showMessage(key: StringKey, server: string, vars: Record<string, string> = {}, home = '/web/') {
   document.body.replaceChildren(
     h(
       'main',
       { class: 'cm-message' },
       h('p', {}, t(key, { server, ...vars })),
-      h('a', { href: `${root}/web/` }, t('backTo', { server })),
+      h('a', { href: home }, t('backTo', { server })),
     ),
   )
 }
@@ -111,6 +111,17 @@ export interface MountOptions {
 }
 
 const TRANSCODER_NAME = { auto: 'transcoderAuto', server: 'transcoderServer', backseatfin: 'transcoderOurs' } as const
+
+/** Whether the previous history entry is `back` (then "back" can return to it instead of
+ * loading it again, and the player doesn't stay in the history to come back to). */
+function cameFrom(back: string): boolean {
+  try {
+    const ref = new URL(document.referrer)
+    return ref.origin === window.location.origin && ref.pathname + ref.search === back
+  } catch {
+    return false
+  }
+}
 
 export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: MountOptions = {}) {
   const { item, server } = source
@@ -193,6 +204,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   video.source = {
     url: (start, engine) => source.streamUrl(start, engine, choice()),
     headers: source.headers,
+    reorder: source.reorder,
     duration: item.duration,
     start: params.t,
   }
@@ -212,7 +224,8 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     // As a layer over the server's page: inject.js removes us (the page stays as it
     // was). Standalone: navigate back into it.
     if (params.embed && window.parent !== window) window.parent.postMessage({ type: CLOSE_MESSAGE }, window.location.origin)
-    else window.location.assign(params.back)
+    else if (cameFrom(params.back)) window.history.back() // the page we came from, as it was
+    else window.location.replace(params.back)
   }
   back.addEventListener('click', goBack)
   errorBack.addEventListener('click', goBack)

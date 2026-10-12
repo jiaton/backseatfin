@@ -36,6 +36,14 @@ export const MEDIA_SERVER_LEVELS: Record<'Emby' | 'Jellyfin', Record<Quality, Le
   Jellyfin: { low: level(854, 480, 800), medium: level(1280, 720, 1500), high: level(1920, 1080, 3000), max: level(1920, 1080, 6000) },
 }
 
+/** YouTube's own H.264, passed through untouched: the level picks the largest of
+ * YouTube's sizes that fits (at most 1080p, its largest H.264), and the bitrate is
+ * YouTube's. These rates are typical ones, shown so the viewer can judge data use;
+ * "Max" equals "High" because YouTube has no bigger H.264. */
+export const YOUTUBE_LEVELS: Record<Quality, Level> = {
+  low: level(854, 480, 700), medium: level(1280, 720, 1500), high: level(1920, 1080, 3000), max: level(1920, 1080, 3000),
+}
+
 /** The picture a level sends into a display box (0 = unknown) at an aspect ratio. */
 export function fitLevel(l: Level, box: { w: number; h: number }, aspect: number): { w: number; h: number } {
   const maxW = Math.min(l.width, box.w || l.width)

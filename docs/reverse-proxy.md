@@ -1,12 +1,12 @@
 # Reverse proxy
 
-The car host is a plain-HTTP port. Put it behind HTTPS on its own hostname, and the
-admin site too if you run the optional BackseatFin server:
+BackseatFin publishes plain-HTTP ports. Put each one you use behind HTTPS on its own
+hostname:
 
 | Hostname (example) | Port | What it is |
 |---|---|---|
+| `tube.example.com` | `APP_PORT` (8098) | The BackseatFin app: YouTube in the car, settings. |
 | `car.example.com` | `CAR_PORT` (8097) | Emby with the car player added. Open this in the car. |
-| `admin.example.com` | `ADMIN_PORT` (8098) | Optional server: playlists, devices, the car test page. |
 
 They carry long-lived video streams (the server's over WebSockets), so don't put them
 behind a proxy or tunnel that buffers responses or cuts connections after a few minutes.
@@ -21,7 +21,7 @@ car.example.com {
     reverse_proxy 192.168.1.10:8097
 }
 
-admin.example.com {
+tube.example.com {
     reverse_proxy 192.168.1.10:8098
 }
 ```
@@ -56,13 +56,13 @@ server {
 }
 ```
 
-Repeat the server block for `admin.example.com` → port 8098 if you run the server.
+Repeat the server block for `tube.example.com` → port 8098.
 
-Pass `X-Forwarded-Proto`: the optional server marks its cookies `Secure` when it sees `https`.
+Pass `X-Forwarded-Proto`: the server marks its cookies `Secure` when it sees `https`.
 
 ## fail2ban
 
-With the optional server: it answers 401 or 403 only when a wrong credential is presented (a bad admin
+The server answers 401 or 403 only when a wrong credential is presented (a bad admin
 key, a revoked device, a rejected Emby token). "Not signed in yet" is never a 401. So
 you can ban IPs that collect several 401/403s in a few minutes from your proxy's access
 log, without the car banning itself. On the car host, the same log also shows Emby's own

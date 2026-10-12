@@ -1,5 +1,5 @@
 import type { EngineCallbacks, StreamEngine } from './types'
-import { createPipeline } from './webcodecs-pipeline'
+import { createPipeline, type PipelineOptions } from './webcodecs-pipeline'
 
 /** Flow control: the server sends as fast as it can (with flow=1 on the URL) until we
  * hold it at this much buffered… */
@@ -25,13 +25,14 @@ const MIN_RESUME_S = 2
 const CHECK_MS = 500
 
 /**
- * Our server's stream WebSocket (format=h264ts: no B-frames) → the WebCodecs pipeline.
+ * Our server's stream WebSocket (format=h264ts; B-frames only when YouTube's H.264 is
+ * passed through, `opts.reorder`) → the WebCodecs pipeline.
  * `url` carries the start (`t`, seconds) the server seeks to. One long connection, kept
  * healthy here: flow control keeps BUFFER_LOW_S–BUFFER_HIGH_S buffered; a connection
  * that stops delivering is replaced by one that starts where the buffer ends and is
  * spliced on (no gap); after the server finishes the film, nothing is retried.
  */
-export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb: EngineCallbacks): StreamEngine {
+export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb: EngineCallbacks, opts: PipelineOptions = {}): StreamEngine {
   let firstFrameShown = false
   const pipeline = createPipeline(canvas, {
     ...cb,
@@ -39,7 +40,7 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
       firstFrameShown = true
       cb.onFirstFrame()
     },
-  })
+  }, opts)
   const startSeconds = Number(new URL(url).searchParams.get('t') ?? 0)
 
   let socket: WebSocket | null = null

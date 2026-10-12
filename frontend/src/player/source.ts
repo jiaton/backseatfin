@@ -49,6 +49,8 @@ export interface PlaybackSource {
   levels(engine: EngineKind): Record<Quality, Level>
   streamUrl(startSeconds: number, engine: EngineKind, choice: StreamChoice): string
   headers?(): Record<string, string>
+  /** The stream may have B-frames (see CarVideoSource.reorder). */
+  readonly reorder?: boolean
   /** Best effort: resume points and "watched" stay in sync with the server's other
    * clients. `leaving`: the page is going away (the request must survive that). */
   report(event: PlaybackEvent, positionSeconds: number, choice: StreamChoice, opts?: { paused?: boolean; leaving?: boolean }): void

@@ -15,6 +15,11 @@ from app.emby.service import EmbyPlaybackService
 from app.emby.subtitles import SubtitleCache
 from app.stream.adapter import FfmpegTranscoder
 from app.stream.service import StreamService
+from app.tube.adapter import YtDlpTube
+from app.tube.library import TubeLibrary
+from app.tube.service import TubeService
+from app.tube.web_adapter import HttpTubeWeb
+from app.tube.worker import FeedRefreshLoop
 from app.youtube.adapter import YtDlpVideoSource
 from app.youtube.service import PlaylistService, VideoService
 from app.youtube.worker import DownloadWorker, PlaylistSyncLoop
@@ -54,6 +59,11 @@ playlist_sync_loop = PlaylistSyncLoop(playlist_service, _session, settings.playl
 
 subtitle_cache = SubtitleCache(emby_api, Path(settings.database_path).parent / "subtitles")
 emby_playback = EmbyPlaybackService(emby_api, settings.emby_api_key, subtitle_cache)
+tube_service = TubeService(YtDlpTube(), HttpTubeWeb(), Path(settings.database_path).parent / "images")
+tube_library = TubeLibrary(tube_service)
+feed_refresh_loop = FeedRefreshLoop(tube_library, tube_service, _session, settings.feed_refresh_interval_seconds)
+
 stream_service = StreamService(
-    _transcoder(), max_concurrent=settings.max_concurrent_streams, resolvers={"emby": emby_playback}
+    _transcoder(), max_concurrent=settings.max_concurrent_streams,
+    resolvers={"emby": emby_playback, "youtube": tube_service},
 )

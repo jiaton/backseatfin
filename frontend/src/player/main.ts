@@ -1,5 +1,7 @@
-// The car player on the Emby car host (/car/play). Emby transcodes; the optional
-// BackseatFin server, when it runs next to the car host, can do it instead.
-import { startPlayer } from './start'
+// The car player (play.html): a YouTube video from our own app (?yt=…), or Emby on the
+// car host (/car/play?item=…), where Emby transcodes and the optional BackseatFin server
+// can do it instead.
+import { startPlayer, startTube } from './start'
 
-void startPlayer('Emby', { backend: true })
+if (new URLSearchParams(window.location.search).has('yt')) void startTube()
+else void startPlayer('Emby', { backend: true })

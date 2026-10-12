@@ -2,7 +2,7 @@
 
 # BackseatFin
 
-**Watch your own Jellyfin or Emby library in the car's browser, even while the car is moving.**
+**Watch your Jellyfin or Emby library, and YouTube, in the car's browser, even while the car is moving.**
 
 [![CI](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml/badge.svg)](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jiaton/backseatfin?include_prereleases)](https://github.com/jiaton/backseatfin/releases)
@@ -20,8 +20,8 @@ English · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Espa
 <sub>Screenshot: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
 
 Car browsers such as Tesla's stop `<video>` while driving, but they keep drawing
-`<canvas>`. BackseatFin adds a canvas player to your media server's own web app: open
-Jellyfin or Emby in the car, press Play, and it plays.
+`<canvas>`. BackseatFin adds a canvas player to your media server's own web app, and
+brings a YouTube app of its own: open it in the car, press Play, and it plays.
 
 - **No extra server.** Jellyfin: a plugin. Emby: one small nginx container. Your media
   server does the transcoding, and the player uses your own sign-in.
@@ -31,8 +31,10 @@ Jellyfin or Emby in the car, press Play, and it plays.
   back to JSMpeg. The stream is sized to the screen, and it rides out dead zones.
 - **HDR and Dolby Vision** are tone-mapped (Jellyfin: by Jellyfin; Emby: by the optional
   BackseatFin server, on an Intel GPU or the CPU).
-- **YouTube without the platform** (optional, Emby): follow playlists, download to your
-  own disk, watch in Emby. No account, no fees, and the data stays with you.
+- **YouTube, self-hosted.** Search, follow channels and pick up where you stopped, on a
+  screen made for the car. Videos stream through your own server as YouTube encoded
+  them (no re-encoding). No Google account, and your history stays with you. Downloading
+  into Emby is there too.
 
 > [!WARNING]
 > For passengers. The driver must keep their eyes on the road. Watching video while
@@ -45,16 +47,16 @@ Jellyfin or Emby in the car, press Play, and it plays.
 Repositories, install **BackseatFin**, restart, and choose which browsers get the car
 player. Guide: [docs/jellyfin.md](docs/jellyfin.md).
 
-**Emby**: run the car host next to it.
+**YouTube and Emby**: run BackseatFin with Docker.
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set EMBY_URL
+cp .env.example .env   # set API_KEY (YouTube) and/or EMBY_URL (Emby)
 docker compose up -d
 ```
 
-Then put it behind HTTPS on its own hostname ([examples](docs/reverse-proxy.md)) and open
-that in the car. Guide: [docs/install.md](docs/install.md).
+Then put it behind HTTPS ([examples](docs/reverse-proxy.md)) and open it in the car.
+Guide: [docs/install.md](docs/install.md).
 
 ## How it works
 
@@ -64,7 +66,10 @@ Jellyfin:  car browser ──► Jellyfin web app + plugin script
 
 Emby:      car browser ──► car host (nginx) ──► Emby web app + inject.js
                               └─► /car/play ◄── Emby's HLS transcode (H.264)
-                                            ◄── optional BackseatFin server (HDR, YouTube)
+                                            ◄── optional BackseatFin server (HDR)
+
+YouTube:   car browser ──► BackseatFin app (search, channels, history)
+                              └─► /play ◄── BackseatFin server ◄── YouTube's H.264, passed through
 ```
 
 Pressing Play opens the player over the server's page. It decodes the H.264 stream with
@@ -77,7 +82,8 @@ are in [AGENTS.md](AGENTS.md) and [docs/player.md](docs/player.md).
 - [x] Jellyfin plugin, playing Jellyfin's own HLS (no extra server)
 - [x] HDR / Dolby Vision tone mapping (Intel GPU, CPU)
 - [x] YouTube playlists → Emby library
-- [ ] YouTube UI: follow channels, download or stream directly
+- [x] YouTube in the car: search, follow channels, play live, resume
+- [ ] Send a video from the phone to the car; playlists play through; captions; live streams
 - [ ] NVIDIA and AMD GPUs
 
 ## License

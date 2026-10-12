@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
 import app.diagnostics.models  # noqa: E402,F401
+import app.tube.models  # noqa: E402,F401
 import app.youtube.models  # noqa: E402,F401
 
 

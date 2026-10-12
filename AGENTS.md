@@ -12,14 +12,22 @@ where the car blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Ch
    our player. The player plays **Emby's own HLS transcode** exactly like Jellyfin's
    (`sources/mediaserver.ts`, engine `hls`): the two servers share this API. Emby has
    no plugin hook for web scripts, hence the nginx (`sub_filter`) instead of a plugin.
-3. **The BackseatFin server** (optional, `backend/`, compose profile `server`), for Emby:
+3. **The BackseatFin server** (`backend/`, compose profile `server`; Emby users can do
+   without it):
+   - **YouTube in the car** (`app/tube/`, the app's home screen): search, channels,
+     playlists, followed channels' new uploads, history with resume, watch later — all
+     local, no Google account. Play = the `youtube:<id>` stream: yt-dlp extracts
+     YouTube's H.264 + AAC (bound to the server's IP, so the server relays it) and
+     ffmpeg passes the H.264 through untouched (`StreamSpec.copy_video`, two inputs via
+     `audio_url`), re-encoding only the sound to AAC 48 kHz. The player reorders the
+     B-frames (`PlaybackSource.reorder`). See "YouTube in the car" below.
    - **HDR / Dolby Vision tone mapping** that works (Emby's often doesn't): the player's
      "Auto" transcoder sends HDR films here (`player/transcoder.ts`).
      ffmpeg re-encodes to H.264 + AAC in MPEG-TS, pushed over a WebSocket (engine
      **WebCodecs**), or MPEG-1/MP2 for **JSMpeg** where WebCodecs can't do H.264 + AAC.
    - **YouTube → Emby**: poll YouTube playlists and download new videos into an Emby
      "TV shows" library, one channel per show.
-   - **The admin site**: playlists, download queue, devices, the car test page.
+   - **Settings** (`/settings` in the app): download playlists, devices, the car test page.
 
 Self-hosted and single-household. Talks to YouTube (yt-dlp), Emby (HTTP API, as the
 viewer or with the server key) and the folder that Emby also indexes.
@@ -96,18 +104,22 @@ GitHub Pages.
 
 ## Layering: domain folders + explicit ports (backend)
 
-Domains: `auth/` (device cookies, pairing, Emby player sessions), `youtube/` (sources,
-queue, download worker), `emby/` (playback info, progress reports, and the `emby`
+Domains: `auth/` (device cookies, pairing, Emby player sessions), `youtube/` (download
+sources, queue, download worker), `tube/` (YouTube browsing, the local library, the
+`youtube` stream resolver), `emby/` (playback info, progress reports, and the `emby`
 stream resolver), `stream/` (resolver dispatch + ffmpeg), `diagnostics/`
 (car test reports). Per domain: `routes.py` → `service.py` → `ports.py` (Protocol) ←
 `adapter.py` (the only file importing yt_dlp, calling Emby over HTTP, or running
-ffmpeg). `youtube/worker.py` holds the background loops; `youtube/layout.py` is pure. `diagnostics/` and `auth/` have no external
+ffmpeg; `tube/` has two: `adapter.py` = yt-dlp, `web_adapter.py` = httpx for RSS feeds,
+images and stream-URL checks). `youtube/worker.py` and `tube/worker.py` hold the
+background loops; `youtube/layout.py`, `tube/urls.py`, `tube/formats.py` and
+`tube/cache.py` are pure. `diagnostics/` and `auth/` have no external
 adapter of their own (DB session + in-memory stores); `auth/ports.py` declares the
 Emby token check that `emby.adapter.EmbyHttpApi` implements. `auth/deps.py` holds every
 auth dependency (`require_auth`, `require_player`, `require_ws_player`, `viewer_for`).
 
 Streams: a request is `StreamRequest(source="<kind>:<id>" | "test", t, audio, sub)`.
-`StreamService` looks up the resolver for `<kind>` (`resolvers={"emby": …}` in the
+`StreamService` looks up the resolver for `<kind>` (`resolvers={"emby": …, "youtube": …}` in the
 container), gets a `ResolvedInput` (a `StreamSpec` plus temp files to delete), caps
 concurrency, and cleans up after. A new source (e.g. `youtube:`) = one resolver,
 nothing else.
@@ -156,6 +168,37 @@ by design.
   start waits ≤2 s for it; otherwise it plays without, the player polls
   `POST /api/emby/items/{id}/subtitles/{i}/prepare`, shows "Loading subtitles…", and
   reconnects once it's ready.
+
+## YouTube in the car
+
+- **API** (`/api/tube/*`, device cookie or API key): `home` (continue watching, followed
+  channels' feed, watch later, following), `search?q&kind=videos|channels|playlists`,
+  `link?url` (a pasted link → kind + id), `videos/{id}` (+ `progress`), `channels/{id}`
+  (+ `follow`), `playlists/{id}`, `later/{id}`, `history`, `image?u=` (thumbnails via
+  the server; only YouTube's image hosts, `tube/urls.py: IMAGE_HOSTS`; cached on disk,
+  newest 4000 kept).
+- **Caching** (`tube/service.py`): search 10 min, channels/playlists 30 min, a video's
+  details (and stream URLs) until 30 min before YouTube's `expire`. One load per key in
+  flight. Opening a video page extracts it (~5 s), so Play starts in ~1.5 s; `home`
+  prefetches the first "continue watching" video. A stream URL that stops answering
+  (checked with a 1-byte range request before each stream) is extracted again.
+- **Format choice** (`tube/formats.py`): the largest H.264 DASH (`https`, not HLS) that
+  fits the quality level and the window (portrait: short side vs height), AAC `140`
+  (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams are
+  refused for now.
+- **Feed** (`tube/library.py`): followed channels are re-read every
+  `FEED_REFRESH_INTERVAL_SECONDS` (and on follow). RSS gives dates but fails for
+  minutes at a time (404/500): 3 tries, then the channel's video list (durations, no
+  dates) so new videos still appear, ordered by when first seen; dates follow on a later
+  refresh. 15 per channel, 60 days kept.
+- **Resume**: the player reports progress every 10 s and on leaving (beacon); within
+  30 s of the end counts as finished. Measured: ~1.5 s to first frame after Play on a
+  prepared video, seeks 1–2 s, A/V within 30 ms, 15–20 s buffered; ffmpeg reads
+  YouTube at ~2× real time (one long request).
+- Frontend: `features/tube/` (`api/` hooks + `keys.ts`, `components/`, `lib/` with its
+  own five-language string table `strings.ts` and `format.ts`), screens
+  `tube-*-screen.tsx`. A card clicked in a list seeds its video page (`tubeKeys.card`)
+  so the page draws at once while the details load.
 
 ## Emby and Jellyfin without a server
 
@@ -428,8 +471,15 @@ Nothing outside it may import from it, and it imports only `./parse`, so `inject
 bundles as one standalone file. Otherwise Rollup splits a shared chunk; `npm run build`
 fails via `scripts/check-inject.mjs`. Shared constants are copied, with a test
 asserting the copies match (`CLOSE_MESSAGE`). Hook files are `use-kebab-case.ts`.
-Routing: pathname switch in `App.tsx` (`/`, `/test`, `/pair`); the player is its own
-entry.
+Routing: `lib/router.ts` (pushState + `useLocation`, no router dependency) and a path
+switch in `App.tsx`: `/` home, `/search`, `/v/<id>`, `/c/<id>`, `/p/<id>`, `/settings`,
+`/test`, `/pair`. In-app links are `components/ui/link.tsx` (a real `<a>`). The player is
+its own page (`play.html`, `/play?yt=<id>&t=&back=`), so its back returns by history
+when it came from `back` (page restored from the back/forward cache, which `main.tsx`
+refetches) and by `location.replace` otherwise. `index.html` has `<base href="/">`:
+assets are built with relative URLs (the player also serves under `/car/`), and deep
+routes would otherwise resolve them under `/v/`. The app is always dark (car).
+Client state: React state + the URL only (no store library).
 
 Styling: colors only from tokens in `src/index.css` (the player's in
 `player/page.css`). `npm run lint` enforces it (stylelint `color-no-hex` +
@@ -452,6 +502,15 @@ English first, then Chinese. A test checks the Chinese table has every key.
   `player/quality`), the TS demuxer, and the `<car-video>` state machine with a fake
   engine (`player/car-video.test.ts`: seek coalescing, stall resume, end, fallback,
   start timeout, outage retry, stale callbacks).
+- Tube: strings complete in all languages, formatting, hooks through MSW (home,
+  follow → refetch, search gating, YouTube's error reason), `VideoCard`, the router,
+  `readTubeParams` (no open redirect). Backend: link parsing, the image-host allowlist
+  (no SSRF), format choice, the TTL cache, the resolver (pass-through spec, dead URL →
+  re-extract, live/bad id refused), the library (follow → feed, RSS failure → channel
+  list fallback, resume threshold), ffmpeg pass-through args.
+- End to end against real YouTube (Playwright, `--use-angle=gl-egl` on the iGPU; not in
+  CI): sign in → search → video → channel → follow → play (frames, sound clock) → seek →
+  back → resume offered → home rows → pasted link.
 - Media server source (`sources/mediaserver.test.ts`): credentials, device id, the HLS
   query, one transcode per choice and stopping the old one, progress reports.
 - Plugin (`jellyfin-plugin/…Tests`, xunit): which hosts get which script tag, the web

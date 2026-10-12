@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Assets are built with relative URLs (the player pages also serve under /car/);
+         this app has deep routes (/v/…, /c/…), so resolve them from the root. -->
+    <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BackseatFin</title>
   </head>

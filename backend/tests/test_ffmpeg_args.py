@@ -187,3 +187,22 @@ def test_flow_controlled_stream_is_not_paced():
     args = build_ffmpeg_args(_spec(output=OutputFormat.H264_TS, paced=False))
     assert "-re" not in args
     assert "-readrate_initial_burst" not in args
+
+
+def test_youtube_passthrough_copies_h264_and_reencodes_only_the_separate_audio():
+    args = build_ffmpeg_args(StreamSpec(
+        input_url="https://v.example.com/video", audio_url="https://v.example.com/audio",
+        output=OutputFormat.H264_TS, copy_video=True, start_seconds=90, paced=False,
+    ))
+    # Both inputs seek to the same point, neither is paced (flow control).
+    assert args.count("-ss") == 2 and "-re" not in args
+    assert args.index("https://v.example.com/audio") > args.index("https://v.example.com/video")
+    assert "-filter_complex" not in args and "libx264" not in args
+    assert args[args.index("-c:v") + 1] == "copy"
+    assert _maps(args) == ["0:v:0", "1:a:0"]
+    assert args[args.index("-ar") + 1] == "48000" and args[-1] == "pipe:1"
+
+
+def test_separate_audio_input_is_mapped_when_transcoding():
+    args = build_ffmpeg_args(StreamSpec(input_url="https://v.example.com/vp9", audio_url="https://v.example.com/opus", output=OutputFormat.JSMPEG_TS))
+    assert "-filter_complex" in args and _maps(args) == ["[v]", "1:a:0"]

@@ -258,6 +258,219 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tube/channels/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Channel */
+        get: operations["channel_api_tube_channels__channel_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/channels/{channel_id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Follow */
+        put: operations["follow_api_tube_channels__channel_id__follow_put"];
+        post?: never;
+        /** Unfollow */
+        delete: operations["unfollow_api_tube_channels__channel_id__follow_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_tube_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/history/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget */
+        delete: operations["forget_api_tube_history__video_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Home */
+        get: operations["home_api_tube_home_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Image
+         * @description A YouTube thumbnail or avatar, fetched by the server so the car never contacts
+         *     Google for it.
+         */
+        get: operations["image_api_tube_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/later/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add Later */
+        put: operations["add_later_api_tube_later__video_id__put"];
+        post?: never;
+        /** Remove Later */
+        delete: operations["remove_later_api_tube_later__video_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Link
+         * @description What a pasted YouTube link points at.
+         */
+        get: operations["link_api_tube_link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/playlists/{playlist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Playlist */
+        get: operations["playlist_api_tube_playlists__playlist_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_api_tube_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/videos/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Video */
+        get: operations["video_api_tube_videos__video_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tube/videos/{video_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Progress */
+        post: operations["progress_api_tube_videos__video_id__progress_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/youtube/sources": {
         parameters: {
             query?: never;
@@ -553,6 +766,11 @@ export interface components {
             /** Emby User Id */
             emby_user_id: string;
         };
+        /**
+         * SearchKind
+         * @enum {string}
+         */
+        SearchKind: "videos" | "channels" | "playlists";
         /** SessionOut */
         SessionOut: {
             /** Authenticated */
@@ -631,6 +849,134 @@ export interface components {
             language: string | null;
             /** Title */
             title: string;
+        };
+        /** TubeChannelCardOut */
+        TubeChannelCardOut: {
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Handle */
+            handle?: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Subscriber Count */
+            subscriber_count?: number | null;
+        };
+        /** TubeChannelOut */
+        TubeChannelOut: {
+            /** Banner Url */
+            banner_url: string | null;
+            channel: components["schemas"]["TubeChannelCardOut"];
+            /** Description */
+            description: string;
+            /** Following */
+            following: boolean;
+            /** Videos */
+            videos: components["schemas"]["TubeVideoCardOut"][];
+        };
+        /** TubeChapterOut */
+        TubeChapterOut: {
+            /** Start Seconds */
+            start_seconds: number;
+            /** Title */
+            title: string;
+        };
+        /** TubeHomeOut */
+        TubeHomeOut: {
+            /** Continue Watching */
+            continue_watching: components["schemas"]["TubeVideoCardOut"][];
+            /** Feed */
+            feed: components["schemas"]["TubeVideoCardOut"][];
+            /** Following */
+            following: components["schemas"]["TubeChannelCardOut"][];
+            /** Later */
+            later: components["schemas"]["TubeVideoCardOut"][];
+        };
+        /** TubeLinkOut */
+        TubeLinkOut: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description "video", "channel" or "playlist"
+             */
+            kind: string;
+        };
+        /** TubePlaylistCardOut */
+        TubePlaylistCardOut: {
+            /** Channel Name */
+            channel_name?: string | null;
+            /** Id */
+            id: string;
+            /** Thumbnail Url */
+            thumbnail_url?: string | null;
+            /** Title */
+            title: string;
+            /** Video Count */
+            video_count?: number | null;
+        };
+        /** TubePlaylistOut */
+        TubePlaylistOut: {
+            playlist: components["schemas"]["TubePlaylistCardOut"];
+            /** Videos */
+            videos: components["schemas"]["TubeVideoCardOut"][];
+        };
+        /** TubeProgressIn */
+        TubeProgressIn: {
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Position Seconds */
+            position_seconds: number;
+        };
+        /** TubeSearchOut */
+        TubeSearchOut: {
+            /** Channels */
+            channels: components["schemas"]["TubeChannelCardOut"][];
+            /** Playlists */
+            playlists: components["schemas"]["TubePlaylistCardOut"][];
+            /** Videos */
+            videos: components["schemas"]["TubeVideoCardOut"][];
+        };
+        /** TubeVideoCardOut */
+        TubeVideoCardOut: {
+            /** Channel Id */
+            channel_id?: string | null;
+            /** Channel Name */
+            channel_name?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Is Live
+             * @default false
+             */
+            is_live: boolean;
+            /** Position Seconds */
+            position_seconds?: number | null;
+            /** Published At */
+            published_at?: string | null;
+            /** Thumbnail Url */
+            thumbnail_url?: string | null;
+            /** Title */
+            title: string;
+            /** View Count */
+            view_count?: number | null;
+        };
+        /** TubeVideoOut */
+        TubeVideoOut: {
+            /** Chapters */
+            chapters: components["schemas"]["TubeChapterOut"][];
+            /** Description */
+            description: string;
+            /** Finished */
+            finished: boolean;
+            /** Following */
+            following: boolean;
+            /** Later */
+            later: boolean;
+            video: components["schemas"]["TubeVideoCardOut"];
         };
         /** ValidationError */
         ValidationError: {
@@ -1112,6 +1458,413 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_api_tube_channels__channel_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeChannelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_api_tube_channels__channel_id__follow_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeChannelCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfollow_api_tube_channels__channel_id__follow_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_tube_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeVideoCardOut"][];
+                };
+            };
+        };
+    };
+    forget_api_tube_history__video_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    home_api_tube_home_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeHomeOut"];
+                };
+            };
+        };
+    };
+    image_api_tube_image_get: {
+        parameters: {
+            query: {
+                u: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_later_api_tube_later__video_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_later_api_tube_later__video_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_api_tube_link_get: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    playlist_api_tube_playlists__playlist_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubePlaylistOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_tube_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                kind?: components["schemas"]["SearchKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    video_api_tube_videos__video_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeVideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    progress_api_tube_videos__video_id__progress_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TubeProgressIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

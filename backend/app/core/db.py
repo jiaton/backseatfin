@@ -27,6 +27,7 @@ def init_db() -> None:
     # Import table modules so their metadata is registered before create_all.
     import app.auth.models  # noqa: F401
     import app.diagnostics.models  # noqa: F401
+    import app.tube.models  # noqa: F401
     import app.youtube.models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)

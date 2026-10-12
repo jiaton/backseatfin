@@ -41,6 +41,17 @@ export function readPlayerParams(search: string, root = ''): PlayerParams | null
   }
 }
 
+/** Reads play?yt=<video id>&t=…&back=… (a YouTube video from our own app). `back` must
+ * be a path in this app (not "//other.host"). */
+export function readTubeParams(search: string): PlayerParams | null {
+  const q = new URLSearchParams(search)
+  const id = q.get('yt')
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null
+  const back = q.get('back') ?? ''
+  const appPath = back.startsWith('/') && !back.startsWith('//') && !back.startsWith('/\\')
+  return { item: id, t: optInt(q.get('t')) ?? 0, back: appPath ? back : '/', embed: false }
+}
+
 /** Left by the inject script in this tab's sessionStorage. Kept (not consumed) so a
  * reload of the player page can re-establish its session. */
 export function readSessionCredentials(storage: Pick<Storage, 'getItem'> = sessionStorage): SessionCredentials | null {

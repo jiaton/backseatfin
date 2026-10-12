@@ -2,7 +2,7 @@
 
 # BackseatFin
 
-**Schau deine eigene Jellyfin- oder Emby-Bibliothek im Browser des Autos an, auch während der Fahrt.**
+**Schau deine Jellyfin- oder Emby-Bibliothek und YouTube im Browser des Autos an, auch während der Fahrt.**
 
 [![CI](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml/badge.svg)](https://github.com/jiaton/backseatfin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jiaton/backseatfin?include_prereleases)](https://github.com/jiaton/backseatfin/releases)
@@ -36,9 +36,10 @@ Canvas-Player hinzu: Jellyfin oder Emby im Auto öffnen, auf Play drücken, und 
   Funklöcher.
 - **HDR und Dolby Vision** werden tonkartiert (Jellyfin: durch Jellyfin selbst; Emby: durch
   den optionalen BackseatFin-Server, auf einer Intel-GPU oder der CPU).
-- **YouTube ohne die Plattform** (optional, nur Emby): Playlists abonnieren, auf die
-  eigene Festplatte herunterladen, in Emby ansehen. Kein Konto, keine Gebühren, und
-  die Daten bleiben bei dir.
+- **YouTube, selbst gehostet.** Suchen, Kanälen folgen und dort weiterschauen, wo du
+  aufgehört hast, auf einer Oberfläche fürs Auto. Videos laufen über deinen eigenen
+  Server, so wie YouTube sie kodiert hat (ohne Neukodierung). Kein Google-Konto, und
+  dein Verlauf bleibt bei dir. Herunterladen nach Emby geht auch.
 
 > [!WARNING]
 > Für Mitfahrer. Der Fahrer muss die Augen auf die Straße gerichtet halten. Videos
@@ -52,17 +53,16 @@ Plugins → Repositories hinzufügen, **BackseatFin** installieren, neu starten 
 auswählen, welche Browser den Car Player bekommen. Anleitung:
 [docs/jellyfin.md](docs/jellyfin.md).
 
-**Emby**: den Car Host daneben betreiben.
+**YouTube und Emby**: BackseatFin mit Docker betreiben.
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set EMBY_URL
+cp .env.example .env   # API_KEY (YouTube) und/oder EMBY_URL (Emby) setzen
 docker compose up -d
 ```
 
-Anschließend hinter HTTPS unter einem eigenen Hostnamen bereitstellen
-([Beispiele](docs/reverse-proxy.md)) und diese Adresse im Auto öffnen. Anleitung:
-[docs/install.md](docs/install.md).
+Anschließend hinter HTTPS stellen ([Beispiele](docs/reverse-proxy.md)) und im Auto
+öffnen. Anleitung: [docs/install.md](docs/install.md).
 
 ## Funktionsweise
 
@@ -72,7 +72,10 @@ Jellyfin:  car browser ──► Jellyfin web app + plugin script
 
 Emby:      car browser ──► car host (nginx) ──► Emby web app + inject.js
                               └─► /car/play ◄── Emby's HLS transcode (H.264)
-                                            ◄── optional BackseatFin server (HDR, YouTube)
+                                            ◄── optional BackseatFin server (HDR)
+
+YouTube:   car browser ──► BackseatFin app (search, channels, history)
+                              └─► /play ◄── BackseatFin server ◄── YouTube's H.264, passed through
 ```
 
 Ein Druck auf Play öffnet den Player über der Seite des Servers. Er decodiert den
@@ -86,7 +89,8 @@ Canvas. Details für Mitwirkende stehen in [AGENTS.md](AGENTS.md) und
 - [x] Jellyfin-Plugin, das Jellyfins eigenes HLS abspielt (ohne zusätzlichen Server)
 - [x] HDR-/Dolby-Vision-Tonkartierung (Intel-GPU, CPU)
 - [x] YouTube-Playlists → Emby-Bibliothek
-- [ ] YouTube-UI: Kanäle abonnieren, direkt herunterladen oder streamen
+- [x] YouTube im Auto: suchen, Kanälen folgen, live abspielen, weiterschauen
+- [ ] Videos vom Handy ans Auto schicken; Playlists am Stück; Untertitel; Livestreams
 - [ ] NVIDIA- und AMD-GPUs
 
 ## Lizenz

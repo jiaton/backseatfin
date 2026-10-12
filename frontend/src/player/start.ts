@@ -2,10 +2,11 @@
 import { HttpError } from './api'
 import { pickEngine } from './engines/detect'
 import { mountPlayer, showMessage } from './page'
-import { readPlayerParams } from './params'
+import { readPlayerParams, readTubeParams } from './params'
 import type { PlaybackSource } from './source'
 import { createBackseatfinSource } from './sources/backseatfin'
 import { createServerSource, type MediaServer, ServerError, serverRoot } from './sources/mediaserver'
+import { createYoutubeSource } from './sources/youtube'
 import { loadTranscoder, saveTranscoder, prefersBackseatfin } from './transcoder'
 
 const BACKEND_PROBE_MS = 2000
@@ -26,10 +27,10 @@ async function backendAvailable(): Promise<boolean> {
 export async function startPlayer(server: MediaServer, { backend = false } = {}) {
   const root = serverRoot(window.location.pathname)
   const params = readPlayerParams(window.location.search, root)
-  if (!params) return showMessage('noItem', server, {}, root)
+  if (!params) return showMessage('noItem', server, {}, `${root}/web/`)
   try {
     const [engine, hasBackend] = await Promise.all([pickEngine(), backend ? backendAvailable() : false])
-    if (engine !== 'webcodecs' && !hasBackend) return showMessage('needsWebCodecs', server, {}, root)
+    if (engine !== 'webcodecs' && !hasBackend) return showMessage('needsWebCodecs', server, {}, `${root}/web/`)
     const pref = loadTranscoder()
     // The media server's item says whether it's HDR (which 'auto' sends to our server).
     let source: PlaybackSource | null = engine === 'webcodecs' ? await createServerSource(server, params.item, root) : null
@@ -55,7 +56,21 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
     })
   } catch (e) {
     const status = e instanceof ServerError || e instanceof HttpError ? e.status : 0
-    if (status === 401) showMessage('signedOut', server, {}, root)
-    else showMessage('loadFailed', server, { detail: String(e) }, root)
+    if (status === 401) showMessage('signedOut', server, {}, `${root}/web/`)
+    else showMessage('loadFailed', server, { detail: String(e) }, `${root}/web/`)
+  }
+}
+
+/** A YouTube video from our own app (play?yt=…): our server extracts and streams it. */
+export async function startTube() {
+  const server = 'YouTube'
+  const params = readTubeParams(window.location.search)
+  if (!params) return showMessage('noItem', server, {}, '/')
+  try {
+    mountPlayer(await createYoutubeSource(params.item, await pickEngine()), params)
+  } catch (e) {
+    const status = e instanceof HttpError ? e.status : 0
+    if (status === 401) showMessage('signedOut', server, {}, '/')
+    else showMessage('loadFailed', server, { detail: e instanceof Error ? e.message : String(e) }, '/')
   }
 }

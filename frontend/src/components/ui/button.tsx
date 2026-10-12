@@ -19,6 +19,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        brand: "bg-brand font-semibold text-brand-foreground hover:bg-brand/85",
       },
       size: {
         default:
@@ -32,6 +33,9 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
+        // Car touchscreen: ≥ 56 px targets, readable at arm's length.
+        car: "h-14 gap-2 rounded-2xl px-5 text-lg [&_svg:not([class*='size-'])]:size-6",
+        "icon-car": "size-14 rounded-2xl [&_svg:not([class*='size-'])]:size-6",
       },
     },
     defaultVariants: {

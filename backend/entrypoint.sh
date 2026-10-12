@@ -5,6 +5,13 @@ set -e
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 if [ "$(id -u)" = "0" ]; then
+  # YouTube changes its site now and then and yt-dlp catches up within days: take the
+  # newest release at each start (YTDLP_AUTO_UPDATE=0 keeps the image's). Never fatal.
+  if [ "${YTDLP_AUTO_UPDATE:-1}" = "1" ]; then
+    timeout 60 pip install --quiet --no-cache-dir --disable-pip-version-check --root-user-action=ignore --upgrade --no-deps yt-dlp \
+      && echo "yt-dlp $(python -c 'import yt_dlp.version as v; print(v.__version__)')" \
+      || echo "yt-dlp update skipped (offline?); using the image's"
+  fi
   mkdir -p /app/data
   chown "$PUID:$PGID" /app/data
   # A library folder Docker just created (root-owned, empty) is handed over too; an
