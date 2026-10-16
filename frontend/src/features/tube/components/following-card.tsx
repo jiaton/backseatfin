@@ -1,11 +1,12 @@
-import { ListVideo } from 'lucide-react'
+import { ListVideo, Plus } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from '@/components/ui/link'
 import { QueryState } from '@/components/ui/query-state'
 
-import { useFollow, useFollowing, useFollowPlaylist } from '../api/use-library'
+import { NotFollowableLinkError, useFollow, useFollowing, useFollowLink, useFollowPlaylist } from '../api/use-library'
 import { channelPath, playlistPath } from '../lib/format'
 import { useTubeT } from '../lib/strings'
 import type { ChannelCard, PlaylistCard } from '../types'
@@ -20,7 +21,8 @@ export function FollowingCard() {
       <CardHeader>
         <CardTitle>{t('followingTitle')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
+        <AddByLinkForm />
         <QueryState query={following}>
           {({ channels, playlists }) =>
             channels.length + playlists.length === 0 ? (
@@ -72,5 +74,49 @@ function PlaylistRow({ playlist }: { playlist: PlaylistCard }) {
         {t('unfollowAction')}
       </Button>
     </li>
+  )
+}
+
+/** Paste a playlist link (the phone → car path) or a channel link, and follow it. */
+function AddByLinkForm() {
+  const { t } = useTubeT()
+  const [url, setUrl] = useState('')
+  const add = useFollowLink()
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (url.trim()) add.mutate(url.trim(), { onSuccess: () => setUrl('') })
+  }
+  const error = add.error
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2">
+      <label htmlFor="follow-link" className="text-sm font-medium">
+        {t('addByLink')}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="follow-link"
+          type="url"
+          inputMode="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder={t('addByLinkPlaceholder')}
+          className="h-14 min-w-0 flex-1 rounded-xl border border-input bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        />
+        <Button type="submit" size="car" variant="brand" disabled={add.isPending || !url.trim()}>
+          <Plus aria-hidden />
+          {t('addAction')}
+        </Button>
+      </div>
+      {add.isSuccess && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {add.data.kind === 'playlist' ? t('addedPlaylist', { title: add.data.title }) : t('addedChannel', { title: add.data.title })}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error instanceof NotFollowableLinkError ? t('notFollowLink') : `${t('privatePlaylist')} (${error.message})`}
+        </p>
+      )}
+    </form>
   )
 }

@@ -1,5 +1,5 @@
 """Recommendations from what this household does, nothing else: more from channels it
-watches often but doesn't follow, older videos of channels it follows, and fresh
+watches often (or, early on, most recently) but doesn't follow, older videos of channels it follows, and fresh
 results for what it searches for most. Nothing it has watched, saved or already sees on
 the home screen. Computed in the background (several YouTube lookups) and cached."""
 
@@ -47,8 +47,15 @@ def read_inputs(s: Session) -> Inputs:
     )
     searches = s.exec(select(SearchQuery).order_by(col(SearchQuery.count).desc(), col(SearchQuery.last_at).desc()).limit(2)).all()
     by_channel = Counter(w.channel_id for w in watched if w.channel_id)
+    often = [c for c, n in by_channel.most_common() if n >= OFTEN and c not in followed][:3]
+    # Early on nothing is watched twice: the channels watched most recently fill in.
+    for w in watched:
+        if len(often) >= 3:
+            break
+        if w.channel_id and w.channel_id not in followed and w.channel_id not in often:
+            often.append(w.channel_id)
     return Inputs(
-        often=[c for c, n in by_channel.most_common() if n >= OFTEN and c not in followed][:3],
+        often=often,
         # Their newest are in the feed already; the ones you watch most first.
         followed=sorted(followed, key=lambda c: -by_channel[c])[:3],
         searches=[q.query for q in searches],

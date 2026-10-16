@@ -49,6 +49,12 @@ const en = {
   followingEmpty: "You don't follow any channels or playlists yet. Follow them from their pages.",
   unfollowAction: 'Unfollow',
   privatePlaylist: 'Only public or unlisted playlists can be followed (BackseatFin doesn\'t sign in to YouTube).',
+  addByLink: 'Add a playlist or channel',
+  addByLinkPlaceholder: 'Paste a YouTube playlist or channel link',
+  addAction: 'Add',
+  addedPlaylist: 'Added: {title}. It has its own row on the home screen.',
+  addedChannel: 'Following {title}.',
+  notFollowLink: "That isn't a YouTube playlist or channel link.",
 }
 export type TubeKey = keyof typeof en
 /** Every key (for tests). */
@@ -99,6 +105,12 @@ const zh: Record<TubeKey, string> = {
   followingEmpty: '还没有关注任何频道或播放列表。可以在它们的页面上关注。',
   unfollowAction: '取消关注',
   privatePlaylist: '只能关注公开或不公开（unlisted）的播放列表：BackseatFin 不登录 YouTube。',
+  addByLink: '添加播放列表或频道',
+  addByLinkPlaceholder: '粘贴 YouTube 播放列表或频道的链接',
+  addAction: '添加',
+  addedPlaylist: '已添加「{title}」，它会单独显示在首页的一栏。',
+  addedChannel: '已关注「{title}」。',
+  notFollowLink: '这不是 YouTube 播放列表或频道的链接。',
 }
 
 const es: Record<TubeKey, string> = {
@@ -146,6 +158,12 @@ const es: Record<TubeKey, string> = {
   followingEmpty: 'Aún no sigues canales ni listas. Síguelos desde sus páginas.',
   unfollowAction: 'Dejar de seguir',
   privatePlaylist: 'Solo se pueden seguir listas públicas u ocultas (BackseatFin no inicia sesión en YouTube).',
+  addByLink: 'Añadir una lista o un canal',
+  addByLinkPlaceholder: 'Pega el enlace de una lista o un canal de YouTube',
+  addAction: 'Añadir',
+  addedPlaylist: 'Añadida: {title}. Tiene su propia fila en la pantalla de inicio.',
+  addedChannel: 'Siguiendo a {title}.',
+  notFollowLink: 'Eso no es un enlace a una lista o un canal de YouTube.',
 }
 
 const ja: Record<TubeKey, string> = {
@@ -193,6 +211,12 @@ const ja: Record<TubeKey, string> = {
   followingEmpty: 'まだチャンネルや再生リストをフォローしていません。それぞれのページからフォローできます。',
   unfollowAction: 'フォロー解除',
   privatePlaylist: 'フォローできるのは公開または限定公開の再生リストだけです（BackseatFin は YouTube にログインしません）。',
+  addByLink: '再生リストやチャンネルを追加',
+  addByLinkPlaceholder: 'YouTube の再生リストかチャンネルのリンクを貼り付け',
+  addAction: '追加',
+  addedPlaylist: '「{title}」を追加しました。ホーム画面に専用の列が表示されます。',
+  addedChannel: '「{title}」をフォローしました。',
+  notFollowLink: 'YouTube の再生リストやチャンネルのリンクではありません。',
 }
 
 const ko: Record<TubeKey, string> = {
@@ -240,6 +264,12 @@ const ko: Record<TubeKey, string> = {
   followingEmpty: '아직 팔로우한 채널이나 재생목록이 없습니다. 각 페이지에서 팔로우할 수 있습니다.',
   unfollowAction: '팔로우 취소',
   privatePlaylist: '공개 또는 일부 공개 재생목록만 팔로우할 수 있습니다(BackseatFin은 YouTube에 로그인하지 않습니다).',
+  addByLink: '재생목록 또는 채널 추가',
+  addByLinkPlaceholder: 'YouTube 재생목록 또는 채널 링크 붙여넣기',
+  addAction: '추가',
+  addedPlaylist: '「{title}」을(를) 추가했습니다. 홈 화면에 별도의 줄로 표시됩니다.',
+  addedChannel: '「{title}」을(를) 팔로우합니다.',
+  notFollowLink: 'YouTube 재생목록이나 채널 링크가 아닙니다.',
 }
 
 export const TUBE_TABLES: Record<Lang, Record<TubeKey, string>> = { en, zh, es, ja, ko }

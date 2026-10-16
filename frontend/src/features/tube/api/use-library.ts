@@ -46,6 +46,29 @@ export function useFollowPlaylist(playlistId: string) {
   })
 }
 
+/** Thrown when a pasted link is neither a playlist nor a channel. */
+export class NotFollowableLinkError extends Error {}
+
+/** Follow whatever a pasted link points at: a playlist (a home row) or a channel. */
+export function useFollowLink() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: async (url: string): Promise<{ kind: 'playlist' | 'channel'; title: string }> => {
+      const link = await unwrap(api.GET('/api/tube/link', { params: { query: { url } } })).catch(() => null)
+      if (link?.kind === 'playlist') {
+        const p = await unwrap(api.PUT('/api/tube/playlists/{playlist_id}/follow', { params: { path: { playlist_id: link.id } } }))
+        return { kind: 'playlist', title: p.title }
+      }
+      if (link?.kind === 'channel') {
+        const c = await unwrap(api.PUT('/api/tube/channels/{channel_id}/follow', { params: { path: { channel_id: link.id } } }))
+        return { kind: 'channel', title: c.name }
+      }
+      throw new NotFollowableLinkError()
+    },
+    onSuccess: invalidate,
+  })
+}
+
 export function useWatchLater(videoId: string) {
   const invalidate = useInvalidate()
   return useMutation({

@@ -182,6 +182,8 @@ by design.
   fits the quality level and the window (portrait: short side vs height), AAC `140`
   (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams are
   refused for now.
+- **Following by link**: Settings → Following has a field for a playlist or channel
+  link (`useFollowLink`: `/link`, then the follow call); a video link is refused.
 - **Followed playlists** (`tube/playlists.py`): the way in from the phone without a
   Google sign-in. Public/unlisted only. Read with `fresh=True` (no cache) whenever home
   opens and the last read is older than `PLAYLIST_FRESH_S` (60 s; home waits ≤ 4 s for
@@ -189,7 +191,7 @@ by design.
   on the first read YouTube's order (oldest added first) is turned into seen times;
   videos taken out of the playlist are dropped.
 - **Recommendations** (`tube/recommend.py`): channels watched ≥ 2 times but not
-  followed (their newest), followed channels most watched (videos 6–20: the newest are
+  followed (their newest; early on, the most recently watched channels fill in), followed channels most watched (videos 6–20: the newest are
   in the feed), the two most frequent searches (`SearchQuery`, last 50 kept). Round-robin
   (`pick`), nothing watched, saved or already on home, no live. Inputs are read from the
   request's session; the YouTube lookups run in a task, cached 30 min, invalidated by a
@@ -308,7 +310,12 @@ by design.
        bar or tapping +30 s three times opens one server stream.
      - 4 s with no new frame means the end (within 10 s of the runtime) or a dropped
        connection, which resumes in place. 20 s without a first frame is an error.
-     - **Pause holds the stream** (engines with `pause()`/`resume()`: WebCodecs, HLS):
+     - **Loading box** (`player/loading.ts`): while waiting for a picture (start, seek,
+     rebuffer, reconnect) the page shows what it's doing and for how long (server
+     preparing / receiving / buffering / reconnecting, from bytes and frames so far), the
+     speed against what the level needs, data and buffer, the HLS segment wait, quality
+     and position; refreshed every 0.5 s. Replaces the one-line "Loading…".
+   - **Pause holds the stream** (engines with `pause()`/`resume()`: WebCodecs, HLS):
        the clock freezes and everything buffered stays, so play() continues at once with
        no new request. Seeking, a new choice (`reload()`) or leaving (`stop()`) let a held
        stream go.

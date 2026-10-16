@@ -44,3 +44,13 @@ def test_followed_channels_contribute_their_older_videos(tmp_path, session_facto
         s.add(FollowedChannel(channel_id=UCY, name="Y"))
         s.commit()
         assert [c.title for c in asyncio.run(rec.recommendations(s))] == ["video f", "video g"]
+
+
+def test_early_on_the_channels_watched_last_fill_in(tmp_path, session_factory):
+    src = FakeSource()
+    src.channel_videos = [_v("n"), _v("m")]
+    rec = Recommender(TubeService(src, FakeWeb(), tmp_path))
+    with session_factory() as s:
+        s.add(WatchedVideo(video_id="o" * 11, title="once", channel_id=UCX))  # one watch only
+        s.commit()
+        assert [c.title for c in asyncio.run(rec.recommendations(s))] == ["video n", "video m"]

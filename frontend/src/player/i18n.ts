@@ -59,6 +59,19 @@ const en = {
   transcoderServer: '{server}',
   transcoderOurs: 'BackseatFin server',
   transcoderNow: 'Now: {name}. Auto uses the BackseatFin server for HDR films (better tone mapping) and {server} for the rest.',
+  loadPreparing: '{server} is preparing the video… {s} s',
+  loadReceiving: 'Receiving the video… {s} s',
+  loadBuffering: 'The network is slow, buffering… {s} s',
+  loadReconnecting: 'Connection lost, reconnecting… {s} s',
+  loadSpeed: 'Speed',
+  loadNeeds: 'this quality needs ≈ {rate}',
+  loadData: 'Received',
+  loadBuffered: '{s} s buffered',
+  loadSegment: 'Segment',
+  loadServerTook: 'the server took {s} s',
+  loadQuality: 'Quality',
+  loadFrom: 'from {time}',
+  loadConnects: 'Connections',
 }
 export type StringKey = keyof typeof en
 /** Every key (for tests). */
@@ -114,6 +127,19 @@ const zh: Record<StringKey, string> = {
   transcoderServer: '{server}',
   transcoderOurs: 'BackseatFin 服务',
   transcoderNow: '当前：{name}。自动模式下，HDR 影片由 BackseatFin 服务转码（色调映射更准），其他由 {server} 转码。',
+  loadPreparing: '{server} 正在准备视频… {s} 秒',
+  loadReceiving: '正在接收视频数据… {s} 秒',
+  loadBuffering: '网络较慢，正在缓冲… {s} 秒',
+  loadReconnecting: '网络中断，正在重连… {s} 秒',
+  loadSpeed: '网速',
+  loadNeeds: '这个画质需要约 {rate}',
+  loadData: '已接收',
+  loadBuffered: '已缓冲 {s} 秒',
+  loadSegment: '分片',
+  loadServerTook: '服务器准备用了 {s} 秒',
+  loadQuality: '画质',
+  loadFrom: '从 {time} 开始',
+  loadConnects: '连接次数',
 }
 
 const es: Record<StringKey, string> = {
@@ -167,6 +193,19 @@ const es: Record<StringKey, string> = {
   transcoderServer: '{server}',
   transcoderOurs: 'Servidor BackseatFin',
   transcoderNow: 'Ahora: {name}. En automático, las películas HDR las transcodifica el servidor BackseatFin (mejor mapeo de tonos) y el resto {server}.',
+  loadPreparing: '{server} está preparando el vídeo… {s} s',
+  loadReceiving: 'Recibiendo el vídeo… {s} s',
+  loadBuffering: 'La red va lenta, cargando… {s} s',
+  loadReconnecting: 'Conexión perdida, reconectando… {s} s',
+  loadSpeed: 'Velocidad',
+  loadNeeds: 'esta calidad necesita ≈ {rate}',
+  loadData: 'Recibido',
+  loadBuffered: '{s} s en búfer',
+  loadSegment: 'Segmento',
+  loadServerTook: 'el servidor tardó {s} s',
+  loadQuality: 'Calidad',
+  loadFrom: 'desde {time}',
+  loadConnects: 'Conexiones',
 }
 
 const ja: Record<StringKey, string> = {
@@ -220,6 +259,19 @@ const ja: Record<StringKey, string> = {
   transcoderServer: '{server}',
   transcoderOurs: 'BackseatFin サーバー',
   transcoderNow: '現在：{name}。自動では HDR 作品を BackseatFin サーバー（トーンマッピングがより正確）、それ以外を {server} がトランスコードします。',
+  loadPreparing: '{server} が動画を準備しています… {s} 秒',
+  loadReceiving: '動画データを受信しています… {s} 秒',
+  loadBuffering: '回線が遅いため読み込み中… {s} 秒',
+  loadReconnecting: '接続が切れました。再接続しています… {s} 秒',
+  loadSpeed: '通信速度',
+  loadNeeds: 'この画質には約 {rate} 必要',
+  loadData: '受信済み',
+  loadBuffered: '{s} 秒分バッファ済み',
+  loadSegment: 'セグメント',
+  loadServerTook: 'サーバーの準備に {s} 秒',
+  loadQuality: '画質',
+  loadFrom: '{time} から',
+  loadConnects: '接続回数',
 }
 
 const ko: Record<StringKey, string> = {
@@ -273,6 +325,19 @@ const ko: Record<StringKey, string> = {
   transcoderServer: '{server}',
   transcoderOurs: 'BackseatFin 서버',
   transcoderNow: '현재: {name}. 자동에서는 HDR 영화는 BackseatFin 서버(더 정확한 톤 매핑)가, 나머지는 {server}가 트랜스코딩합니다.',
+  loadPreparing: '{server}에서 동영상을 준비하는 중… {s}초',
+  loadReceiving: '동영상 데이터를 받는 중… {s}초',
+  loadBuffering: '네트워크가 느려 버퍼링 중… {s}초',
+  loadReconnecting: '연결이 끊겨 다시 연결하는 중… {s}초',
+  loadSpeed: '속도',
+  loadNeeds: '이 화질에 약 {rate} 필요',
+  loadData: '받은 데이터',
+  loadBuffered: '{s}초 버퍼링됨',
+  loadSegment: '세그먼트',
+  loadServerTook: '서버 준비 {s}초',
+  loadQuality: '화질',
+  loadFrom: '{time}부터',
+  loadConnects: '연결 횟수',
 }
 
 const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko }

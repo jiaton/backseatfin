@@ -13,6 +13,7 @@ import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
 import { diagnose } from './diagnose'
+import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { fitLevel, gbPerHour, loadQuality, type Quality, QUALITY_VALUES, saveQuality } from './quality'
@@ -166,8 +167,11 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const errorPanel = h('div', { class: 'cm-error', role: 'alert', hidden: '' }, errorMessage, h('div', { class: 'cm-row' }, retry, errorBack))
   const sheet = h('div', { class: 'cm-sheet', role: 'dialog', hidden: '' })
   const statsPanel = h('pre', { class: 'cm-stats', 'aria-live': 'off', hidden: '' })
+  const loadingStage = h('p', { class: 'cm-loading-stage' })
+  const loadingDetail = h('pre', { class: 'cm-loading-lines' })
+  const loadingBox = h('div', { class: 'cm-loading', role: 'status', hidden: '' }, loadingStage, loadingDetail)
 
-  document.body.replaceChildren(controller, status, subChip, unlock, errorPanel, statsPanel, sheet)
+  document.body.replaceChildren(controller, status, loadingBox, subChip, unlock, errorPanel, statsPanel, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -234,14 +238,37 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   // --- playback state → UI -----------------------------------------------------------
   let started = false
   let progressTimer = 0
+  // While waiting for a picture: a box saying what's happening (and the numbers behind
+  // a slow start), refreshed until playback runs.
+  let loadingSince: number | null = null
+  let loadingTimer = 0
+  const renderLoading = () => {
+    if (loadingSince == null) return
+    const { stage, lines } = loadingLines(t, {
+      stats: video.stats(),
+      retrying: video.retrying,
+      waited: (performance.now() - loadingSince) / 1000,
+      server,
+      needKbps: source.levels(video.engine)[state.quality].kbps,
+      quality: `${t(QUALITY_NAME[state.quality])} · ${levelText(state.quality).split(' · ')[0]}`, // name and size
+      at: formatClock(video.currentTime),
+    })
+    loadingStage.textContent = stage
+    loadingDetail.textContent = lines.join('\n')
+  }
   const updateStatus = () => {
-    const loading = !video.paused && video.readyState < 4
-    status.hidden = !loading
-    if (loading) status.textContent = video.retrying ? t('reconnecting') : t('loading', { time: formatClock(video.currentTime) })
-    else if (video.ended) {
-      status.hidden = false
-      status.textContent = t('finished')
+    const loading = !video.paused && video.readyState < 4 && !video.error
+    if (loading && loadingSince == null) {
+      loadingSince = performance.now()
+      loadingTimer = window.setInterval(renderLoading, STATS_EVERY_MS)
+    } else if (!loading && loadingSince != null) {
+      loadingSince = null
+      window.clearInterval(loadingTimer)
     }
+    loadingBox.hidden = !loading
+    if (loading) renderLoading()
+    status.hidden = !video.ended
+    if (video.ended) status.textContent = t('finished')
   }
   video.addEventListener('retrying', updateStatus)
   video.addEventListener('waiting', updateStatus)
@@ -266,6 +293,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   })
   video.addEventListener('error', () => {
     status.hidden = true
+    updateStatus()
     errorMessage.textContent = errorText(video.error)
     errorPanel.hidden = false
   })
