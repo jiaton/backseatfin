@@ -20,21 +20,26 @@ English · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Espa
 <sub>Screenshot: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
 
 Car browsers such as Tesla's stop `<video>` while driving, but they keep drawing
-`<canvas>`. BackseatFin adds a canvas player to your media server's own web app, and
-brings a YouTube app of its own: open it in the car, press Play, and it plays.
+`<canvas>`. BackseatFin is a canvas player for the car, in three parts; use the ones you
+need:
 
-- **No extra server.** Jellyfin: a plugin. Emby: one small nginx container. Your media
-  server does the transcoding, and the player uses your own sign-in.
-- **Your library, your server.** Seeking, audio tracks, subtitles (including PGS), resume
-  points and "watched" all sync with the server.
+| You watch | You install | Server | Guide |
+|---|---|---|---|
+| **Jellyfin** | a Jellyfin plugin | none: Jellyfin transcodes | [docs/jellyfin.md](docs/jellyfin.md) |
+| **Emby** | the car host, a small nginx container in front of Emby | none: Emby transcodes (optional for HDR) | [docs/emby.md](docs/emby.md) |
+| **YouTube** | the BackseatFin server and app (Docker) | yes: videos stream through it | [docs/youtube.md](docs/youtube.md) |
+
+- **Your media server's own web app.** Open Jellyfin or Emby in the car, browse as usual,
+  press Play. Seeking, audio tracks, subtitles (including PGS), resume points and
+  "watched" all sync with the server, and the player uses your own sign-in.
+- **YouTube, self-hosted.** Search, follow channels and playlists and pick up where you
+  stopped, on a screen made for the car. Videos stream through your own server as
+  YouTube encoded them (no re-encoding). No Google account, and your history stays with
+  you. Add videos to a YouTube playlist on your phone and they're on the car's home screen.
 - **Light on the car.** It uses the car's hardware H.264 decoder via WebCodecs, falling
   back to JSMpeg. The stream is sized to the screen, and it rides out dead zones.
 - **HDR and Dolby Vision** are tone-mapped (Jellyfin: by Jellyfin; Emby: by the optional
   BackseatFin server, on an Intel GPU or the CPU).
-- **YouTube, self-hosted.** Search, follow channels and pick up where you stopped, on a
-  screen made for the car. Videos stream through your own server as YouTube encoded
-  them (no re-encoding). No Google account, and your history stays with you. Add videos
-  to a YouTube playlist on your phone and they're on the car's home screen.
 
 > [!WARNING]
 > For passengers. The driver must keep their eyes on the road. Watching video while
@@ -47,16 +52,18 @@ brings a YouTube app of its own: open it in the car, press Play, and it plays.
 Repositories, install **BackseatFin**, restart, and choose which browsers get the car
 player. Guide: [docs/jellyfin.md](docs/jellyfin.md).
 
-**YouTube and Emby**: run BackseatFin with Docker.
+**Emby** and **YouTube** run from one Docker Compose setup:
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # set API_KEY (YouTube) and/or EMBY_URL (Emby)
+cp .env.example .env
+# Emby:    set EMBY_URL
+# YouTube: uncomment COMPOSE_PROFILES=server and set API_KEY
 docker compose up -d
 ```
 
-Then put it behind HTTPS ([examples](docs/reverse-proxy.md)) and open it in the car.
-Guide: [docs/install.md](docs/install.md).
+Then put each port you use behind HTTPS ([examples](docs/reverse-proxy.md)) and open it
+in the car. Guides: [docs/emby.md](docs/emby.md), [docs/youtube.md](docs/youtube.md).
 
 ## How it works
 

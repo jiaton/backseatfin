@@ -21,27 +21,29 @@ Este documento es una traducción del README en inglés; el README en inglés es
 
 <sub>Captura: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
 
-Los navegadores de los coches, como el de Tesla, detienen el `<video>` mientras se
-conduce, pero siguen dibujando el `<canvas>`. BackseatFin añade un reproductor de
-canvas a la propia aplicación web de tu servidor multimedia: abre Jellyfin o Emby en
-el coche, pulsa Reproducir, y se reproduce.
+Los navegadores de coche como el de Tesla detienen `<video>` mientras se conduce, pero
+siguen dibujando `<canvas>`. BackseatFin es un reproductor canvas para el coche, en tres
+partes; usa las que necesites:
 
-- **Sin servidor adicional.** Jellyfin: un plugin. Emby: un pequeño contenedor nginx.
-  La transcodificación la hace tu servidor multimedia, y el reproductor usa tu propia
-  sesión.
-- **Tu biblioteca, tu servidor.** La búsqueda, las pistas de audio, los subtítulos
-  (incluido PGS), los puntos de reanudación y el estado de "visto" se sincronizan con
-  el servidor.
+| Lo que ves | Lo que instalas | Servidor | Guía |
+|---|---|---|---|
+| **Jellyfin** | un plugin de Jellyfin | ninguno: Jellyfin transcodifica | [docs/jellyfin.md](docs/jellyfin.md) |
+| **Emby** | el car host, un pequeño contenedor nginx delante de Emby | ninguno: Emby transcodifica (opcional para HDR) | [docs/emby.md](docs/emby.md) |
+| **YouTube** | el servidor y la app de BackseatFin (Docker) | sí: los vídeos pasan por él | [docs/youtube.md](docs/youtube.md) |
+
+- **La propia web de tu servidor multimedia.** Abre Jellyfin o Emby en el coche, navega
+  como siempre y pulsa Reproducir. La búsqueda, las pistas de audio, los subtítulos
+  (incluido PGS), los puntos de reanudación y el estado de "visto" se sincronizan con el
+  servidor, y el reproductor usa tu propia sesión.
+- **YouTube, autoalojado.** Busca, sigue canales y listas y continúa donde lo dejaste, en
+  una pantalla pensada para el coche. Los vídeos pasan por tu propio servidor tal como
+  YouTube los codificó (sin recodificar). Sin cuenta de Google, y tu historial se queda
+  contigo. Añade vídeos a una lista de YouTube en el móvil y aparecerán en el coche.
 - **Ligero para el coche.** Usa el decodificador de hardware H.264 del coche mediante
-  WebCodecs, con JSMpeg como alternativa. La transmisión se ajusta al tamaño de la
-  pantalla y resiste las zonas sin señal.
+  WebCodecs, con JSMpeg como alternativa. La transmisión se ajusta a la pantalla y
+  resiste las zonas sin señal.
 - **HDR y Dolby Vision** se mapean tonalmente (Jellyfin: por Jellyfin; Emby: por el
   servidor opcional de BackseatFin, con una GPU Intel o la CPU).
-- **YouTube, autoalojado.** Busca, sigue canales y continúa donde lo dejaste, en una
-  pantalla pensada para el coche. Los vídeos pasan por tu propio servidor tal como
-  YouTube los codificó (sin recodificar). Sin cuenta de Google, y tu historial se queda
-  contigo. Añade vídeos a una lista de YouTube en el móvil y
-  aparecerán en la pantalla de inicio del coche.
 
 > [!WARNING]
 > Para pasajeros. El conductor debe mantener la vista en la carretera. Ver vídeos
@@ -51,19 +53,21 @@ el coche, pulsa Reproducir, y se reproduce.
 
 **Jellyfin** (12.0+): añade el repositorio de plugins
 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` en Dashboard → Plugins →
-Repositories, instala **BackseatFin**, reinicia, y elige qué navegadores obtienen el
+Repositories, instala **BackseatFin**, reinicia y elige qué navegadores usan el
 reproductor del coche. Guía: [docs/jellyfin.md](docs/jellyfin.md).
 
-**YouTube y Emby**: ejecuta BackseatFin con Docker.
+**Emby** y **YouTube** funcionan con la misma configuración de Docker Compose:
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # API_KEY (YouTube) y/o EMBY_URL (Emby)
+cp .env.example .env
+# Emby:    pon EMBY_URL
+# YouTube: descomenta COMPOSE_PROFILES=server y pon API_KEY
 docker compose up -d
 ```
 
-Después, ponlo detrás de HTTPS ([ejemplos](docs/reverse-proxy.md)) y ábrelo en el
-coche. Guía: [docs/install.md](docs/install.md).
+Después, pon detrás de HTTPS cada puerto que uses ([ejemplos](docs/reverse-proxy.md)) y
+ábrelo en el coche. Guías: [docs/emby.md](docs/emby.md), [docs/youtube.md](docs/youtube.md).
 
 ## Cómo funciona
 

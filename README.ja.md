@@ -21,30 +21,37 @@
 
 <sub>スクリーンショット：[Sintel](https://durian.blender.org/) © Blender Foundation、[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。</sub>
 
-Tesla などの車載ブラウザは走行中に `<video>` を停止しますが、`<canvas>` の描画は継続します。BackseatFin はメディアサーバー自身の Web アプリに canvas プレーヤーを追加します。車内で Jellyfin または Emby を開き、再生ボタンを押すだけで再生されます。
+テスラなどの車載ブラウザは走行中に `<video>` を止めますが、`<canvas>` の描画は続けます。BackseatFin は車向けの canvas プレーヤーで、3 つの部分からなります。必要なものだけ使ってください：
 
-- **追加のサーバーは不要。** Jellyfin はプラグイン、Emby は小さな nginx コンテナ 1 つだけ。トランスコードはメディアサーバー自身が行い、プレーヤーはあなた自身のログインを使います。
-- **自分のライブラリ、自分のサーバー。** シーク、音声トラック、字幕（PGS を含む）、再生位置の再開、「視聴済み」のステータスはすべてサーバーと同期します。
-- **車への負荷が小さい。** WebCodecs 経由で車のハードウェア H.264 デコーダーを使用し、対応していない場合は JSMpeg にフォールバックします。ストリームは画面サイズに合わせて調整され、通信の途切れも乗り越えます。
-- **HDR と Dolby Vision** はトーンマッピングされます（Jellyfin の場合：Jellyfin 自身が処理／Emby の場合：オプションの BackseatFin サーバーが Intel GPU または CPU 上で処理）。
-- **セルフホストの YouTube。** 車向けの画面で検索し、チャンネルをフォローし、止めたところから続きを見られます。動画は自分のサーバーを通って YouTube のエンコードのまま届き（再エンコードなし）、Google アカウントは不要で、視聴履歴は手元に残ります。スマホで YouTube の再生リストに動画を追加すると、車のホーム画面に表示されます。
+| 見るもの | インストールするもの | サーバー | ガイド |
+|---|---|---|---|
+| **Jellyfin** | Jellyfin プラグイン | 不要：Jellyfin がトランスコード | [docs/jellyfin.md](docs/jellyfin.md) |
+| **Emby** | car host：Emby の前に置く小さな nginx コンテナ | 不要：Emby がトランスコード（HDR には任意で使用） | [docs/emby.md](docs/emby.md) |
+| **YouTube** | BackseatFin サーバーとアプリ（Docker） | 必要：動画はサーバーを経由 | [docs/youtube.md](docs/youtube.md) |
+
+- **メディアサーバー自身の Web アプリをそのまま使用。** 車で Jellyfin や Emby を開き、いつも通り選んで再生。シーク、音声トラック、字幕（PGS を含む）、再開位置、「視聴済み」はサーバーと同期し、プレーヤーは自分のログインを使います。
+- **セルフホストの YouTube。** 車向けの画面で検索し、チャンネルや再生リストをフォローし、止めたところから続きを見られます。動画は自分のサーバーを YouTube のエンコードのまま通り（再エンコードなし）、Google アカウントは不要で、視聴履歴は手元に残ります。スマホで YouTube の再生リストに動画を追加すると、車のホーム画面に表示されます。
+- **車への負荷が小さい。** WebCodecs 経由で車のハードウェア H.264 デコーダーを使い、使えない場合は JSMpeg にフォールバックします。ストリームは画面サイズに合わせられ、通信の途切れも乗り越えます。
+- **HDR と Dolby Vision** はトーンマッピングされます（Jellyfin：Jellyfin 自身／Emby：オプションの BackseatFin サーバーが Intel GPU または CPU で）。
 
 > [!WARNING]
 > 同乗者向けの機能です。運転者は必ず前方を注視してください。運転中に動画を視聴することは危険であり、多くの地域で違法です。
 
 ## クイックスタート
 
-**Jellyfin**（12.0 以降）：Dashboard → Plugins → Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、**BackseatFin** をインストールして再起動し、どのブラウザで車載プレーヤーを使うかを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
+**Jellyfin**（12.0 以降）：Dashboard → Plugins → Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、**BackseatFin** をインストールして再起動し、車のプレーヤーを使うブラウザを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
 
-**YouTube と Emby**：Docker で BackseatFin を動かします。
+**Emby** と **YouTube** は同じ Docker Compose で動きます：
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # API_KEY（YouTube）と EMBY_URL（Emby）を必要に応じて設定
+cp .env.example .env
+# Emby:    EMBY_URL を設定
+# YouTube: COMPOSE_PROFILES=server のコメントを外し、API_KEY を設定
 docker compose up -d
 ```
 
-その後、HTTPS の背後に置き（[例](docs/reverse-proxy.md)）、車内で開いてください。ガイド：[docs/install.md](docs/install.md)。
+使うポートを HTTPS の背後に置き（[例](docs/reverse-proxy.md)）、車で開いてください。ガイド：[docs/emby.md](docs/emby.md)、[docs/youtube.md](docs/youtube.md)。
 
 ## 動作の仕組み
 

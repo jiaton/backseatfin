@@ -21,49 +21,54 @@ Dieses Dokument ist eine Übersetzung der englischen README; maßgeblich ist die
 
 <sub>Screenshot: [Sintel](https://durian.blender.org/) © Blender Foundation, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).</sub>
 
-Fahrzeugbrowser wie der von Tesla stoppen `<video>` während der Fahrt, zeichnen aber
-weiterhin `<canvas>`. BackseatFin fügt der eigenen Web-App deines Media-Servers einen
-Canvas-Player hinzu: Jellyfin oder Emby im Auto öffnen, auf Play drücken, und es läuft.
+Auto-Browser wie der von Tesla stoppen `<video>` während der Fahrt, zeichnen `<canvas>`
+aber weiter. BackseatFin ist ein Canvas-Player fürs Auto in drei Teilen; nutze die, die
+du brauchst:
 
-- **Kein zusätzlicher Server.** Jellyfin: ein Plugin. Emby: ein kleiner nginx-Container.
-  Die Transkodierung übernimmt dein Medienserver, und der Player nutzt deine eigene
-  Anmeldung.
-- **Deine Bibliothek, dein Server.** Suchlauf, Audiospuren, Untertitel (einschließlich
-  PGS), Wiedergabepunkte und der "gesehen"-Status werden alle mit dem Server
-  synchronisiert.
+| Du schaust | Du installierst | Server | Anleitung |
+|---|---|---|---|
+| **Jellyfin** | ein Jellyfin-Plugin | keiner: Jellyfin transkodiert | [docs/jellyfin.md](docs/jellyfin.md) |
+| **Emby** | den Car Host, einen kleinen nginx-Container vor Emby | keiner: Emby transkodiert (optional für HDR) | [docs/emby.md](docs/emby.md) |
+| **YouTube** | Server und App von BackseatFin (Docker) | ja: Videos laufen darüber | [docs/youtube.md](docs/youtube.md) |
+
+- **Die eigene Web-App deines Medienservers.** Öffne Jellyfin oder Emby im Auto, stöbere
+  wie gewohnt, tippe auf Abspielen. Suchlauf, Audiospuren, Untertitel (einschließlich
+  PGS), Wiedergabepunkte und der "gesehen"-Status werden mit dem Server synchronisiert,
+  und der Player nutzt deine eigene Anmeldung.
+- **YouTube, selbst gehostet.** Suchen, Kanälen und Playlists folgen und dort
+  weiterschauen, wo du aufgehört hast, auf einer Oberfläche fürs Auto. Videos laufen über
+  deinen eigenen Server, so wie YouTube sie kodiert hat (ohne Neukodierung). Kein
+  Google-Konto, und dein Verlauf bleibt bei dir. Videos, die du am Handy zu einer
+  YouTube-Playlist hinzufügst, erscheinen im Auto.
 - **Schont das Auto.** Nutzt den Hardware-H.264-Decoder des Autos über WebCodecs, mit
-  JSMpeg als Fallback. Der Stream wird an die Bildschirmgröße angepasst und überbrückt
+  JSMpeg als Fallback. Der Stream wird an den Bildschirm angepasst und überbrückt
   Funklöcher.
-- **HDR und Dolby Vision** werden tonkartiert (Jellyfin: durch Jellyfin selbst; Emby: durch
-  den optionalen BackseatFin-Server, auf einer Intel-GPU oder der CPU).
-- **YouTube, selbst gehostet.** Suchen, Kanälen folgen und dort weiterschauen, wo du
-  aufgehört hast, auf einer Oberfläche fürs Auto. Videos laufen über deinen eigenen
-  Server, so wie YouTube sie kodiert hat (ohne Neukodierung). Kein Google-Konto, und
-  dein Verlauf bleibt bei dir. Videos, die du am Handy zu einer YouTube-Playlist
-  hinzufügst, erscheinen auf dem Startbildschirm im Auto.
+- **HDR und Dolby Vision** werden tonkartiert (Jellyfin: durch Jellyfin selbst; Emby:
+  durch den optionalen BackseatFin-Server, auf einer Intel-GPU oder der CPU).
 
 > [!WARNING]
-> Für Mitfahrer. Der Fahrer muss die Augen auf die Straße gerichtet halten. Videos
-> während der Fahrt anzusehen ist gefährlich und an den meisten Orten illegal.
+> Für Beifahrer. Der Fahrer muss den Blick auf der Straße behalten. Videos während der
+> Fahrt anzusehen ist gefährlich und an den meisten Orten verboten.
 
 ## Schnellstart
 
 **Jellyfin** (12.0+): das Plugin-Repository
-`https://jiaton.github.io/backseatfin/jellyfin/manifest.json` unter Dashboard →
-Plugins → Repositories hinzufügen, **BackseatFin** installieren, neu starten und
-auswählen, welche Browser den Car Player bekommen. Anleitung:
-[docs/jellyfin.md](docs/jellyfin.md).
+`https://jiaton.github.io/backseatfin/jellyfin/manifest.json` unter Dashboard → Plugins →
+Repositories hinzufügen, **BackseatFin** installieren, neu starten und auswählen, welche
+Browser den Auto-Player bekommen. Anleitung: [docs/jellyfin.md](docs/jellyfin.md).
 
-**YouTube und Emby**: BackseatFin mit Docker betreiben.
+**Emby** und **YouTube** laufen mit demselben Docker-Compose-Setup:
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # API_KEY (YouTube) und/oder EMBY_URL (Emby) setzen
+cp .env.example .env
+# Emby:    EMBY_URL setzen
+# YouTube: COMPOSE_PROFILES=server einkommentieren und API_KEY setzen
 docker compose up -d
 ```
 
-Anschließend hinter HTTPS stellen ([Beispiele](docs/reverse-proxy.md)) und im Auto
-öffnen. Anleitung: [docs/install.md](docs/install.md).
+Anschließend jeden genutzten Port hinter HTTPS stellen ([Beispiele](docs/reverse-proxy.md))
+und im Auto öffnen. Anleitungen: [docs/emby.md](docs/emby.md), [docs/youtube.md](docs/youtube.md).
 
 ## Funktionsweise
 

@@ -21,30 +21,37 @@
 
 <sub>截图画面：[Sintel](https://durian.blender.org/) © Blender Foundation，[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。</sub>
 
-像特斯拉这样的车载浏览器在行驶时会停止播放 `<video>`，但仍会持续绘制 `<canvas>`。BackseatFin 为你的媒体服务器自带的网页应用添加了一个 canvas 播放器：在车里打开 Jellyfin 或 Emby，按下播放，视频就能播放。
+车机浏览器（比如特斯拉的）在行驶中会禁止 `<video>` 播放，但 `<canvas>` 照常绘制。BackseatFin 就是一个给车机用的 canvas 播放器，分成三部分，按需选用：
 
-- **无需额外服务器。** Jellyfin：一个插件。Emby：一个小小的 nginx 容器。转码由你的媒体服务器完成，播放器使用你自己的登录。
-- **你的媒体库，你的服务器。** 跳转进度、音轨、字幕（包括 PGS）、续播位置和"已观看"状态都会与服务器同步。
-- **对车机负担小。** 它通过 WebCodecs 使用车机的硬件 H.264 解码器，若不支持则回退到 JSMpeg。视频流会按屏幕尺寸调整，并能挺过信号盲区。
-- **HDR 和杜比视界** 会被进行色调映射（Jellyfin：由 Jellyfin 完成；Emby：由可选的 BackseatFin 服务器完成，使用 Intel GPU 或 CPU）。
-- **自托管的 YouTube。** 在专为车机设计的界面上搜索、关注频道，从上次停下的地方继续看。视频经你自己的服务器原样转发（不重新编码），不需要谷歌账号，观看记录留在你自己手里。在手机上把视频加进 YouTube 播放列表，车机首页就会出现。
+| 你看的是 | 需要安装 | 服务器 | 指南 |
+|---|---|---|---|
+| **Jellyfin** | 一个 Jellyfin 插件 | 不需要：Jellyfin 负责转码 | [docs/jellyfin.md](docs/jellyfin.md) |
+| **Emby** | car host：放在 Emby 前面的一个小 nginx 容器 | 不需要：Emby 负责转码（HDR 可选用服务器） | [docs/emby.md](docs/emby.md) |
+| **YouTube** | BackseatFin 服务器和应用（Docker） | 需要：视频经它转发 | [docs/youtube.md](docs/youtube.md) |
+
+- **就用你媒体服务器自己的网页。** 在车里打开 Jellyfin 或 Emby，照常浏览，点播放。跳转进度、音轨、字幕（包括 PGS）、续播位置和"已观看"状态都会与服务器同步，播放器用的是你自己的登录。
+- **自托管的 YouTube。** 在专为车机设计的界面上搜索、关注频道和播放列表，从上次停下的地方继续看。视频经你自己的服务器原样转发（不重新编码），不需要谷歌账号，观看记录留在你自己手里。在手机上把视频加进 YouTube 播放列表，车机首页就会出现。
+- **对车机负担小。** 通过 WebCodecs 使用车机的硬件 H.264 解码器，不支持时回退到 JSMpeg。视频流按屏幕尺寸调整，并能挺过信号盲区。
+- **HDR 和杜比视界** 会做色调映射（Jellyfin：由 Jellyfin 完成；Emby：由可选的 BackseatFin 服务器完成，使用 Intel GPU 或 CPU）。
 
 > [!WARNING]
 > 仅供乘客使用。驾驶员必须专心看路。在驾驶过程中观看视频是危险行为，在大多数地区也属违法。
 
 ## 快速开始
 
-**Jellyfin**（12.0 及以上）：在 Dashboard → Plugins → Repositories 中添加插件仓库 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`，安装 **BackseatFin**，重启，然后选择哪些浏览器可以使用车载播放器。指南见 [docs/jellyfin.md](docs/jellyfin.md)。
+**Jellyfin**（12.0 及以上）：在 Dashboard → Plugins → Repositories 中添加插件仓库 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`，安装 **BackseatFin**，重启，然后选择哪些浏览器使用车机播放器。指南见 [docs/jellyfin.md](docs/jellyfin.md)。
 
-**YouTube 和 Emby**：用 Docker 运行 BackseatFin。
+**Emby** 和 **YouTube** 用同一套 Docker Compose：
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env   # 填 API_KEY（YouTube）和/或 EMBY_URL（Emby）
+cp .env.example .env
+# Emby：    填 EMBY_URL
+# YouTube： 取消注释 COMPOSE_PROFILES=server，填 API_KEY
 docker compose up -d
 ```
 
-然后放到 HTTPS 之后（[示例](docs/reverse-proxy.md)），在车里打开即可。指南见 [docs/install.md](docs/install.md)。
+然后把用到的端口放到 HTTPS 之后（[示例](docs/reverse-proxy.md)），在车里打开即可。指南：[docs/emby.md](docs/emby.md)、[docs/youtube.md](docs/youtube.md)。
 
 ## 工作原理
 
