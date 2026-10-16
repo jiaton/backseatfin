@@ -1846,6 +1846,68 @@
         ]
       }
     },
+    "/api/tube/next": {
+      "get": {
+        "description": "The video after `after` in that list (null at its end).",
+        "operationId": "next_video_api_tube_next_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "list",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "title": "List",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": true,
+            "schema": {
+              "maxLength": 20,
+              "title": "After",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TubeVideoCardOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Next Video Api Tube Next Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Next Video",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
     "/api/tube/playlists/{playlist_id}": {
       "get": {
         "operationId": "playlist_api_tube_playlists__playlist_id__get",

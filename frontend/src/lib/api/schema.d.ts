@@ -382,6 +382,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tube/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Next Video
+         * @description The video after `after` in that list (null at its end).
+         */
+        get: operations["next_video_api_tube_next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tube/playlists/{playlist_id}": {
         parameters: {
             query?: never;
@@ -1483,6 +1503,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TubeLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    next_video_api_tube_next_get: {
+        parameters: {
+            query: {
+                list: string;
+                after: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeVideoCardOut"] | null;
                 };
             };
             /** @description Validation Error */
