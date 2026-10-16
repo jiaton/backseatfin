@@ -1,57 +1,146 @@
 # Emby in the car
 
-On Emby, BackseatFin is one small container, the **car host**: an nginx that serves
-Emby's own web app with the car player added. Open it in the car, browse Emby as usual,
-press Play, and the video plays on a canvas the car doesn't block while driving. Emby
-transcodes; the player uses each viewer's own Emby sign-in, so there are no extra
-accounts or keys. Your usual Emby address and apps stay as they are.
+Open Emby in the car, browse as usual, press Play, and the video plays on a canvas the
+car doesn't block while driving. Emby transcodes; the player uses each viewer's own Emby
+sign-in, so there are no extra accounts or keys.
 
-Emby has no plugin hook for adding a script to its web app (Jellyfin has one: see
-[jellyfin.md](jellyfin.md)), which is why this is a container in front of Emby.
+The car player is a few static files (under 1 MB). Two things make it work: Emby's page
+loads its script (`/car/inject.js`), and the files are served under `/car/` on the same
+hostname as Emby. Emby has no plugin hook for adding a script to its web app (Jellyfin
+has one: see [jellyfin.md](jellyfin.md)), so your reverse proxy does it. Use a
+**separate hostname for the car**, for example `car.example.com`: only browsers that
+open it get the car player; your usual Emby address and apps stay as they are.
 
-You need Docker with Compose, an Emby server the container can reach, and an HTTPS
-reverse proxy (the car player needs HTTPS).
+Pick one of three ways. The car needs HTTPS (the player uses WebCodecs, which browsers
+allow only on secure pages).
 
-## 1. Configure
+## A. You already use nginx
+
+1. Download the player and unpack it, e.g. into `/srv/backseatfin`:
+
+   ```sh
+   curl -LO https://github.com/jiaton/backseatfin/releases/latest/download/backseatfin-emby-player.zip
+   sudo mkdir -p /srv/backseatfin && sudo unzip -o backseatfin-emby-player.zip -d /srv/backseatfin
+   ```
+
+2. Add a server for the car hostname (replace `192.168.1.10:8096` with your Emby and
+   add your usual certificate lines). nginx needs its `sub_filter` module, which most
+   builds include (`nginx -V 2>&1 | grep -o http_sub_module`).
+
+   ```nginx
+   map $http_upgrade $connection_upgrade {
+       default upgrade;
+       ''      close;
+   }
+
+   server {
+       listen 443 ssl;
+       server_name car.example.com;
+       # ssl_certificate ...;
+
+       client_max_body_size 0;
+
+       # Emby's page, plus the car player's script.
+       location ~ ^/web/(index\.html)?$ {
+           proxy_pass http://192.168.1.10:8096;
+           proxy_set_header Host $host;
+           proxy_set_header Accept-Encoding "";
+           sub_filter '</head>' '<script type="module" src="/car/inject.js"></script></head>';
+           sub_filter_once on;
+       }
+
+       # The car player.
+       location /car/ {
+           alias /srv/backseatfin/;
+           try_files $uri $uri.html =404;
+       }
+
+       # Everything else: Emby.
+       location / {
+           proxy_pass http://192.168.1.10:8096;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection $connection_upgrade;
+           proxy_set_header Host $host;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_buffering off;
+           proxy_read_timeout 6h;
+       }
+   }
+   ```
+
+3. `sudo nginx -t && sudo nginx -s reload`. To update later, download and unpack the zip
+   again.
+
+## B. You already use Caddy
+
+Caddy can't change a page's content on its own; it needs the
+[replace-response](https://github.com/caddyserver/replace-response) plugin. If your Caddy
+doesn't have it, build one with `xcaddy build --with github.com/caddyserver/replace-response`
+(or, with Docker, an image `FROM caddy:2-builder` that runs that and copies `/usr/bin/caddy`
+into `caddy:2`), or use way C instead.
+
+1. Download and unpack the player as in A, step 1.
+2. In the Caddyfile: the global `order` line, and a site for the car hostname.
+
+   ```caddyfile
+   {
+       order replace after encode
+   }
+
+   car.example.com {
+       # The car player.
+       handle_path /car/* {
+           root * /srv/backseatfin
+           try_files {path} {path}.html
+           file_server
+       }
+
+       # Emby's page, plus the car player's script.
+       @index path /web/ /web/index.html
+       handle @index {
+           replace "</head>" "<script type=\"module\" src=\"/car/inject.js\"></script></head>"
+           reverse_proxy 192.168.1.10:8096 {
+               header_up Accept-Encoding identity
+           }
+       }
+
+       # Everything else: Emby.
+       handle {
+           reverse_proxy 192.168.1.10:8096
+       }
+   }
+   ```
+
+3. Reload Caddy.
+
+## C. The BackseatFin container
+
+No web server of your own, or a Caddy without plugins: run the car host, a small nginx
+container that does all of the above, and point your reverse proxy (any) at it.
 
 ```sh
-git clone https://github.com/jiaton/backseatfin.git
-cd backseatfin
-cp .env.example .env
-```
-
-In `.env`:
-
-| Setting | What to put |
-|---|---|
-| `EMBY_URL` | Emby as the container reaches it, e.g. `http://192.168.1.10:8096` (no trailing slash) |
-| `CAR_PORT` | Host port of the car host (default 8097) |
-
-Leave `COMPOSE_PROFILES` commented out: the car host doesn't need the server.
-
-## 2. Start
-
-```sh
+git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
+cp .env.example .env    # set EMBY_URL, e.g. http://192.168.1.10:8096
 docker compose up -d
 ```
 
-## 3. Put it behind HTTPS
+Then give `CAR_PORT` (default 8097) the car hostname: in Caddy simply
+`car.example.com { reverse_proxy 192.168.1.10:8097 }`; nginx examples are in
+[reverse-proxy.md](reverse-proxy.md). Update with `docker compose pull && docker compose up -d`.
 
-Give the car host its own hostname, for example `car.example.com` → `CAR_PORT`. Point
-it at this container, not at Emby: the container is what adds the player. See
-[reverse-proxy.md](reverse-proxy.md) for Caddy and nginx examples.
-
-## 4. In the car
+## In the car
 
 Open `https://car.example.com` in the car's browser and sign in to Emby once. Browse as
 usual; Play opens the car player and the back arrow returns to where you were. Progress
 and "watched" sync with Emby like any other client.
 
 The player's settings sheet has quality (each level shows its real picture size, bitrate
-and data per hour), audio track, subtitles (burned in by Emby) and language, and a
-"Stats for nerds" panel.
+and data per hour), audio track, subtitles (burned in by Emby), language, and "Stats for
+nerds". While a video loads, the player says what it's doing and how fast the network is.
 
-## Optional: HDR films (the BackseatFin server)
+## Optional: HDR films (the BackseatFin server, way C only)
 
 Emby's own tone mapping often leaves HDR and Dolby Vision films washed out. The
 BackseatFin server can transcode those instead, on an Intel GPU (up to 1080p) or the CPU
@@ -69,9 +158,3 @@ RENDER_GID=109  # getent group render
 ```
 
 NVIDIA and AMD aren't supported yet.
-
-## Update
-
-```sh
-docker compose pull && docker compose up -d
-```

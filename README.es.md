@@ -28,7 +28,7 @@ partes; usa las que necesites:
 | Lo que ves | Lo que instalas | Servidor | Guía |
 |---|---|---|---|
 | **Jellyfin** | un plugin de Jellyfin | ninguno: Jellyfin transcodifica | [docs/jellyfin.md](docs/jellyfin.md) |
-| **Emby** | el car host, un pequeño contenedor nginx delante de Emby | ninguno: Emby transcodifica (opcional para HDR) | [docs/emby.md](docs/emby.md) |
+| **Emby** | unas líneas en tu nginx o Caddy, o nuestro pequeño contenedor | ninguno: Emby transcodifica (opcional para HDR) | [docs/emby.md](docs/emby.md) |
 | **YouTube** | el servidor y la app de BackseatFin (Docker) | sí: los vídeos pasan por él | [docs/youtube.md](docs/youtube.md) |
 
 - **La propia web de tu servidor multimedia.** Abre Jellyfin o Emby en el coche, navega
@@ -56,7 +56,10 @@ partes; usa las que necesites:
 Repositories, instala **BackseatFin**, reinicia y elige qué navegadores usan el
 reproductor del coche. Guía: [docs/jellyfin.md](docs/jellyfin.md).
 
-**Emby** y **YouTube** funcionan con la misma configuración de Docker Compose:
+**Emby**: añade el reproductor a tu propio nginx o Caddy (descarga un zip y añade unas
+líneas) o usa nuestro contenedor. Las tres formas: [docs/emby.md](docs/emby.md).
+
+**YouTube** (y el contenedor de Emby) funcionan con Docker Compose:
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
@@ -96,7 +99,7 @@ un canvas. Los detalles para colaboradores están en [AGENTS.md](AGENTS.md) y
 - [x] Mapeo tonal de HDR / Dolby Vision (GPU Intel, CPU)
 - [x] YouTube en el coche: buscar, seguir canales, reproducir en directo, continuar
 - [ ] Listas seguidas; subtítulos; directos
-- [ ] GPUs de NVIDIA y AMD
+- [ ] GPUs de NVIDIA y AMD para HDR (se agradecen contribuciones: no tenemos ese hardware para probar)
 
 ## Licencia
 

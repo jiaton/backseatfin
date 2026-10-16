@@ -26,7 +26,7 @@
 | 見るもの | インストールするもの | サーバー | ガイド |
 |---|---|---|---|
 | **Jellyfin** | Jellyfin プラグイン | 不要：Jellyfin がトランスコード | [docs/jellyfin.md](docs/jellyfin.md) |
-| **Emby** | car host：Emby の前に置く小さな nginx コンテナ | 不要：Emby がトランスコード（HDR には任意で使用） | [docs/emby.md](docs/emby.md) |
+| **Emby** | 既存の nginx / Caddy に数行追加、または小さなコンテナ | 不要：Emby がトランスコード（HDR には任意で使用） | [docs/emby.md](docs/emby.md) |
 | **YouTube** | BackseatFin サーバーとアプリ（Docker） | 必要：動画はサーバーを経由 | [docs/youtube.md](docs/youtube.md) |
 
 - **メディアサーバー自身の Web アプリをそのまま使用。** 車で Jellyfin や Emby を開き、いつも通り選んで再生。シーク、音声トラック、字幕（PGS を含む）、再開位置、「視聴済み」はサーバーと同期し、プレーヤーは自分のログインを使います。
@@ -41,7 +41,9 @@
 
 **Jellyfin**（12.0 以降）：Dashboard → Plugins → Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、**BackseatFin** をインストールして再起動し、車のプレーヤーを使うブラウザを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
 
-**Emby** と **YouTube** は同じ Docker Compose で動きます：
+**Emby**：既存の nginx や Caddy にプレーヤーを追加（zip をダウンロードして数行追加）するか、コンテナを使います。3 つの方法は [docs/emby.md](docs/emby.md)。
+
+**YouTube**（と Emby のコンテナ方式）は Docker Compose で動きます：
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
@@ -76,7 +78,7 @@ YouTube:   car browser ──► BackseatFin app (search, channels, history)
 - [x] HDR / Dolby Vision トーンマッピング（Intel GPU、CPU）
 - [x] 車で YouTube：検索、チャンネルのフォロー、ライブ再生、続きから再生
 - [ ] 再生リストの連続再生、字幕、ライブ配信
-- [ ] NVIDIA および AMD の GPU
+- [ ] HDR 向けの NVIDIA / AMD GPU 対応（コントリビュート歓迎：テストできるハードウェアがありません）
 
 ## ライセンス
 

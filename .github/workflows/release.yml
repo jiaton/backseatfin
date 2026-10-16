@@ -51,7 +51,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
   # The Jellyfin plugin: a zip on the GitHub release, and the plugin repository manifest
-  # on GitHub Pages (https://<owner>.github.io/backseatfin/jellyfin/manifest.json).
+  # on GitHub Pages (https://<owner>.github.io/backseatfin/jellyfin/manifest.json). Also
+  # the Emby car player's files as a zip on the release.
   jellyfin-plugin:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -66,7 +67,14 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Build the player
         working-directory: frontend
-        run: npm ci && npm run build:jellyfin
+        run: npm ci && npm run build:jellyfin && npm run build
+      # The Emby car player as plain files, for people who add it to their own nginx or
+      # Caddy instead of running the web image (docs/emby.md). A fixed name, so
+      # releases/latest/download/backseatfin-emby-player.zip always works.
+      - name: Emby player zip
+        run: |
+          mkdir -p release
+          cd frontend/dist && rm -f index.html && zip -qr ../../release/backseatfin-emby-player.zip .
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -86,7 +94,7 @@ jobs:
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" site/jellyfin/*.zip --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" site/jellyfin/*.zip release/backseatfin-emby-player.zip --generate-notes --verify-tag
       - name: Pages content
         run: rm site/jellyfin/*.zip
       - uses: actions/upload-pages-artifact@v3

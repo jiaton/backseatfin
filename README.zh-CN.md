@@ -26,7 +26,7 @@
 | 你看的是 | 需要安装 | 服务器 | 指南 |
 |---|---|---|---|
 | **Jellyfin** | 一个 Jellyfin 插件 | 不需要：Jellyfin 负责转码 | [docs/jellyfin.md](docs/jellyfin.md) |
-| **Emby** | car host：放在 Emby 前面的一个小 nginx 容器 | 不需要：Emby 负责转码（HDR 可选用服务器） | [docs/emby.md](docs/emby.md) |
+| **Emby** | 在你的 nginx 或 Caddy 里加几行，或用我们的小容器 | 不需要：Emby 负责转码（HDR 可选用服务器） | [docs/emby.md](docs/emby.md) |
 | **YouTube** | BackseatFin 服务器和应用（Docker） | 需要：视频经它转发 | [docs/youtube.md](docs/youtube.md) |
 
 - **就用你媒体服务器自己的网页。** 在车里打开 Jellyfin 或 Emby，照常浏览，点播放。跳转进度、音轨、字幕（包括 PGS）、续播位置和"已观看"状态都会与服务器同步，播放器用的是你自己的登录。
@@ -41,7 +41,9 @@
 
 **Jellyfin**（12.0 及以上）：在 Dashboard → Plugins → Repositories 中添加插件仓库 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`，安装 **BackseatFin**，重启，然后选择哪些浏览器使用车机播放器。指南见 [docs/jellyfin.md](docs/jellyfin.md)。
 
-**Emby** 和 **YouTube** 用同一套 Docker Compose：
+**Emby**：在你自己的 nginx 或 Caddy 里加上播放器（下载一个 zip，加几行配置），或者用我们的容器。三种方式见 [docs/emby.md](docs/emby.md)。
+
+**YouTube**（以及 Emby 的容器方式）用 Docker Compose：
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
@@ -76,7 +78,7 @@ YouTube:   car browser ──► BackseatFin app (search, channels, history)
 - [x] HDR / 杜比视界色调映射（Intel GPU、CPU）
 - [x] 车机里看 YouTube：搜索、关注频道、实时播放、续播
 - [ ] 播放列表连续播放；字幕；直播
-- [ ] NVIDIA 和 AMD 显卡
+- [ ] HDR 支持 NVIDIA 和 AMD 显卡（欢迎贡献：我们没有这些硬件可供测试）
 
 ## 许可证
 
