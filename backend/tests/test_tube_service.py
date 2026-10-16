@@ -12,6 +12,15 @@ VID = "aqz-KE-bpKQ"
 
 
 def _details(live=False, tag="1") -> VideoDetails:
+    if live:  # a live stream: HLS only, sound without a codec name
+        return VideoDetails(
+            card=VideoCard(VID, "Lofi radio", is_live=True),
+            formats=[
+                MediaFormat("232", f"https://v.example.com/232?{tag}", "avc1.4d401f", None, 720, 1280, protocol="m3u8_native"),
+                MediaFormat("233", f"https://v.example.com/233?{tag}", None, "unknown", protocol="m3u8_native"),
+                MediaFormat("234", f"https://v.example.com/234?{tag}", None, "unknown", protocol="m3u8_native"),
+            ],
+        )
     return VideoDetails(
         card=VideoCard(VID, "Big Buck Bunny", "UCSMOQeBJ2RAnuFungnQOxLg", "Blender", 635, is_live=live),
         formats=[
@@ -91,11 +100,16 @@ def test_a_dead_stream_url_is_extracted_again(tmp_path):
     assert asyncio.run(main()).input_url == "https://v.example.com/298?2" and src.video_calls == 2
 
 
-def test_live_streams_and_bad_ids_are_refused(tmp_path):
+def test_a_live_stream_plays_its_hls_from_the_live_edge(tmp_path):
     svc, src, _ = _svc(tmp_path)
     src.live = True
-    with pytest.raises(SourceUnavailableError):
-        asyncio.run(svc.resolve(VID, _request(), Viewer(), OutputFormat.H264_TS))
+    spec = asyncio.run(svc.resolve(VID, _request(start_seconds=300), Viewer(), OutputFormat.H264_TS)).spec
+    assert spec.input_url.startswith("https://v.example.com/232") and spec.audio_url.startswith("https://v.example.com/234")
+    assert spec.start_seconds == 0 and spec.copy_video
+
+
+def test_bad_ids_are_refused(tmp_path):
+    svc, src, _ = _svc(tmp_path)
     with pytest.raises(SourceUnavailableError):
         asyncio.run(svc.resolve("../../etc", _request(), Viewer(), OutputFormat.H264_TS))
 

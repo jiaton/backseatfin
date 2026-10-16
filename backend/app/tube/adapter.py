@@ -64,6 +64,15 @@ def _video_card(e: dict, channel_id: str | None = None, channel_name: str | None
     )
 
 
+def _acodec(f: dict) -> str | None:
+    """A live stream's sound-only HLS formats come without a codec name: still sound."""
+    if f.get("acodec") not in (None, "none"):
+        return f["acodec"]
+    if f.get("vcodec") in (None, "none") and f.get("resolution") == "audio only":
+        return "unknown"
+    return None
+
+
 def _is_video(e: dict | None) -> bool:
     return bool(e and e.get("id") and e.get("title") not in _HIDDEN_TITLES and e.get("ie_key", "Youtube") == "Youtube")
 
@@ -116,7 +125,7 @@ class YtDlpTube:
             MediaFormat(
                 format_id=str(f["format_id"]), url=f["url"],
                 vcodec=None if f.get("vcodec") in (None, "none") else f["vcodec"],
-                acodec=None if f.get("acodec") in (None, "none") else f["acodec"],
+                acodec=_acodec(f),
                 height=_int(f.get("height")), width=_int(f.get("width")), kbps=f.get("tbr"),
                 protocol=f.get("protocol") or "https",
             )

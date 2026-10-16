@@ -51,14 +51,11 @@ export function TubeVideoScreen({ id }: { id: string }) {
                   {page.data && <FollowButton channelId={video.channel_id} following={page.data.following} />}
                 </div>
               )}
-              {video.is_live ? (
-                <p className="text-lg text-muted-foreground">{t('liveNotYet')}</p>
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  <PlayButtons videoId={id} resumeAt={video.position_seconds} />
-                  {page.data && <LaterButton videoId={id} inLater={page.data.later} />}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-3">
+                {/* A live stream always starts at the live edge: nothing to resume. */}
+                <PlayButtons videoId={id} resumeAt={video.is_live ? null : video.position_seconds} />
+                {page.data && !video.is_live && <LaterButton videoId={id} inLater={page.data.later} />}
+              </div>
             </>
           )}
           <QueryState query={page}>

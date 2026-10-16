@@ -62,6 +62,8 @@ async def progress(video_id: str, body: TubeProgressIn, session: Session = Depen
         details = await tube_service.video(video_id)
     except (InvalidIdError, TubeUnavailableError) as e:
         raise http_error(e) from e
+    if details.card.is_live:
+        return  # nothing to resume in a live stream
     first_time = tube_library.watched(session, video_id) is None
     tube_library.record_progress(session, details.card, body.position_seconds, body.duration_seconds)
     if first_time:

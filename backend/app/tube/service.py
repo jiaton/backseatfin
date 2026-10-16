@@ -135,10 +135,9 @@ class TubeService:
             details = await self.video(source_id)
         except (InvalidIdError, TubeUnavailableError) as e:
             raise SourceUnavailableError(str(e)) from e
-        if details.card.is_live:
-            raise SourceUnavailableError("live streams can't be played yet")
+        live = details.card.is_live
         width, height, kbps = output_size(output, request)
-        choice = pick_stream(details.formats, height, width)
+        choice = pick_stream(details.formats, height, width, live)
         if choice and not await self._web.url_works(choice.video.url):
             # Expired or revoked early: extract again (once).
             log.info("stream URL for %s stopped working; extracting again", source_id)
@@ -147,14 +146,14 @@ class TubeService:
                 details = await self.video(source_id)
             except TubeUnavailableError as e:
                 raise SourceUnavailableError(str(e)) from e
-            choice = pick_stream(details.formats, height, width)
+            choice = pick_stream(details.formats, height, width, live)
         if choice is None:
             raise SourceUnavailableError("YouTube offers no stream for this video")
         return ResolvedInput(StreamSpec(
             input_url=choice.video.url,
             audio_url=choice.audio.url if choice.audio else None,
             output=output,
-            start_seconds=request.start_seconds,
+            start_seconds=0 if live else request.start_seconds,  # live: always the live edge
             paced=request.paced,
             max_width=width,
             max_height=height,
