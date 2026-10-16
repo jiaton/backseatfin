@@ -53,10 +53,24 @@ class TubeChapterOut(_Out):
     title: str
 
 
+class TubeCaptionTrackOut(_Out):
+    id: str
+    label: str
+    lang: str
+    auto: bool = Field(description="YouTube's automatic captions (or their translation)")
+
+
+class TubeCueOut(_Out):
+    start: float
+    end: float
+    text: str
+
+
 class TubeVideoOut(BaseModel):
     video: TubeVideoCardOut
     description: str
     chapters: list[TubeChapterOut]
+    captions: list[TubeCaptionTrackOut]
     finished: bool
     later: bool
     following: bool

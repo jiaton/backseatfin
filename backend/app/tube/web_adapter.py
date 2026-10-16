@@ -57,6 +57,14 @@ class HttpTubeWeb:
             raise TubeUnavailableError(f"not an image ({content_type})")
         return resp.content, content_type
 
+    async def fetch_text(self, url: str) -> str:
+        try:
+            resp = await self._client.get(url)
+            resp.raise_for_status()
+        except httpx.HTTPError as e:
+            raise TubeUnavailableError(f"captions: {e}") from e
+        return resp.text
+
     async def url_works(self, url: str) -> bool:
         try:
             resp = await self._client.get(url, headers={"Range": "bytes=0-0"})

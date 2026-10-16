@@ -75,6 +75,11 @@ export function createReporter(itemId: string, mediaSourceId: string) {
   }
 }
 
+export type TubeCue = components['schemas']['TubeCueOut']
+
+export const fetchTubeCaptions = (videoId: string, trackId: string) =>
+  call<TubeCue[]>('GET', `/api/tube/videos/${encodeURIComponent(videoId)}/captions/${encodeURIComponent(trackId)}`)
+
 export const fetchTubeVideo = (videoId: string) => call<TubeVideo>('GET', `/api/tube/videos/${encodeURIComponent(videoId)}`)
 
 /** Remembers how far a YouTube video got (the home screen's "continue watching").

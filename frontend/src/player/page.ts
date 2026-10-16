@@ -12,6 +12,7 @@ import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
+import { createCaptionLayer, loadCaptionLang, saveCaptionLang } from './captions'
 import { diagnose } from './diagnose'
 import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
@@ -171,7 +172,8 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const loadingDetail = h('pre', { class: 'cm-loading-lines' })
   const loadingBox = h('div', { class: 'cm-loading', role: 'status', hidden: '' }, loadingStage, loadingDetail)
 
-  document.body.replaceChildren(controller, status, loadingBox, subChip, unlock, errorPanel, statsPanel, sheet)
+  const captionLayer = createCaptionLayer(() => video.currentTime)
+  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, errorPanel, statsPanel, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -336,7 +338,8 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     Object.assign(state, patch)
     if (patch.quality) saveQuality(patch.quality)
     closeSheet()
-    if (patch.sub !== undefined) watchSubtitle()
+    if ('sub' in patch && source.captions) return void showCaptions() // drawn here: same stream
+    if ('sub' in patch) watchSubtitle()
     video.reload()
   }
   function group(label: string, options: { label: string; detail?: string; selected: boolean; pick: () => void }[]) {
@@ -390,7 +393,11 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       groups.push(
         group(t('subtitles'), [
           { label: t('off'), selected: state.sub == null, pick: () => choose({ sub: undefined }) },
-          ...item.subtitleTracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.sub, pick: () => choose({ sub: tr.index }) })),
+          ...item.subtitleTracks.map((tr: Track) => ({
+            label: tr.auto ? t('autoCaptions', { name: tr.title }) : tr.title,
+            selected: tr.index === state.sub,
+            pick: () => choose({ sub: tr.index }),
+          })),
         ]),
       )
     }
@@ -531,7 +538,36 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     void check()
   }
 
+  // --- captions drawn over the picture (sources that have them: YouTube) ---------------
+  let captionRequest = 0
+  async function showCaptions() {
+    const request = ++captionRequest
+    captionLayer.clear()
+    const track = item.subtitleTracks.find((tr) => tr.index === state.sub)
+    saveCaptionLang(track?.lang ?? null)
+    subState = 'none'
+    if (track && source.captions) {
+      subState = 'pending'
+      renderSubChip()
+      try {
+        const cues = await source.captions(track.index)
+        if (request !== captionRequest) return
+        captionLayer.show(cues)
+        subState = 'none'
+      } catch {
+        if (request === captionRequest) subState = 'failed'
+      }
+    }
+    renderSubChip()
+  }
+  if (source.captions && state.sub == null) {
+    // The language picked last time, when this video has it.
+    const lang = loadCaptionLang()
+    state.sub = item.subtitleTracks.find((tr) => tr.lang === lang)?.index
+  }
+
   applyTexts()
-  watchSubtitle()
+  if (source.captions) void showCaptions()
+  else watchSubtitle()
   void video.play()
 }

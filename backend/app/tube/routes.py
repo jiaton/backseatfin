@@ -7,7 +7,10 @@ from app.auth.deps import require_auth
 from app.container import playlist_library, recommender, tube_library, tube_service
 from app.core.db import get_session
 from app.tube.ports import SearchKind, TubeUnavailableError
-from app.tube.schemas import TubeChannelCardOut, TubeChannelOut, TubeLinkOut, TubePlaylistOut, TubeProgressIn, TubeSearchOut, TubeVideoOut
+from app.tube.schemas import (
+    TubeCaptionTrackOut, TubeChannelCardOut, TubeChannelOut, TubeCueOut, TubeLinkOut, TubePlaylistOut, TubeProgressIn, TubeSearchOut,
+    TubeVideoOut,
+)
 from app.tube.service import InvalidIdError
 from app.tube.urls import parse_link
 from app.tube.views import cards, http_error
@@ -50,10 +53,21 @@ async def video(video_id: str, session: Session = Depends(get_session)):
         video=cards(session, [details.card])[0],
         description=details.description,
         chapters=details.chapters,
+        captions=[TubeCaptionTrackOut.model_validate(c) for c in details.captions],
         finished=bool(watched and watched.finished),
         later=tube_library.is_later(session, video_id),
         following=bool(details.card.channel_id and tube_library.is_following(session, details.card.channel_id)),
     )
+
+
+@router.get("/videos/{video_id}/captions/{track_id}", response_model=list[TubeCueOut])
+async def captions(video_id: str, track_id: str):
+    """A caption track as timed lines (the player draws them over the picture)."""
+    try:
+        cues = await tube_service.captions(video_id, track_id)
+    except (InvalidIdError, TubeUnavailableError) as e:
+        raise http_error(e) from e
+    return [TubeCueOut.model_validate(c) for c in cues]
 
 
 @router.post("/videos/{video_id}/progress", status_code=status.HTTP_204_NO_CONTENT)

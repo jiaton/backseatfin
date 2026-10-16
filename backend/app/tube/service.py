@@ -17,9 +17,11 @@ from app.stream.ports import (
     output_size,
 )
 from app.tube.cache import TtlCache
+from app.tube.captions import parse_json3
 from app.tube.formats import pick_stream
 from app.tube.ports import (
     ChannelPage,
+    Cue,
     PlaylistPage,
     SearchKind,
     SearchResults,
@@ -29,11 +31,12 @@ from app.tube.ports import (
     VideoCard,
     VideoDetails,
 )
-from app.tube.urls import CHANNEL_ID, PLAYLIST_ID, VIDEO_ID, is_youtube_image
+from app.tube.urls import CHANNEL_ID, PLAYLIST_ID, VIDEO_ID, is_youtube_caption, is_youtube_image
 
 log = logging.getLogger(__name__)
 
 SEARCH_TTL_S = 600
+CAPTION_TTL_S = 3600
 LIST_TTL_S = 1800
 # Stream URLs say when they expire (~6 h); stop using them well before that.
 URL_MARGIN_S = 1800
@@ -62,6 +65,7 @@ class TubeService:
         self._videos: TtlCache[VideoDetails] = TtlCache(300)
         self._channels: TtlCache[ChannelPage] = TtlCache(200)
         self._playlists: TtlCache[PlaylistPage] = TtlCache(100)
+        self._captions: TtlCache[list[Cue]] = TtlCache(50)
 
     # --- browsing ---------------------------------------------------------------------
 
@@ -80,6 +84,25 @@ class TubeService:
             return max(60.0, d.expires_at - time.time() - URL_MARGIN_S) if d.expires_at else VIDEO_DEFAULT_TTL_S
 
         return await self._videos.get(video_id, lambda: asyncio.to_thread(self._source.video, video_id), ttl)
+
+    async def captions(self, video_id: str, track_id: str) -> list[Cue]:
+        """A caption track's cues (cached with the video; YouTube's caption URLs expire with
+        its stream URLs)."""
+        details = await self.video(video_id)
+        track = next((t for t in details.captions if t.id == track_id), None)
+        if track is None:
+            raise InvalidIdError(f"no caption track {track_id!r}")
+        if not is_youtube_caption(track.url):
+            raise InvalidIdError("not a YouTube caption URL")
+        return await self._captions.get(
+            f"{video_id}:{track_id}", lambda: self._load_captions(track.url), CAPTION_TTL_S
+        )
+
+    async def _load_captions(self, url: str) -> list[Cue]:
+        try:
+            return parse_json3(await self._web.fetch_text(url))
+        except ValueError as e:
+            raise TubeUnavailableError(f"unreadable captions: {e}") from e
 
     async def channel_feed(self, channel_id: str) -> list[VideoCard]:
         return await self._web.channel_feed(channel_id)

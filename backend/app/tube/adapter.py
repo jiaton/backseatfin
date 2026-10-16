@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
+from app.tube.captions import pick_tracks
 from app.tube.urls import video_thumbnail
 from app.tube.ports import (
     ChannelCard,
@@ -137,6 +138,7 @@ class YtDlpTube:
             description=info.get("description") or "",
             chapters=[Chapter(float(c["start_time"]), c.get("title") or "") for c in info.get("chapters") or []],
             formats=formats,
+            captions=pick_tracks(info.get("subtitles") or {}, info.get("automatic_captions") or {}, info.get("language")),
             expires_at=_expiry([f for f in formats if f.protocol == "https"]),
         )
 

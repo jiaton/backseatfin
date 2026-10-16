@@ -1,4 +1,5 @@
 import type { EngineKind } from './engines/types'
+import type { Cue } from './captions'
 import type { Level, Quality } from './quality'
 
 /** Everything the player page needs from a media server, whichever one it is: Emby or
@@ -12,6 +13,10 @@ export interface Track {
   /** Subtitles: 'text' (may need preparing first) or 'image'. */
   kind?: string
   isDefault: boolean
+  /** Caption tracks the page draws itself (PlaybackSource.captions): their language,
+   * and whether they're automatic (speech recognition). */
+  lang?: string
+  auto?: boolean
 }
 
 export interface PlayerItem {
@@ -54,6 +59,9 @@ export interface PlaybackSource {
   /** Best effort: resume points and "watched" stay in sync with the server's other
    * clients. `leaving`: the page is going away (the request must survive that). */
   report(event: PlaybackEvent, positionSeconds: number, choice: StreamChoice, opts?: { paused?: boolean; leaving?: boolean }): void
+  /** Captions the page draws over the picture itself (YouTube's), by track index:
+   * choosing one needs no new stream. */
+  captions?(index: number): Promise<Cue[]>
   /** Text subtitles the server has to prepare before it can burn them in (Emby). */
   prepareSubtitle?(index: number): Promise<SubtitleState>
 }

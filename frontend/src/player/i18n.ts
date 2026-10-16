@@ -72,6 +72,7 @@ const en = {
   loadQuality: 'Quality',
   loadFrom: 'from {time}',
   loadConnects: 'Connections',
+  autoCaptions: '{name} (auto-generated)',
 }
 export type StringKey = keyof typeof en
 /** Every key (for tests). */
@@ -140,6 +141,7 @@ const zh: Record<StringKey, string> = {
   loadQuality: '画质',
   loadFrom: '从 {time} 开始',
   loadConnects: '连接次数',
+  autoCaptions: '{name}（自动生成）',
 }
 
 const es: Record<StringKey, string> = {
@@ -206,6 +208,7 @@ const es: Record<StringKey, string> = {
   loadQuality: 'Calidad',
   loadFrom: 'desde {time}',
   loadConnects: 'Conexiones',
+  autoCaptions: '{name} (generados automáticamente)',
 }
 
 const ja: Record<StringKey, string> = {
@@ -272,6 +275,7 @@ const ja: Record<StringKey, string> = {
   loadQuality: '画質',
   loadFrom: '{time} から',
   loadConnects: '接続回数',
+  autoCaptions: '{name}（自動生成）',
 }
 
 const ko: Record<StringKey, string> = {
@@ -338,6 +342,7 @@ const ko: Record<StringKey, string> = {
   loadQuality: '화질',
   loadFrom: '{time}부터',
   loadConnects: '연결 횟수',
+  autoCaptions: '{name} (자동 생성)',
 }
 
 const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko }

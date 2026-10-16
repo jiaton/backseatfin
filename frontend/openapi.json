@@ -436,6 +436,35 @@
         "title": "TrackOut",
         "type": "object"
       },
+      "TubeCaptionTrackOut": {
+        "properties": {
+          "auto": {
+            "description": "YouTube's automatic captions (or their translation)",
+            "title": "Auto",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "lang",
+          "auto"
+        ],
+        "title": "TubeCaptionTrackOut",
+        "type": "object"
+      },
       "TubeChannelCardOut": {
         "properties": {
           "avatar_url": {
@@ -545,6 +574,29 @@
           "title"
         ],
         "title": "TubeChapterOut",
+        "type": "object"
+      },
+      "TubeCueOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "number"
+          },
+          "start": {
+            "title": "Start",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "text"
+        ],
+        "title": "TubeCueOut",
         "type": "object"
       },
       "TubeFollowingOut": {
@@ -896,6 +948,13 @@
       },
       "TubeVideoOut": {
         "properties": {
+          "captions": {
+            "items": {
+              "$ref": "#/components/schemas/TubeCaptionTrackOut"
+            },
+            "title": "Captions",
+            "type": "array"
+          },
           "chapters": {
             "items": {
               "$ref": "#/components/schemas/TubeChapterOut"
@@ -927,6 +986,7 @@
           "video",
           "description",
           "chapters",
+          "captions",
           "finished",
           "later",
           "following"
@@ -1993,6 +2053,62 @@
           }
         },
         "summary": "Video",
+        "tags": [
+          "tube"
+        ]
+      }
+    },
+    "/api/tube/videos/{video_id}/captions/{track_id}": {
+      "get": {
+        "description": "A caption track as timed lines (the player draws them over the picture).",
+        "operationId": "captions_api_tube_videos__video_id__captions__track_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "track_id",
+            "required": true,
+            "schema": {
+              "title": "Track Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TubeCueOut"
+                  },
+                  "title": "Response Captions Api Tube Videos  Video Id  Captions  Track Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Captions",
         "tags": [
           "tube"
         ]

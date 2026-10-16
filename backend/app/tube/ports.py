@@ -77,12 +77,32 @@ class MediaFormat:
 
 
 @dataclass(frozen=True)
+class CaptionTrack:
+    """A subtitle track YouTube has for a video: the uploader's (`auto` False) or its
+    automatic captions / their machine translation (`auto` True)."""
+
+    id: str  # "sub:<lang>" or "auto:<lang>"
+    lang: str
+    label: str
+    auto: bool
+    url: str  # json3 format
+
+
+@dataclass(frozen=True)
+class Cue:
+    start: float
+    end: float
+    text: str
+
+
+@dataclass(frozen=True)
 class VideoDetails:
     card: VideoCard
     description: str = ""
     chapters: list[Chapter] = field(default_factory=list)
     channel_avatar_url: str | None = None
     formats: list[MediaFormat] = field(default_factory=list)
+    captions: list[CaptionTrack] = field(default_factory=list)
     # When the format URLs stop working (unix seconds), as YouTube states it.
     expires_at: float | None = None
 
@@ -122,6 +142,10 @@ class TubeWebPort(Protocol):
 
     async def fetch_image(self, url: str) -> tuple[bytes, str]:
         """(bytes, content type) of a thumbnail or avatar."""
+        ...
+
+    async def fetch_text(self, url: str) -> str:
+        """A caption track's content."""
         ...
 
     async def url_works(self, url: str) -> bool:

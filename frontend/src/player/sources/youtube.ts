@@ -1,4 +1,4 @@
-import { fetchTubeVideo, reportTubeProgress } from '../api'
+import { fetchTubeCaptions, fetchTubeVideo, reportTubeProgress } from '../api'
 import { ENGINE_FORMAT, type EngineKind } from '../engines/types'
 import { wsUrl } from '../net'
 import { SERVER_LEVELS, YOUTUBE_LEVELS } from '../quality'
@@ -8,7 +8,7 @@ import type { PlaybackSource } from '../source'
  * H.264 through untouched (sound re-encoded to AAC) over the stream WebSocket, or
  * transcodes to MPEG-1 for JSMpeg. Progress is kept by our server, not YouTube. */
 export async function createYoutubeSource(videoId: string, engine: EngineKind): Promise<PlaybackSource> {
-  const { video } = await fetchTubeVideo(videoId)
+  const { video, captions } = await fetchTubeVideo(videoId)
   const duration = video.duration_seconds ?? Number.NaN
   return {
     server: 'YouTube',
@@ -17,7 +17,7 @@ export async function createYoutubeSource(videoId: string, engine: EngineKind): 
       title: video.channel_name ? `${video.channel_name} · ${video.title}` : video.title,
       duration,
       audioTracks: [],
-      subtitleTracks: [],
+      subtitleTracks: captions.map((c, index) => ({ index, title: c.label, kind: 'text', isDefault: false, lang: c.lang, auto: c.auto })),
     },
     engines: [engine],
     reorder: true, // YouTube's H.264 has B-frames
@@ -33,6 +33,8 @@ export async function createYoutubeSource(videoId: string, engine: EngineKind): 
       }
       return wsUrl(`/api/stream/ws?${q}`)
     },
+    // YouTube's captions are text, drawn by the page: switching needs no new stream.
+    captions: (index) => fetchTubeCaptions(video.id, captions[index].id),
     report: (_event, position, _choice, opts = {}) =>
       reportTubeProgress(video.id, position, Number.isFinite(duration) ? duration : null, opts.leaving ?? false),
   }

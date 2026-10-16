@@ -451,6 +451,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tube/videos/{video_id}/captions/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Captions
+         * @description A caption track as timed lines (the player draws them over the picture).
+         */
+        get: operations["captions_api_tube_videos__video_id__captions__track_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tube/videos/{video_id}/progress": {
         parameters: {
             query?: never;
@@ -646,6 +666,20 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** TubeCaptionTrackOut */
+        TubeCaptionTrackOut: {
+            /**
+             * Auto
+             * @description YouTube's automatic captions (or their translation)
+             */
+            auto: boolean;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Lang */
+            lang: string;
+        };
         /** TubeChannelCardOut */
         TubeChannelCardOut: {
             /** Avatar Url */
@@ -677,6 +711,15 @@ export interface components {
             start_seconds: number;
             /** Title */
             title: string;
+        };
+        /** TubeCueOut */
+        TubeCueOut: {
+            /** End */
+            end: number;
+            /** Start */
+            start: number;
+            /** Text */
+            text: string;
         };
         /** TubeFollowingOut */
         TubeFollowingOut: {
@@ -782,6 +825,8 @@ export interface components {
         };
         /** TubeVideoOut */
         TubeVideoOut: {
+            /** Captions */
+            captions: components["schemas"]["TubeCaptionTrackOut"][];
             /** Chapters */
             chapters: components["schemas"]["TubeChapterOut"][];
             /** Description */
@@ -1592,6 +1637,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TubeVideoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    captions_api_tube_videos__video_id__captions__track_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TubeCueOut"][];
                 };
             };
             /** @description Validation Error */

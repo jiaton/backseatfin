@@ -25,6 +25,16 @@ def is_youtube_image(url: str) -> bool:
     return u.scheme == "https" and u.hostname in IMAGE_HOSTS and u.port is None and not u.username
 
 
+def is_youtube_caption(url: str) -> bool:
+    """Caption tracks come from www.youtube.com/api/timedtext (from yt-dlp, but checked
+    anyway: the server fetches them)."""
+    try:
+        u = urlparse(url)
+    except ValueError:
+        return False
+    return u.scheme == "https" and u.hostname == "www.youtube.com" and u.path == "/api/timedtext" and u.port is None
+
+
 def parse_link(text: str) -> tuple[str, str] | None:
     """("video" | "channel" | "playlist", id) for a pasted YouTube link or bare id."""
     text = text.strip()
