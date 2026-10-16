@@ -121,7 +121,10 @@ Instead of downloading the zip, your proxy can load the player from this project
 GitHub Pages: then the only change is the line that adds the script, pointing at
 `https://jiaton.github.io/backseatfin/emby/inject.js`, and there's no `/car/` location or
 `handle_path /car/*` block. The player opens from there and talks to your Emby directly
-(Emby allows that); it always runs the latest release.
+(Emby allows that); it always runs the latest release. It needs the car hostname to
+resolve to a public address, as it does through a normal reverse proxy: Chrome blocks a
+public page (GitHub Pages) from calling a private one (a LAN or VPN address), so if
+yours resolves privately, use the zip.
 
 nginx (in place of the `/web/` location's `sub_filter` line, and without `location /car/`):
 

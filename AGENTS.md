@@ -292,8 +292,10 @@ by design.
      player posts `backseatfin:ready` to the parent (that origin only) and inject.js
      answers `backseatfin:session` to the player's origin only (`player/hosted.ts`), and
      the player calls Emby at that origin (`HostedServer`; Emby allows CORS, also for
-     keepalive requests). No BackseatFin server in that mode. Test it with two
-     `*.localhost` names (always a secure context) mapped by `--host-resolver-rules`.
+     keepalive requests). No BackseatFin server in that mode. Chrome's Private Network
+     Access blocks Pages → a private address ("Permission was denied for this
+     request"), so the Emby hostname must resolve publicly; the e2e uses the real
+     tv host with `INJECT_SRC` rewriting the script tag (emby-hls-check.mjs).
    - A playback already handed off (same `PlaySessionId`) never opens the player again:
      the web app's player can outlive our layer and retry its held request seconds later.
 3. With the server transcoding (`sources/backseatfin.ts`), `play.html` POSTs the token
