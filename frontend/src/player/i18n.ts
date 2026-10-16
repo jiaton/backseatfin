@@ -73,6 +73,9 @@ const en = {
   loadFrom: 'from {time}',
   loadConnects: 'Connections',
   autoCaptions: '{name} (auto-generated)',
+  upNext: 'Up next in {s} s',
+  playNow: 'Play now',
+  cancel: 'Cancel',
 }
 export type StringKey = keyof typeof en
 /** Every key (for tests). */
@@ -142,6 +145,9 @@ const zh: Record<StringKey, string> = {
   loadFrom: '从 {time} 开始',
   loadConnects: '连接次数',
   autoCaptions: '{name}（自动生成）',
+  upNext: '{s} 秒后播放下一个',
+  playNow: '立即播放',
+  cancel: '取消',
 }
 
 const es: Record<StringKey, string> = {
@@ -209,6 +215,9 @@ const es: Record<StringKey, string> = {
   loadFrom: 'desde {time}',
   loadConnects: 'Conexiones',
   autoCaptions: '{name} (generados automáticamente)',
+  upNext: 'A continuación en {s} s',
+  playNow: 'Reproducir ahora',
+  cancel: 'Cancelar',
 }
 
 const ja: Record<StringKey, string> = {
@@ -276,6 +285,9 @@ const ja: Record<StringKey, string> = {
   loadFrom: '{time} から',
   loadConnects: '接続回数',
   autoCaptions: '{name}（自動生成）',
+  upNext: '{s} 秒後に次の動画',
+  playNow: '今すぐ再生',
+  cancel: 'キャンセル',
 }
 
 const ko: Record<StringKey, string> = {
@@ -343,6 +355,9 @@ const ko: Record<StringKey, string> = {
   loadFrom: '{time}부터',
   loadConnects: '연결 횟수',
   autoCaptions: '{name} (자동 생성)',
+  upNext: '{s}초 후 다음 동영상',
+  playNow: '지금 재생',
+  cancel: '취소',
 }
 
 const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko }

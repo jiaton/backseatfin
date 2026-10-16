@@ -77,7 +77,7 @@ YouTube:   car browser ──► BackseatFin app (search, channels, history)
 - [x] Jellyfin プラグイン、Jellyfin 自身の HLS を再生（追加サーバー不要）
 - [x] HDR / Dolby Vision トーンマッピング（Intel GPU、CPU）
 - [x] 車で YouTube：検索、チャンネルのフォロー、ライブ再生、続きから再生
-- [ ] 再生リストの連続再生、字幕、ライブ配信
+- [x] 再生リストの連続再生、字幕、ライブ配信
 - [ ] HDR 向けの NVIDIA / AMD GPU 対応（コントリビュート歓迎：テストできるハードウェアがありません）
 
 ## ライセンス

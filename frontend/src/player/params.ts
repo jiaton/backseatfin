@@ -9,6 +9,8 @@ export interface PlayerParams {
   embed: boolean
   /** The media server's origin, when this player is hosted elsewhere (GitHub Pages). */
   server?: string
+  /** YouTube: what plays next when this video ends ("playlist:<id>", "shelf:<id>", "later"). */
+  list?: string
 }
 
 /** The viewer's media server session, as its own web app holds it. */
@@ -66,7 +68,11 @@ export function readTubeParams(search: string): PlayerParams | null {
   if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null
   const back = q.get('back') ?? ''
   const appPath = back.startsWith('/') && !back.startsWith('//') && !back.startsWith('/\\')
-  return { item: id, t: optInt(q.get('t')) ?? 0, back: appPath ? back : '/', embed: false }
+  const list = q.get('list') ?? ''
+  return {
+    item: id, t: optInt(q.get('t')) ?? 0, back: appPath ? back : '/', embed: false,
+    list: /^(?:(?:playlist|shelf):[A-Za-z0-9_-]{10,64}|later)$/.test(list) ? list : undefined,
+  }
 }
 
 /** Left by the inject script in this tab's sessionStorage. Kept (not consumed) so a

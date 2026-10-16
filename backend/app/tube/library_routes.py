@@ -1,8 +1,9 @@
 """The household's own YouTube library: home, history, watch later, following."""
 
 import asyncio
+import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from app.auth.deps import require_auth
@@ -52,6 +53,37 @@ async def home(session: Session = Depends(get_session)):
         recommended=cards(session, recommended),
         later=[stored(session, v) for v in later],
     )
+
+
+# What plays next when a video ends: a YouTube playlist (its order), a followed
+# playlist's home row (newest added first), or "watch later".
+PLAY_LIST = re.compile(r"^(?:(playlist|shelf):([A-Za-z0-9_-]{10,64})|(later))$")
+
+
+@router.get("/next", response_model=TubeVideoCardOut | None)
+async def next_video(
+    play_list: str = Query(alias="list", max_length=80), after: str = Query(max_length=20),
+    session: Session = Depends(get_session),
+):
+    """The video after `after` in that list (null at its end)."""
+    m = PLAY_LIST.match(play_list)
+    if m is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown list")
+    kind, playlist_id, later = m.groups()
+    if later:
+        order = [stored(session, v) for v in tube_library.later(session)]
+    elif kind == "shelf":
+        order = [stored(session, i) for i in playlist_library.items(session, playlist_id, 500)]
+    else:
+        try:
+            order = cards(session, (await tube_service.playlist(playlist_id)).videos)
+        except (InvalidIdError, TubeUnavailableError) as e:
+            raise http_error(e) from e
+    ids = [v.id for v in order]
+    if after not in ids:
+        return None
+    rest = order[ids.index(after) + 1:]
+    return next((v for v in rest if not v.is_live), None)
 
 
 @router.get("/following", response_model=TubeFollowingOut)

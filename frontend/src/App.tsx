@@ -27,7 +27,7 @@ function Screen() {
     const kind = KINDS.find((k) => k === params.get('kind')) ?? 'videos'
     return <TubeSearchScreen q={params.get('q') ?? ''} kind={kind} />
   }
-  if (first === 'v' && second) return <TubeVideoScreen key={second} id={second} />
+  if (first === 'v' && second) return <TubeVideoScreen key={second} id={second} list={params.get('list') ?? undefined} />
   if (first === 'c' && second) return <TubeChannelScreen key={second} id={second} />
   if (first === 'p' && second) return <TubePlaylistScreen key={second} id={second} />
   return <TubeHomeScreen />

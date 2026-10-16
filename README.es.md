@@ -98,7 +98,7 @@ un canvas. Los detalles para colaboradores están en [AGENTS.md](AGENTS.md) y
       adicional)
 - [x] Mapeo tonal de HDR / Dolby Vision (GPU Intel, CPU)
 - [x] YouTube en el coche: buscar, seguir canales, reproducir en directo, continuar
-- [ ] Listas seguidas; subtítulos; directos
+- [x] Listas seguidas; subtítulos; directos
 - [ ] GPUs de NVIDIA y AMD para HDR (se agradecen contribuciones: no tenemos ese hardware para probar)
 
 ## Licencia

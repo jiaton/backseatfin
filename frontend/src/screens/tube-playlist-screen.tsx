@@ -1,8 +1,12 @@
 import { QueryState } from '@/components/ui/query-state'
+import { Play } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 import { usePlaylist } from '@/features/tube/api/use-browse'
 import { FollowPlaylistButton } from '@/features/tube/components/follow-playlist-button'
 import { TubePage } from '@/features/tube/components/tube-page'
 import { VideoRow } from '@/features/tube/components/video-row'
+import { playerHref, playlistPath } from '@/features/tube/lib/format'
 import { useTubeT } from '@/features/tube/lib/strings'
 
 export function TubePlaylistScreen({ id }: { id: string }) {
@@ -20,10 +24,18 @@ export function TubePlaylistScreen({ id }: { id: string }) {
                   {[playlist.channel_name, playlist.video_count != null && t('videoCount', { n: playlist.video_count })].filter(Boolean).join(' · ')}
                 </p>
               </div>
+              {videos[0] && (
+                <Button asChild size="car" variant="secondary">
+                  <a href={playerHref(videos[0].id, videos[0].position_seconds ?? 0, playlistPath(playlist.id), `playlist:${playlist.id}`)}>
+                    <Play aria-hidden />
+                    {t('playAll')}
+                  </a>
+                </Button>
+              )}
               <FollowPlaylistButton playlistId={playlist.id} following={following} />
             </div>
             <p className="text-muted-foreground">{t('playlistHint')}</p>
-            {videos.map((v) => <VideoRow key={v.id} video={v} />)}
+            {videos.map((v) => <VideoRow key={v.id} video={v} list={`playlist:${playlist.id}`} />)}
           </div>
         )}
       </QueryState>

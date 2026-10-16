@@ -18,7 +18,7 @@ import { useTubeT } from '@/features/tube/lib/strings'
 
 /** A video before playing it. The card the list showed draws at once; the details (and
  * YouTube's streams, so Play starts fast) arrive a few seconds later. */
-export function TubeVideoScreen({ id }: { id: string }) {
+export function TubeVideoScreen({ id, list }: { id: string; list?: string }) {
   const { t } = useTubeT()
   const page = useVideo(id)
   const seeded = useSeededCard(id)
@@ -32,7 +32,7 @@ export function TubeVideoScreen({ id }: { id: string }) {
         <div className="flex min-w-0 flex-col gap-5">
           {video && (
             <>
-              <a href={playerHref(id, video.position_seconds ?? 0, videoPath(id))} aria-label={t('play')} className="group relative block rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              <a href={playerHref(id, video.position_seconds ?? 0, videoPath(id, list), list)} aria-label={t('play')} className="group relative block rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 <Thumbnail video={video} className="rounded-2xl" />
                 <span className="absolute inset-0 grid place-items-center">
                   <span className="grid size-24 place-items-center rounded-full bg-scrim group-active:scale-95">
@@ -53,7 +53,7 @@ export function TubeVideoScreen({ id }: { id: string }) {
               )}
               <div className="flex flex-wrap gap-3">
                 {/* A live stream always starts at the live edge: nothing to resume. */}
-                <PlayButtons videoId={id} resumeAt={video.is_live ? null : video.position_seconds} />
+                <PlayButtons videoId={id} resumeAt={video.is_live ? null : video.position_seconds} list={list} />
                 {page.data && !video.is_live && <LaterButton videoId={id} inLater={page.data.later} />}
               </div>
             </>

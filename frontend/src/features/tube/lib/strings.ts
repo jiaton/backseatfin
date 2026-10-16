@@ -54,6 +54,7 @@ const en = {
   addedPlaylist: 'Added: {title}. It has its own row on the home screen.',
   addedChannel: 'Following {title}.',
   notFollowLink: "That isn't a YouTube playlist or channel link.",
+  playAll: 'Play all',
 }
 export type TubeKey = keyof typeof en
 /** Every key (for tests). */
@@ -109,6 +110,7 @@ const zh: Record<TubeKey, string> = {
   addedPlaylist: '已添加「{title}」，它会单独显示在首页的一栏。',
   addedChannel: '已关注「{title}」。',
   notFollowLink: '这不是 YouTube 播放列表或频道的链接。',
+  playAll: '全部播放',
 }
 
 const es: Record<TubeKey, string> = {
@@ -161,6 +163,7 @@ const es: Record<TubeKey, string> = {
   addedPlaylist: 'Añadida: {title}. Tiene su propia fila en la pantalla de inicio.',
   addedChannel: 'Siguiendo a {title}.',
   notFollowLink: 'Eso no es un enlace a una lista o un canal de YouTube.',
+  playAll: 'Reproducir todo',
 }
 
 const ja: Record<TubeKey, string> = {
@@ -213,6 +216,7 @@ const ja: Record<TubeKey, string> = {
   addedPlaylist: '「{title}」を追加しました。ホーム画面に専用の列が表示されます。',
   addedChannel: '「{title}」をフォローしました。',
   notFollowLink: 'YouTube の再生リストやチャンネルのリンクではありません。',
+  playAll: 'すべて再生',
 }
 
 const ko: Record<TubeKey, string> = {
@@ -265,6 +269,7 @@ const ko: Record<TubeKey, string> = {
   addedPlaylist: '「{title}」을(를) 추가했습니다. 홈 화면에 별도의 줄로 표시됩니다.',
   addedChannel: '「{title}」을(를) 팔로우합니다.',
   notFollowLink: 'YouTube 재생목록이나 채널 링크가 아닙니다.',
+  playAll: '모두 재생',
 }
 
 export const TUBE_TABLES: Record<Lang, Record<TubeKey, string>> = { en, zh, es, ja, ko }

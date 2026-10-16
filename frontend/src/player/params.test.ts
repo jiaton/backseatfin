@@ -57,3 +57,9 @@ it('takes the server origin a hosted player is given, and nothing else', () => {
   expect(p('https://user:pw@emby.example.com')).toBeUndefined()
   expect(readPlayerParams('?item=5')?.server).toBeUndefined()
 })
+
+it('keeps a YouTube play-through list only when it looks like one', () => {
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&list=playlist%3APLa1F2ddGya_-UvuAqHAksYnB0qL9yWDO6')?.list).toBe('playlist:PLa1F2ddGya_-UvuAqHAksYnB0qL9yWDO6')
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&list=later')?.list).toBe('later')
+  expect(readTubeParams('?yt=aqz-KE-bpKQ&list=../../etc')?.list).toBeUndefined()
+})

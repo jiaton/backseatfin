@@ -68,6 +68,15 @@ Give the app its own hostname, for example `tube.example.com` → `APP_PORT`. Se
 - **Playing**: quality, pause (keeps the buffer), seeking, chapters; it rides out dead
   zones. While it loads it says what it's doing and how fast the network is. The back
   arrow returns to the video, which offers to resume.
+- **One after another**: a video started from a playlist (its page has "Play all"), a
+  followed playlist's home row or "Watch later" is followed by the next one in that list
+  ("Up next" counts down 8 seconds; Play now or Cancel).
+- **Captions**: the player's settings list the uploader's subtitles in the video's
+  language and the app's languages, or YouTube's automatic captions in the video's
+  language. They're drawn over the picture; the language you pick is used again next
+  time. (YouTube's machine translations of automatic captions aren't offered: YouTube
+  refuses them to servers more often than not.)
+- **Live streams** play from the live edge (and don't go into "Continue watching").
 
 ## When YouTube stops working
 

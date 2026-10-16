@@ -99,7 +99,7 @@ Canvas. Details für Mitwirkende stehen in [AGENTS.md](AGENTS.md) und
 - [x] Jellyfin-Plugin, das Jellyfins eigenes HLS abspielt (ohne zusätzlichen Server)
 - [x] HDR-/Dolby-Vision-Tonkartierung (Intel-GPU, CPU)
 - [x] YouTube im Auto: suchen, Kanälen folgen, live abspielen, weiterschauen
-- [ ] Playlists am Stück; Untertitel; Livestreams
+- [x] Playlists am Stück; Untertitel; Livestreams
 - [ ] NVIDIA- und AMD-GPUs für HDR (Beiträge willkommen: uns fehlt die Hardware zum Testen)
 
 ## Lizenz

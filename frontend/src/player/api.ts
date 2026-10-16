@@ -80,6 +80,12 @@ export type TubeCue = components['schemas']['TubeCueOut']
 export const fetchTubeCaptions = (videoId: string, trackId: string) =>
   call<TubeCue[]>('GET', `/api/tube/videos/${encodeURIComponent(videoId)}/captions/${encodeURIComponent(trackId)}`)
 
+type TubeCard = components['schemas']['TubeVideoCardOut']
+
+/** The video after `after` in a list, or null at its end. */
+export const fetchTubeNext = (list: string, after: string) =>
+  call<TubeCard | null>('GET', `/api/tube/next?${new URLSearchParams({ list, after })}`)
+
 export const fetchTubeVideo = (videoId: string) => call<TubeVideo>('GET', `/api/tube/videos/${encodeURIComponent(videoId)}`)
 
 /** Remembers how far a YouTube video got (the home screen's "continue watching").

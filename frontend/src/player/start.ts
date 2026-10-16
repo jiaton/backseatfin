@@ -1,5 +1,5 @@
 // Shared start-up for the car player: read the hand-off, pick who transcodes, mount.
-import { HttpError } from './api'
+import { fetchTubeNext, HttpError } from './api'
 import { pickEngine } from './engines/detect'
 import { mountPlayer, showMessage } from './page'
 import { readPlayerParams, readTubeParams } from './params'
@@ -71,8 +71,20 @@ export async function startTube() {
   const server = 'YouTube'
   const params = readTubeParams(window.location.search)
   if (!params) return showMessage('noItem', server, {}, '/')
+  const list = params.list
   try {
-    mountPlayer(await createYoutubeSource(params.item, await pickEngine()), params)
+    mountPlayer(await createYoutubeSource(params.item, await pickEngine()), params, {
+      // The next video of the list it was started from: same list, back to its page.
+      upNext: list
+        ? async () => {
+            const next = await fetchTubeNext(list, params.item)
+            if (!next) return null
+            const back = `/v/${encodeURIComponent(next.id)}?${new URLSearchParams({ list })}`
+            const q = new URLSearchParams({ yt: next.id, t: String(Math.floor(next.position_seconds ?? 0)), back, list })
+            return { title: next.title, play: () => window.location.replace(`/play?${q}`) }
+          }
+        : undefined,
+    })
   } catch (e) {
     const status = e instanceof HttpError ? e.status : 0
     if (status === 401) showMessage('signedOut', server, {}, '/')

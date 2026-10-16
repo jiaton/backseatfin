@@ -7,20 +7,20 @@ import { useTubeT } from '../lib/strings'
 
 /** Play (or resume) and, for a started video, play from the start. The player is its
  * own page; its back arrow comes back here. */
-export function PlayButtons({ videoId, resumeAt }: { videoId: string; resumeAt: number | null | undefined }) {
+export function PlayButtons({ videoId, resumeAt, list }: { videoId: string; resumeAt: number | null | undefined; list?: string }) {
   const { t } = useTubeT()
-  const back = videoPath(videoId)
+  const back = videoPath(videoId, list)
   return (
     <>
       <Button asChild size="car" variant="brand">
-        <a href={playerHref(videoId, resumeAt ?? 0, back)}>
+        <a href={playerHref(videoId, resumeAt ?? 0, back, list)}>
           <Play aria-hidden />
           {resumeAt ? t('resumeFrom', { time: formatDuration(resumeAt) }) : t('play')}
         </a>
       </Button>
       {resumeAt ? (
         <Button asChild size="car" variant="secondary">
-          <a href={playerHref(videoId, 0, back)}>
+          <a href={playerHref(videoId, 0, back, list)}>
             <RotateCcw aria-hidden />
             {t('playFromStart')}
           </a>

@@ -21,11 +21,11 @@ export function TubeHomeScreen() {
             <div className="flex flex-col gap-10">
               <VideoSection title={t('continueWatching')} hint={t('continueHint')} videos={h.continue_watching} />
               {h.playlists.map((p) => (
-                <VideoSection key={p.playlist.id} title={p.playlist.title} href={playlistPath(p.playlist.id)} videos={p.videos} />
+                <VideoSection key={p.playlist.id} title={p.playlist.title} href={playlistPath(p.playlist.id)} videos={p.videos} list={`shelf:${p.playlist.id}`} />
               ))}
               <VideoSection title={t('followingNew')} videos={h.feed} />
               <VideoSection title={t('recommended')} hint={t('recommendedHint')} videos={h.recommended} />
-              <VideoSection title={t('watchLater')} videos={h.later} />
+              <VideoSection title={t('watchLater')} videos={h.later} list="later" />
               {empty && <p className="max-w-2xl text-lg text-muted-foreground">{t('emptyHome')}</p>}
             </div>
           )

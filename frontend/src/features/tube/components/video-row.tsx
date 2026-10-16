@@ -7,11 +7,11 @@ import { Thumbnail } from './thumbnail'
 import { VideoMeta } from './video-meta'
 
 /** A video in a list (search results, playlists): picture left, text right. */
-export function VideoRow({ video, compact = false }: { video: VideoCard; compact?: boolean }) {
+export function VideoRow({ video, compact = false, list }: { video: VideoCard; compact?: boolean; list?: string }) {
   const seed = useSeedCard()
   return (
     <Link
-      href={videoPath(video.id)}
+      href={videoPath(video.id, list)}
       onClick={() => seed(video)}
       className={`grid items-start gap-4 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${compact ? 'grid-cols-[10rem_1fr]' : 'grid-cols-[minmax(0,18rem)_1fr] sm:grid-cols-[22rem_1fr]'}`}
     >

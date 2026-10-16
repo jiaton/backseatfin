@@ -363,6 +363,38 @@ car-video {
   pointer-events: none;
 }
 
+.cm-upnext {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(560px, calc(100vw - 32px));
+  padding: 20px 24px;
+  border-radius: var(--cm-radius);
+  background: var(--cm-panel);
+  color: var(--cm-fg);
+  transform: translate(-50%, -50%);
+}
+
+.cm-upnext .cm-row {
+  justify-content: flex-start;
+}
+
+.cm-upnext-label {
+  margin: 0;
+  color: var(--cm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-upnext-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
 .cm-loading {
   position: fixed;
   left: 50%;

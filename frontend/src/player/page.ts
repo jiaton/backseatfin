@@ -13,6 +13,7 @@ import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
 import { createCaptionLayer, loadCaptionLang, saveCaptionLang } from './captions'
+import { createUpNext } from './up-next'
 import { diagnose } from './diagnose'
 import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
@@ -110,6 +111,8 @@ export interface MountOptions {
     value: Transcoder
     pick(next: Transcoder, at: { t: number; audio?: number; sub?: number }): void
   }
+  /** What plays when this video ends (YouTube from a list), or null at the list's end. */
+  upNext?: () => Promise<{ title: string; play(): void } | null>
 }
 
 const TRANSCODER_NAME = { auto: 'transcoderAuto', server: 'transcoderServer', backseatfin: 'transcoderOurs' } as const
@@ -173,7 +176,8 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const loadingBox = h('div', { class: 'cm-loading', role: 'status', hidden: '' }, loadingStage, loadingDetail)
 
   const captionLayer = createCaptionLayer(() => video.currentTime)
-  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, errorPanel, statsPanel, sheet)
+  const upNext = createUpNext()
+  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, errorPanel, statsPanel, upNext.el, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -292,6 +296,10 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   video.addEventListener('ended', () => {
     updateStatus()
     reportStopped(false)
+    opts.upNext?.().then(
+      (next) => next && upNext.show(t, next.title, () => { video.stop(); next.play() }),
+      () => {}, // no next video known: just stop
+    )
   })
   video.addEventListener('error', () => {
     status.hidden = true

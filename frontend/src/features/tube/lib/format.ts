@@ -31,12 +31,16 @@ export function formatAgo(iso: string, lang: Lang, now = Date.now()): string {
 /** A YouTube image through our server (the car never talks to Google for pictures). */
 export const imageUrl = (url: string) => `${API_PREFIX}/api/tube/image?u=${encodeURIComponent(url)}`
 
-export const videoPath = (id: string) => `/v/${encodeURIComponent(id)}`
+/** `list`: what plays next when this video ends ("playlist:<id>", "shelf:<id>" for a
+ * followed playlist's home row, or "later"). */
+export const videoPath = (id: string, list?: string) =>
+  `/v/${encodeURIComponent(id)}${list ? `?${new URLSearchParams({ list })}` : ''}`
 export const channelPath = (id: string) => `/c/${encodeURIComponent(id)}`
 export const playlistPath = (id: string) => `/p/${encodeURIComponent(id)}`
 
 /** The car player for a video, starting at `t`; its back arrow returns to `back`. */
-export function playerHref(id: string, t: number, back: string): string {
+export function playerHref(id: string, t: number, back: string, list?: string): string {
   const q = new URLSearchParams({ yt: id, t: String(Math.floor(Math.max(0, t))), back })
+  if (list) q.set('list', list)
   return `/play?${q}`
 }

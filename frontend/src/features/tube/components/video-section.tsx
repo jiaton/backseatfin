@@ -6,7 +6,7 @@ import type { VideoCard as Video } from '../types'
 import { VideoCard } from './video-card'
 
 /** A titled grid of videos (four across on the car's screen, two on a phone). */
-export function VideoSection({ title, href, hint, videos, showChannel = true, action }: {
+export function VideoSection({ title, href, hint, videos, showChannel = true, action, list }: {
   title: string
   /** Where the title leads (a playlist's page), if anywhere. */
   href?: string
@@ -14,6 +14,8 @@ export function VideoSection({ title, href, hint, videos, showChannel = true, ac
   videos: Video[]
   showChannel?: boolean
   action?: ReactNode
+  /** What plays next from this row (see videoPath). */
+  list?: string
 }) {
   if (!videos.length) return null
   return (
@@ -33,7 +35,7 @@ export function VideoSection({ title, href, hint, videos, showChannel = true, ac
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-4">
         {videos.map((v) => (
-          <VideoCard key={v.id} video={v} showChannel={showChannel} />
+          <VideoCard key={v.id} video={v} showChannel={showChannel} list={list} />
         ))}
       </div>
     </section>

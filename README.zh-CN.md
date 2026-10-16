@@ -77,7 +77,7 @@ YouTube:   car browser ──► BackseatFin app (search, channels, history)
 - [x] Jellyfin 插件，播放 Jellyfin 自己的 HLS（无需额外服务器）
 - [x] HDR / 杜比视界色调映射（Intel GPU、CPU）
 - [x] 车机里看 YouTube：搜索、关注频道、实时播放、续播
-- [ ] 播放列表连续播放；字幕；直播
+- [x] 播放列表连续播放；字幕；直播
 - [ ] HDR 支持 NVIDIA 和 AMD 显卡（欢迎贡献：我们没有这些硬件可供测试）
 
 ## 许可证

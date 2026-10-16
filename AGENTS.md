@@ -180,8 +180,8 @@ by design.
   (checked with a 1-byte range request before each stream) is extracted again.
 - **Format choice** (`tube/formats.py`): the largest H.264 DASH (`https`, not HLS) that
   fits the quality level and the window (portrait: short side vs height), AAC `140`
-  (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams are
-  refused for now.
+  (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams:
+  see below.
 - **Following by link**: Settings → Following has a field for a playlist or channel
   link (`useFollowLink`: `/link`, then the follow call); a video link is refused.
 - **Followed playlists** (`tube/playlists.py`): the way in from the phone without a
@@ -206,6 +206,20 @@ by design.
   30 s of the end counts as finished. Measured: ~1.5 s to first frame after Play on a
   prepared video, seeks 1–2 s, A/V within 30 ms, 15–20 s buffered; ffmpeg reads
   YouTube at ~2× real time (one long request).
+- **Live streams**: their formats are HLS only (H.264 video-only + a sound HLS with no
+  codec name, `adapter.py: _acodec`); `pick_stream(live=True)` takes those, the
+  resolver always starts at the live edge, and no progress is recorded.
+- **Captions** (`tube/captions.py`): `pick_tracks` offers uploaded tracks in the video's
+  language and the app's (ordered), else YouTube's `-orig` automatic track; automatic
+  translations (`tlang`) are left out (YouTube answers servers 429). The server fetches
+  json3 only from `www.youtube.com/api/timedtext` (`urls.py: is_youtube_caption`),
+  `parse_json3` → cues, cached an hour; `GET /videos/{id}/captions/{track}`. The player
+  draws them (`player/captions.ts`, `PlaybackSource.captions`): choosing a track never
+  reconnects the stream; the language is remembered (`backseatfin:captions`).
+- **Play-through**: video and player URLs carry `list` (`playlist:<id>` in YouTube's
+  order, `shelf:<id>` = a followed playlist's home row, newest first, or `later`). At the
+  end the player asks `GET /next?list&after` and shows "Up next" (`player/up-next.ts`,
+  8 s); the next video's back goes to its page with the same list.
 - Frontend: `features/tube/` (`api/` hooks + `keys.ts`, `components/`, `lib/` with its
   own five-language string table `strings.ts` and `format.ts`), screens
   `tube-*-screen.tsx`. A card clicked in a list seeds its video page (`tubeKeys.card`)
@@ -533,7 +547,7 @@ English first, then Chinese. A test checks the Chinese table has every key.
   follow → refetch, search gating, YouTube's error reason), `VideoCard`, the router,
   `readTubeParams` (no open redirect). Backend: link parsing, the image-host allowlist
   (no SSRF), format choice, the TTL cache, the resolver (pass-through spec, dead URL →
-  re-extract, live/bad id refused), the library (follow → feed, RSS failure → channel
+  re-extract, live from the edge, bad id refused), captions (track choice, json3), the library (follow → feed, RSS failure → channel
   list fallback, resume threshold), followed playlists (newest first, removed items go,
   only stale ones re-read), recommendations (turns, exclusions), home with something
   to continue (regression: 500), ffmpeg pass-through args.

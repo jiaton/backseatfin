@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 from app.container import tube_service
 from app.core.db import get_session
 from app.main import app
-from app.tube.models import WatchedVideo
+from datetime import timedelta
+
+from app.tube.models import WatchedVideo, utcnow
 from tests.test_tube_service import VID, FakeSource, FakeWeb
 
 KEY = {"X-API-Key": "test-key"}
@@ -51,3 +53,23 @@ def test_home_never_recommends_what_another_row_shows(client, session_factory, m
         s.commit()
     body = client.get("/api/tube/home", headers=KEY).json()
     assert [v["id"] for v in body["recommended"]] == ["zzzzzzzzzzz"]
+
+
+def test_next_follows_watch_later_and_a_followed_playlist_row(client, session_factory):
+    import asyncio
+
+    from app.container import playlist_library
+    from app.tube.models import LaterVideo
+
+    with session_factory() as s:
+        for i, vid in enumerate(["aaaaaaaaaaa", "bbbbbbbbbbb"]):
+            s.add(LaterVideo(video_id=vid, title=vid, added_at=utcnow() - timedelta(minutes=i)))
+        s.commit()
+        asyncio.run(playlist_library.follow(s, "PLa1F2ddGya_-UvuAqHAksYnB0qL9yWDO6"))
+    nxt = lambda lst, after: client.get("/api/tube/next", params={"list": lst, "after": after}, headers=KEY)
+    assert nxt("later", "aaaaaaaaaaa").json()["id"] == "bbbbbbbbbbb"  # newest saved first
+    assert nxt("later", "bbbbbbbbbbb").json() is None  # the end
+    # the home row is newest added first: "Second added", then "First added"
+    assert nxt("shelf:PLa1F2ddGya_-UvuAqHAksYnB0qL9yWDO6", "bbbbbbbbbbb").json()["id"] == "aaaaaaaaaaa"
+    assert nxt("playlist:PLa1F2ddGya_-UvuAqHAksYnB0qL9yWDO6", "aaaaaaaaaaa").json()["id"] == "bbbbbbbbbbb"  # YouTube's order
+    assert nxt("nonsense", "aaaaaaaaaaa").status_code == 422

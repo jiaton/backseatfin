@@ -92,7 +92,7 @@ are in [AGENTS.md](AGENTS.md) and [docs/player.md](docs/player.md).
 - [x] Jellyfin plugin, playing Jellyfin's own HLS (no extra server)
 - [x] HDR / Dolby Vision tone mapping (Intel GPU, CPU)
 - [x] YouTube in the car: search, follow channels, play live, resume
-- [ ] Playlists play through; captions; live streams
+- [x] Playlists play through; captions; live streams
 - [ ] NVIDIA and AMD GPUs for HDR (contributions welcome: we have no such hardware to test on)
 
 ## License
