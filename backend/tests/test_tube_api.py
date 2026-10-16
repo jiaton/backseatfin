@@ -36,3 +36,18 @@ def test_home_with_a_video_to_continue_prefetches_it_without_failing(client, ses
 def test_tube_routes_need_a_signed_in_device(client):
     assert client.get("/api/tube/home").status_code == 401
     assert client.get("/api/tube/link", params={"url": "https://youtu.be/aqz-KE-bpKQ"}, headers=KEY).json() == {"kind": "video", "id": VID}
+
+
+def test_home_never_recommends_what_another_row_shows(client, session_factory, monkeypatch):
+    from app.container import recommender
+    from app.tube.ports import VideoCard
+
+    async def fixed(session):
+        return [VideoCard(VID, "BBB"), VideoCard("zzzzzzzzzzz", "Something new")]
+
+    monkeypatch.setattr(recommender, "recommendations", fixed)
+    with session_factory() as s:
+        s.add(WatchedVideo(video_id=VID, title="BBB", duration_seconds=635, position_seconds=100))
+        s.commit()
+    body = client.get("/api/tube/home", headers=KEY).json()
+    assert [v["id"] for v in body["recommended"]] == ["zzzzzzzzzzz"]

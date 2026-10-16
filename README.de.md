@@ -39,7 +39,8 @@ Canvas-Player hinzu: Jellyfin oder Emby im Auto öffnen, auf Play drücken, und 
 - **YouTube, selbst gehostet.** Suchen, Kanälen folgen und dort weiterschauen, wo du
   aufgehört hast, auf einer Oberfläche fürs Auto. Videos laufen über deinen eigenen
   Server, so wie YouTube sie kodiert hat (ohne Neukodierung). Kein Google-Konto, und
-  dein Verlauf bleibt bei dir. Herunterladen nach Emby geht auch.
+  dein Verlauf bleibt bei dir. Videos, die du am Handy zu einer YouTube-Playlist
+  hinzufügst, erscheinen auf dem Startbildschirm im Auto.
 
 > [!WARNING]
 > Für Mitfahrer. Der Fahrer muss die Augen auf die Straße gerichtet halten. Videos
@@ -88,9 +89,8 @@ Canvas. Details für Mitwirkende stehen in [AGENTS.md](AGENTS.md) und
 - [x] Emby, über den Car Host (Reverse-Proxy-Injection), mit Embys eigenem HLS
 - [x] Jellyfin-Plugin, das Jellyfins eigenes HLS abspielt (ohne zusätzlichen Server)
 - [x] HDR-/Dolby-Vision-Tonkartierung (Intel-GPU, CPU)
-- [x] YouTube-Playlists → Emby-Bibliothek
 - [x] YouTube im Auto: suchen, Kanälen folgen, live abspielen, weiterschauen
-- [ ] Videos vom Handy ans Auto schicken; Playlists am Stück; Untertitel; Livestreams
+- [ ] Playlists am Stück; Untertitel; Livestreams
 - [ ] NVIDIA- und AMD-GPUs
 
 ## Lizenz

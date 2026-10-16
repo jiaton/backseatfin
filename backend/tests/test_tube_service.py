@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.stream.ports import OutputFormat, Quality, SourceUnavailableError, StreamRequest, Viewer
-from app.tube.ports import ChannelCard, ChannelPage, MediaFormat, TubeUnavailableError, VideoCard, VideoDetails
+from app.tube.ports import ChannelCard, ChannelPage, MediaFormat, PlaylistCard, PlaylistPage, SearchResults, TubeUnavailableError, VideoCard, VideoDetails
 from app.tube.service import InvalidIdError, TubeService
 
 VID = "aqz-KE-bpKQ"
@@ -27,19 +27,22 @@ class FakeSource:
     def __init__(self):
         self.video_calls = 0
         self.live = False
+        self.playlist_videos = [VideoCard("aaaaaaaaaaa", "First added"), VideoCard("bbbbbbbbbbb", "Second added")]
+        self.channel_videos = [VideoCard(VID, "BBB", duration_seconds=635)]
+        self.search_videos: list[VideoCard] = []
 
     def video(self, video_id):
         self.video_calls += 1
         return _details(self.live, tag=str(self.video_calls))
 
     def channel(self, channel_id, limit):
-        return ChannelPage(ChannelCard("UCSMOQeBJ2RAnuFungnQOxLg", "Blender"), None, "", [VideoCard(VID, "BBB", duration_seconds=635)])
+        return ChannelPage(ChannelCard("UCSMOQeBJ2RAnuFungnQOxLg", "Blender"), None, "", list(self.channel_videos))
 
     def search(self, query, kind, limit):
-        raise TubeUnavailableError("offline")
+        return SearchResults(videos=list(self.search_videos))
 
     def playlist(self, playlist_id, limit):
-        raise TubeUnavailableError("offline")
+        return PlaylistPage(PlaylistCard(playlist_id, "Car list", "Me"), list(self.playlist_videos))
 
 
 class FakeWeb:

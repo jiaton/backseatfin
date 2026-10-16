@@ -12,29 +12,6 @@ log = logging.getLogger(__name__)
 TICKS_PER_SECOND = 10_000_000
 
 
-class EmbyLibraryNotifier:
-    """Implements youtube.ports.MediaLibraryPort."""
-
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
-
-    async def notify_new_files(self, paths: list[Path]) -> None:
-        if not self._api_key:
-            return  # Emby's own folder monitoring will pick them up.
-        body = {"Updates": [{"Path": str(p), "UpdateType": "Created"} for p in paths]}
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    f"{self._base_url}/emby/Library/Media/Updated",
-                    json=body,
-                    headers={"X-Emby-Token": self._api_key},
-                )
-                resp.raise_for_status()
-        except httpx.HTTPError as e:
-            log.warning("Emby library notify failed (files are in place; Emby will find them later): %s", e)
-
-
 def _to_stream(s: dict) -> EmbyStream:
     return EmbyStream(
         index=int(s["Index"]),

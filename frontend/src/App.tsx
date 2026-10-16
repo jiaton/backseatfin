@@ -13,7 +13,6 @@ import { TubeVideoScreen } from '@/screens/tube-video-screen'
 
 // Rarely opened in the car: loaded on demand, so the home screen loads less.
 const AdminScreen = lazy(() => import('@/screens/admin-screen').then((m) => ({ default: m.AdminScreen })))
-const CarTestScreen = lazy(() => import('@/screens/car-test-screen').then((m) => ({ default: m.CarTestScreen })))
 const PairScreen = lazy(() => import('@/screens/pair-screen').then((m) => ({ default: m.PairScreen })))
 
 const KINDS: SearchKind[] = ['videos', 'channels', 'playlists']
@@ -22,7 +21,6 @@ const KINDS: SearchKind[] = ['videos', 'channels', 'playlists']
 function Screen() {
   const { path, params } = useLocation()
   const [, first, second] = path.split('/').map(decodeURIComponent)
-  if (first === 'test') return <CarTestScreen />
   if (first === 'pair') return <PairScreen />
   if (first === 'settings') return <AdminScreen />
   if (first === 'search') {

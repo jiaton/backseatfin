@@ -40,7 +40,8 @@ el coche, pulsa Reproducir, y se reproduce.
 - **YouTube, autoalojado.** Busca, sigue canales y continúa donde lo dejaste, en una
   pantalla pensada para el coche. Los vídeos pasan por tu propio servidor tal como
   YouTube los codificó (sin recodificar). Sin cuenta de Google, y tu historial se queda
-  contigo. También puedes descargarlos a Emby.
+  contigo. Añade vídeos a una lista de YouTube en el móvil y
+  aparecerán en la pantalla de inicio del coche.
 
 > [!WARNING]
 > Para pasajeros. El conductor debe mantener la vista en la carretera. Ver vídeos
@@ -89,9 +90,8 @@ un canvas. Los detalles para colaboradores están en [AGENTS.md](AGENTS.md) y
 - [x] Plugin de Jellyfin, que reproduce el propio HLS de Jellyfin (sin servidor
       adicional)
 - [x] Mapeo tonal de HDR / Dolby Vision (GPU Intel, CPU)
-- [x] Listas de reproducción de YouTube → biblioteca de Emby
 - [x] YouTube en el coche: buscar, seguir canales, reproducir en directo, continuar
-- [ ] Enviar un vídeo del móvil al coche; listas seguidas; subtítulos; directos
+- [ ] Listas seguidas; subtítulos; directos
 - [ ] GPUs de NVIDIA y AMD
 
 ## Licencia

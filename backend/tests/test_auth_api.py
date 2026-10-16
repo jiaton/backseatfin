@@ -26,9 +26,9 @@ def test_session_is_200_when_signed_out_and_protected_routes_401(client):
     assert client.get("/api/auth/session").json() == {
         "authenticated": False, "via": None, "device_id": None, "device_name": None,
     }
-    assert client.get("/api/youtube/sources").status_code == 401
-    assert client.get("/api/youtube/sources", headers={"X-API-Key": "wrong"}).status_code == 401
-    assert client.get("/api/youtube/sources", headers={"X-API-Key": KEY}).status_code == 200
+    assert client.get("/api/tube/home").status_code == 401
+    assert client.get("/api/tube/home", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/api/tube/home", headers={"X-API-Key": KEY}).status_code == 200
 
 
 def test_key_login_sets_cookie_that_authenticates(client):
@@ -37,7 +37,7 @@ def test_key_login_sets_cookie_that_authenticates(client):
     assert r.status_code == 200 and "bsf_device" in r.cookies
     set_cookie = r.headers["set-cookie"].lower()
     assert "httponly" in set_cookie and "samesite=lax" in set_cookie and "secure" not in set_cookie
-    assert client.get("/api/youtube/sources").status_code == 200
+    assert client.get("/api/tube/home").status_code == 200
     assert client.get("/api/auth/session").json()["device_name"] == "phone"
 
 
@@ -62,12 +62,12 @@ def test_pairing_flow_and_revocation(client):
     r = car.get(f"/api/auth/pairings/{started['pairing_id']}", headers={"User-Agent": "Tesla/2026.32"})
     assert r.json() == {"status": "approved"} and "bsf_device" in r.cookies
     assert car.get("/api/auth/session").json()["device_name"] == "Tesla"
-    assert car.get("/api/youtube/videos").status_code == 200
+    assert car.get("/api/tube/history").status_code == 200
     listed = client.get("/api/auth/devices", headers=phone).json()
     assert listed[0]["user_agent"] == "Tesla/2026.32"
 
     client.delete(f"/api/auth/devices/{device.json()['id']}", headers=phone)
-    assert car.get("/api/youtube/videos").status_code == 401
+    assert car.get("/api/tube/history").status_code == 401
     assert car.get("/api/auth/session").json()["authenticated"] is False
 
 

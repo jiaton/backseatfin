@@ -10,19 +10,18 @@ from sqlmodel import Session
 from app.auth.service import AuthService
 from app.core.config import settings
 from app.core.db import engine
-from app.emby.adapter import EmbyHttpApi, EmbyLibraryNotifier
+from app.emby.adapter import EmbyHttpApi
 from app.emby.service import EmbyPlaybackService
 from app.emby.subtitles import SubtitleCache
 from app.stream.adapter import FfmpegTranscoder
 from app.stream.service import StreamService
 from app.tube.adapter import YtDlpTube
 from app.tube.library import TubeLibrary
+from app.tube.playlists import PlaylistLibrary
+from app.tube.recommend import Recommender
 from app.tube.service import TubeService
 from app.tube.web_adapter import HttpTubeWeb
 from app.tube.worker import FeedRefreshLoop
-from app.youtube.adapter import YtDlpVideoSource
-from app.youtube.service import PlaylistService, VideoService
-from app.youtube.worker import DownloadWorker, PlaylistSyncLoop
 
 
 log = logging.getLogger(__name__)
@@ -44,24 +43,13 @@ def _transcoder() -> FfmpegTranscoder:
 emby_api = EmbyHttpApi(settings.emby_url)
 auth_service = AuthService(settings.api_key, emby_verifier=emby_api)
 
-video_source = YtDlpVideoSource(max_height=settings.download_max_height)
-
-download_worker = DownloadWorker(
-    source=video_source,
-    library=EmbyLibraryNotifier(settings.emby_url, settings.emby_api_key),
-    session_factory=_session,
-    library_root=Path(settings.library_root),
-    tmp_root=Path(settings.download_tmp),
-)
-playlist_service = PlaylistService(video_source, download_worker)
-video_service = VideoService(download_worker)
-playlist_sync_loop = PlaylistSyncLoop(playlist_service, _session, settings.playlist_sync_interval_seconds)
-
 subtitle_cache = SubtitleCache(emby_api, Path(settings.database_path).parent / "subtitles")
 emby_playback = EmbyPlaybackService(emby_api, settings.emby_api_key, subtitle_cache)
 tube_service = TubeService(YtDlpTube(), HttpTubeWeb(), Path(settings.database_path).parent / "images")
 tube_library = TubeLibrary(tube_service)
-feed_refresh_loop = FeedRefreshLoop(tube_library, tube_service, _session, settings.feed_refresh_interval_seconds)
+playlist_library = PlaylistLibrary(tube_service)
+recommender = Recommender(tube_service)
+feed_refresh_loop = FeedRefreshLoop(tube_library, playlist_library, tube_service, _session, settings.feed_refresh_interval_seconds)
 
 stream_service = StreamService(
     _transcoder(), max_concurrent=settings.max_concurrent_streams,

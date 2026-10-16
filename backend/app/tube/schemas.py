@@ -78,10 +78,24 @@ class TubeChannelOut(BaseModel):
 class TubePlaylistOut(BaseModel):
     playlist: TubePlaylistCardOut
     videos: list[TubeVideoCardOut]
+    following: bool
+
+
+class TubePlaylistShelfOut(BaseModel):
+    """A followed playlist's newest videos (newest added first)."""
+
+    playlist: TubePlaylistCardOut
+    videos: list[TubeVideoCardOut]
 
 
 class TubeHomeOut(BaseModel):
     continue_watching: list[TubeVideoCardOut]
+    playlists: list[TubePlaylistShelfOut]
     feed: list[TubeVideoCardOut]
+    recommended: list[TubeVideoCardOut]
     later: list[TubeVideoCardOut]
-    following: list[TubeChannelCardOut]
+
+
+class TubeFollowingOut(BaseModel):
+    channels: list[TubeChannelCardOut]
+    playlists: list[TubePlaylistCardOut]

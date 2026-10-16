@@ -52,20 +52,13 @@ def mpeg1_frame_rate(source_fps: float | None) -> str:
 class OutputFormat(str, Enum):
     # MPEG-1 video + MP2 audio in MPEG-TS: what JSMpeg decodes in JS onto a <canvas>.
     JSMPEG_TS = "jsmpeg_ts"
-    # Fragmented H.264/AAC MP4 for an ordinary <video> element (the control case on the
-    # car test page — expected to be blocked while driving).
-    FRAGMENTED_MP4 = "fmp4"
-    # Raw H.264 Annex-B, video only, one AUD per frame and no B-frames, for the browser's
-    # WebCodecs VideoDecoder (hardware decode without a <video> element). Car test page
-    # probe.
-    H264_ANNEXB = "h264"
     # H.264 + AAC in MPEG-TS for the WebCodecs player: demuxed in the browser, video to
     # the hardware VideoDecoder, audio to AudioDecoder → WebAudio, drawn on a canvas.
     H264_TS = "h264ts"
 
 
 def quality_preset(output: "OutputFormat", quality: Quality) -> tuple[int, int]:
-    table = H264_QUALITY_PRESETS if output in (OutputFormat.H264_TS, OutputFormat.H264_ANNEXB) else QUALITY_PRESETS
+    table = H264_QUALITY_PRESETS if output is OutputFormat.H264_TS else QUALITY_PRESETS
     return table[quality]
 
 

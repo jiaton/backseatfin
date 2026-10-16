@@ -2,10 +2,9 @@ import asyncio
 import logging
 from contextlib import aclosing, suppress
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, WebSocketException, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
-from app.auth.deps import require_player, require_ws_player, viewer_for
+from app.auth.deps import require_ws_player, viewer_for
 from app.auth.service import Principal
 from app.container import stream_service
 from app.stream.ports import OutputFormat, Quality, SourceUnavailableError, StreamRequest, UnknownSourceError
@@ -73,11 +72,9 @@ async def stream_ws(
     flow: bool = Query(False),
     principal: Principal = Depends(require_ws_player),
 ):
-    """Encoded bytes as binary WebSocket frames: MPEG-TS for JSMpeg (default), or raw
-    H.264 for the WebCodecs probe (format=h264). Seeking or switching tracks = the
-    client reconnects with new parameters."""
-    if format is OutputFormat.FRAGMENTED_MP4:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="fmp4 is served over HTTP")
+    """Encoded bytes as binary WebSocket frames: MPEG-TS, H.264 + AAC for the WebCodecs
+    player (format=h264ts) or MPEG-1 for JSMpeg (default). Seeking or switching tracks =
+    the client reconnects with new parameters."""
     await websocket.accept()
     # aclosing: the moment the client goes away, close the generator so its finally
     # block kills ffmpeg now, not whenever the GC gets to it.
@@ -110,29 +107,3 @@ async def stream_ws(
                 control.close()
     with suppress(RuntimeError):
         await websocket.close()
-
-
-@router.get("/video.mp4")
-async def stream_mp4(
-    source: str = Query(..., max_length=100),
-    t: float = Query(0.0, ge=0),
-    principal: Principal = Depends(require_player),
-):
-    """Same content as an ordinary progressive MP4 — the <video>-tag control case."""
-    chunks = stream_service.open(
-        _request(source, t, None, None, Quality.HIGH), viewer_for(principal), OutputFormat.FRAGMENTED_MP4
-    )
-    try:
-        first = await anext(chunks)
-    except TooManyStreamsError as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from e
-    except (UnknownSourceError, SourceUnavailableError) as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
-
-    async def body():
-        async with aclosing(chunks):
-            yield first
-            async for chunk in chunks:
-                yield chunk
-
-    return StreamingResponse(body(), media_type="video/mp4")

@@ -2,6 +2,7 @@
 export const tubeKeys = {
   all: ['tube'] as const,
   home: ['tube', 'home'] as const,
+  following: ['tube', 'following'] as const,
   search: (q: string, kind: string) => ['tube', 'search', kind, q] as const,
   video: (id: string) => ['tube', 'video', id] as const,
   /** A video's card as a list showed it: lets its page draw at once while the full

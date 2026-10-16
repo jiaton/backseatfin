@@ -5,14 +5,22 @@ import { afterAll, afterEach, beforeAll, expect, it } from 'vitest'
 
 import { createWrapper } from '@/test/render'
 
-import { useHome, useFollow } from './use-library'
+import { useFollow, useFollowing, useFollowPlaylist, useHome } from './use-library'
 
 const card = { id: 'aqz-KE-bpKQ', title: 'Big Buck Bunny', channel_name: 'Blender', duration_seconds: 635, position_seconds: 120, is_live: false }
 let following = false
+let playlistFollowed = false
 const server = setupServer(
   http.get('*/api/tube/home', () =>
-    HttpResponse.json({ continue_watching: [card], feed: [], later: [], following: following ? [{ id: 'UCx', name: 'Blender' }] : [] }),
+    HttpResponse.json({ continue_watching: [card], playlists: [], feed: following ? [{ ...card, id: 'bbbbbbbbbbb', position_seconds: null }] : [], recommended: [], later: [] }),
   ),
+  http.get('*/api/tube/following', () =>
+    HttpResponse.json({ channels: [], playlists: playlistFollowed ? [{ id: 'PLx', title: 'Car list' }] : [] }),
+  ),
+  http.put('*/api/tube/playlists/:id/follow', () => {
+    playlistFollowed = true
+    return HttpResponse.json({ id: 'PLx', title: 'Car list' })
+  }),
   http.put('*/api/tube/channels/:id/follow', () => {
     following = true
     return HttpResponse.json({ id: 'UCx', name: 'Blender' })
@@ -27,7 +35,15 @@ it('loads the home screen and refreshes it after following a channel', async () 
   const { result } = renderHook(() => ({ home: useHome(), follow: useFollow('UCx') }), { wrapper: createWrapper() })
   await waitFor(() => expect(result.current.home.isSuccess).toBe(true))
   expect(result.current.home.data?.continue_watching[0].position_seconds).toBe(120)
-  expect(result.current.home.data?.following).toEqual([])
+  expect(result.current.home.data?.feed).toEqual([])
   await act(() => result.current.follow.mutateAsync(true))
-  await waitFor(() => expect(result.current.home.data?.following).toHaveLength(1))
+  await waitFor(() => expect(result.current.home.data?.feed).toHaveLength(1))
+})
+
+it('following a playlist shows up in the following list', async () => {
+  const { result } = renderHook(() => ({ list: useFollowing(), follow: useFollowPlaylist('PLx') }), { wrapper: createWrapper() })
+  await waitFor(() => expect(result.current.list.isSuccess).toBe(true))
+  expect(result.current.list.data?.playlists).toEqual([])
+  await act(() => result.current.follow.mutateAsync(true))
+  await waitFor(() => expect(result.current.list.data?.playlists).toHaveLength(1))
 })

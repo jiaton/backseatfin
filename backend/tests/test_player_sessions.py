@@ -52,7 +52,7 @@ def test_player_cookie_plays_but_never_administers(client):
     r = client.post("/api/auth/player-session", json={"emby_token": "good-emby-token", "emby_user_id": "u1"})
     assert r.status_code == 204 and "bsf_player" in r.cookies
     # Playback-only: admin routes and the admin session stay closed.
-    assert client.get("/api/youtube/sources").status_code == 401
+    assert client.get("/api/tube/home").status_code == 401
     assert client.get("/api/auth/devices").status_code == 401
     assert client.get("/api/auth/session").json()["authenticated"] is False
     # …but the stream socket accepts it (unknown source then closes 1008 after accept).

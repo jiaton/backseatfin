@@ -9,10 +9,9 @@ from datetime import timedelta
 from sqlalchemy import func
 from sqlmodel import Session, col, delete, select
 
-from app.tube.models import FeedVideo, FollowedChannel, LaterVideo, WatchedVideo
+from app.tube.models import FeedVideo, FollowedChannel, LaterVideo, WatchedVideo, utcnow
 from app.tube.ports import TubeUnavailableError, VideoCard
 from app.tube.service import TubeService
-from app.youtube.models import utcnow
 
 log = logging.getLogger(__name__)
 
@@ -103,6 +102,7 @@ class TubeLibrary:
         for channel in self.followed(session):
             await self.refresh_channel(session, channel)
             await asyncio.sleep(1)  # be gentle with YouTube
+
         cutoff = utcnow() - FEED_MAX_AGE
         session.exec(delete(FeedVideo).where(func.coalesce(FeedVideo.published_at, FeedVideo.seen_at) < cutoff))
         session.commit()

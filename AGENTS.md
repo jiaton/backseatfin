@@ -25,12 +25,13 @@ where the car blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Ch
      "Auto" transcoder sends HDR films here (`player/transcoder.ts`).
      ffmpeg re-encodes to H.264 + AAC in MPEG-TS, pushed over a WebSocket (engine
      **WebCodecs**), or MPEG-1/MP2 for **JSMpeg** where WebCodecs can't do H.264 + AAC.
-   - **YouTube → Emby**: poll YouTube playlists and download new videos into an Emby
-     "TV shows" library, one channel per show.
-   - **Settings** (`/settings` in the app): download playlists, devices, the car test page.
+   - **Settings** (`/settings` in the app): what you follow (unfollow), devices, language.
+   - Removed in 0.2: YouTube → Emby downloads (live play made them redundant, and many
+     users have no Emby) and the car test page (the player's own messages and stats
+     panel cover it). `core/db.py` drops their tables (`REMOVED_TABLES`).
 
-Self-hosted and single-household. Talks to YouTube (yt-dlp), Emby (HTTP API, as the
-viewer or with the server key) and the folder that Emby also indexes.
+Self-hosted and single-household. Talks to YouTube (yt-dlp, its RSS feeds and image
+hosts) and Emby (HTTP API, as the viewer or with the server key).
 
 ## Setup / Test / Run
 
@@ -40,7 +41,7 @@ Everything runs in Docker: `cp .env.example .env`, fill it in, `docker compose u
 Backend (`backend/`):
 - Install: `poetry install`
 - Dev server: `API_KEY=dev DATABASE_PATH=/tmp/bsf.db EMBY_URL=http://<emby>:8096 poetry run uvicorn app.main:app --reload`
-  (needs `ffmpeg` on PATH for downloads and streams; the image has it)
+  (needs `ffmpeg` on PATH for streams; the image has it)
 - Tests: `poetry run pytest -q`, or in the image:
   `docker run --rm --entrypoint python backseatfin-server -m pytest -q`
   (conftest forces its own `API_KEY` and DB)
@@ -104,16 +105,15 @@ GitHub Pages.
 
 ## Layering: domain folders + explicit ports (backend)
 
-Domains: `auth/` (device cookies, pairing, Emby player sessions), `youtube/` (download
-sources, queue, download worker), `tube/` (YouTube browsing, the local library, the
+Domains: `auth/` (device cookies, pairing, Emby player sessions), `tube/` (YouTube
+browsing, the local library, followed playlists, recommendations, the
 `youtube` stream resolver), `emby/` (playback info, progress reports, and the `emby`
-stream resolver), `stream/` (resolver dispatch + ffmpeg), `diagnostics/`
-(car test reports). Per domain: `routes.py` → `service.py` → `ports.py` (Protocol) ←
+stream resolver), `stream/` (resolver dispatch + ffmpeg). Per domain: `routes.py` → `service.py` → `ports.py` (Protocol) ←
 `adapter.py` (the only file importing yt_dlp, calling Emby over HTTP, or running
 ffmpeg; `tube/` has two: `adapter.py` = yt-dlp, `web_adapter.py` = httpx for RSS feeds,
-images and stream-URL checks). `youtube/worker.py` and `tube/worker.py` hold the
-background loops; `youtube/layout.py`, `tube/urls.py`, `tube/formats.py` and
-`tube/cache.py` are pure. `diagnostics/` and `auth/` have no external
+images and stream-URL checks). `tube/worker.py` holds the background loop; `tube/urls.py`,
+`tube/formats.py`, `tube/cache.py` and `tube/recommend.py: pick` are pure. `auth/` has
+no external
 adapter of their own (DB session + in-memory stores); `auth/ports.py` declares the
 Emby token check that `emby.adapter.EmbyHttpApi` implements. `auth/deps.py` holds every
 auth dependency (`require_auth`, `require_player`, `require_ws_player`, `viewer_for`).
@@ -139,22 +139,16 @@ the frontend image build (`check:api`).
 ## Data access
 
 SQLModel only, no raw SQL. No migration tool: `create_all`; additive columns need an
-`_ensure_column` helper. Losing the DB loses queue history and device cookies (devices
-re-pair); library files are the real data. Pairings and player sessions are in memory
+`_ensure_column` helper. Losing the DB loses history, follows and device cookies (devices
+re-pair). Pairings and player sessions are in memory
 by design.
 
 ## Background work
 
-- `PlaylistSyncLoop`: every `PLAYLIST_SYNC_INTERVAL_SECONDS` re-reads enabled sources;
-  new entries → `Video(status=queued)`. The interval doubles as retry backoff.
-- `DownloadWorker`: one at a time, oldest `queued` first. Stop reasons stay distinct:
-  `failed` (auto-requeued by sync while `attempts < 3`), `cancelled` (never
-  auto-retried), `interrupted` (shutdown; requeued at startup, as is anything left
-  `downloading`).
-- Placement: `<root>/<Channel>/Season <YYYY>/<YYYY-MM-DD> - <Title> [<id>].mp4` plus
-  `.nfo` / `-thumb.jpg`, `tvshow.nfo` per channel. NFO written last. Episode =
-  `MMDD*100 + n`. The container drops to `PUID:PGID` (`backend/entrypoint.sh`), which
-  should be the user Emby runs as.
+- `tube/worker.py: FeedRefreshLoop`: every `FEED_REFRESH_INTERVAL_SECONDS` re-reads
+  followed channels and playlists, then prunes the image cache.
+- The container drops to `PUID:PGID` (`backend/entrypoint.sh`, default 1000:1000) after
+  updating yt-dlp (`YTDLP_AUTO_UPDATE`).
 - Streams: `-re` paced; the WS route closes the generator with `aclosing` so ffmpeg dies
   with the socket. Emby input = the original file via `/Videos/{id}/stream?static=true`
   with the token in `-headers`, never the URL. Audio and subtitle tracks are mapped by
@@ -171,8 +165,10 @@ by design.
 
 ## YouTube in the car
 
-- **API** (`/api/tube/*`, device cookie or API key): `home` (continue watching, followed
-  channels' feed, watch later, following), `search?q&kind=videos|channels|playlists`,
+- **API** (`/api/tube/*`, device cookie or API key; `routes.py` browsing,
+  `library_routes.py` the household's own, `views.py` shared mapping): `home` (continue
+  watching, followed playlists' shelves, followed channels' feed, recommended, watch
+  later), `following`, `playlists/{id}/follow`, `search?q&kind=videos|channels|playlists`,
   `link?url` (a pasted link → kind + id), `videos/{id}` (+ `progress`), `channels/{id}`
   (+ `follow`), `playlists/{id}`, `later/{id}`, `history`, `image?u=` (thumbnails via
   the server; only YouTube's image hosts, `tube/urls.py: IMAGE_HOSTS`; cached on disk,
@@ -186,6 +182,18 @@ by design.
   fits the quality level and the window (portrait: short side vs height), AAC `140`
   (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams are
   refused for now.
+- **Followed playlists** (`tube/playlists.py`): the way in from the phone without a
+  Google sign-in. Public/unlisted only. Read with `fresh=True` (no cache) whenever home
+  opens and the last read is older than `PLAYLIST_FRESH_S` (60 s; home waits ≤ 4 s for
+  it), and by the loop. New items get `seen_at = now` (the home shelf is newest first);
+  on the first read YouTube's order (oldest added first) is turned into seen times;
+  videos taken out of the playlist are dropped.
+- **Recommendations** (`tube/recommend.py`): channels watched ≥ 2 times but not
+  followed (their newest), followed channels most watched (videos 6–20: the newest are
+  in the feed), the two most frequent searches (`SearchQuery`, last 50 kept). Round-robin
+  (`pick`), nothing watched, saved or already on home, no live. Inputs are read from the
+  request's session; the YouTube lookups run in a task, cached 30 min, invalidated by a
+  follow or a first watch; the first ask waits ≤ 3 s.
 - **Feed** (`tube/library.py`): followed channels are re-read every
   `FEED_REFRESH_INTERVAL_SECONDS` (and on follow). RSS gives dates but fails for
   minutes at a time (404/500): 3 tries, then the channel's video list (durations, no
@@ -473,7 +481,7 @@ fails via `scripts/check-inject.mjs`. Shared constants are copied, with a test
 asserting the copies match (`CLOSE_MESSAGE`). Hook files are `use-kebab-case.ts`.
 Routing: `lib/router.ts` (pushState + `useLocation`, no router dependency) and a path
 switch in `App.tsx`: `/` home, `/search`, `/v/<id>`, `/c/<id>`, `/p/<id>`, `/settings`,
-`/test`, `/pair`. In-app links are `components/ui/link.tsx` (a real `<a>`). The player is
+`/pair`. In-app links are `components/ui/link.tsx` (a real `<a>`). The player is
 its own page (`play.html`, `/play?yt=<id>&t=&back=`), so its back returns by history
 when it came from `back` (page restored from the back/forward cache, which `main.tsx`
 refetches) and by `location.replace` otherwise. `index.html` has `<base href="/">`:
@@ -492,8 +500,8 @@ English first, then Chinese. A test checks the Chinese table has every key.
 
 ## Testing
 
-- Backend `pytest`: layout; services against fake ports (`VideoSourcePort`,
-  `EmbyApiPort`, transcoder); worker placement/failure/cancel/recovery; ffmpeg argument
+- Backend `pytest`: services against fake ports (`TubeSourcePort`/`TubeWebPort`,
+  `EmbyApiPort`, transcoder); dropping removed tables; ffmpeg argument
   building (headers, track maps, both subtitle kinds, unsafe paths, HDR paths, the
   viewer box); stream temp-file cleanup; auth/pairing/player-session API flows via
   TestClient. Mock the port, never the service.
@@ -507,7 +515,9 @@ English first, then Chinese. A test checks the Chinese table has every key.
   `readTubeParams` (no open redirect). Backend: link parsing, the image-host allowlist
   (no SSRF), format choice, the TTL cache, the resolver (pass-through spec, dead URL →
   re-extract, live/bad id refused), the library (follow → feed, RSS failure → channel
-  list fallback, resume threshold), ffmpeg pass-through args.
+  list fallback, resume threshold), followed playlists (newest first, removed items go,
+  only stale ones re-read), recommendations (turns, exclusions), home with something
+  to continue (regression: 500), ffmpeg pass-through args.
 - End to end against real YouTube (Playwright, `--use-angle=gl-egl` on the iGPU; not in
   CI): sign in → search → video → channel → follow → play (frames, sound clock) → seek →
   back → resume offered → home rows → pasted link.
@@ -526,7 +536,8 @@ English first, then Chinese. A test checks the Chinese table has every key.
 - Hand-written FE types for API shapes; the frontend calling Emby's API directly.
 - Raw hex / Tailwind palette colors outside the token files.
 - Hard-coded UI strings outside the i18n tables.
-- Collapsing `failed`/`cancelled`/`interrupted` into one status.
+- A long blocking call (yt-dlp) on the event loop: `asyncio.to_thread`. And a sync
+  route (run in a thread) must not start event-loop tasks: make it `async`.
 - YouTube cookies anywhere in this repo or its env.
 - Any credential (API key, device/player cookie, Emby token) in a URL, browser storage
   beyond the tab-scoped hand-off, or a log line.

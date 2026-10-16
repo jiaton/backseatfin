@@ -146,24 +146,8 @@ def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneM
                 "-f", "mpegts", "-muxdelay", "0", "pipe:1",
             ]
 
-    args += ["-filter_complex", _video_graph(spec, video_in, tone_map), "-map", "[v]"]
-    if spec.output is not OutputFormat.H264_ANNEXB:
-        args += ["-map", audio_map]
-    if spec.output is OutputFormat.H264_ANNEXB:
-        # Main profile, no B-frames (decode order = display order, so the client can
-        # timestamp frames by count), an AUD before every frame (the client splits the
-        # byte stream on it), and a keyframe every 2 s so a decoder can join quickly.
-        args += [
-            "-r", spec.frame_rate or "30",
-            # 4:2:0 8-bit explicitly: RGB (the test pattern) or 10-bit (HEVC films)
-            # input would otherwise make x264 pick a format browsers can't decode.
-            "-pix_fmt", "yuv420p",
-            "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-profile:v", "main",
-            "-bf", "0", "-g", "60", "-x264-params", "aud=1",
-            "-b:v", f"{spec.video_kbps}k", "-maxrate", f"{spec.video_kbps * 2}k", "-bufsize", f"{spec.video_kbps * 2}k",
-            "-an", "-f", "h264", "pipe:1",
-        ]
-    elif spec.output is OutputFormat.H264_TS:
+    args += ["-filter_complex", _video_graph(spec, video_in, tone_map), "-map", "[v]", "-map", audio_map]
+    if spec.output is OutputFormat.H264_TS:
         # High profile (hardware decoders all take it), 4:2:0 8-bit, no B-frames (decode
         # order = presentation order keeps the client simple), keyframe every ~2 s so a
         # seek/reconnect shows a picture fast. AAC-LC stereo 48 kHz for AudioDecoder.
@@ -177,23 +161,13 @@ def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneM
             "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
             "-f", "mpegts", "-muxdelay", "0", "pipe:1",
         ]
-    elif spec.output is OutputFormat.JSMPEG_TS:
+    else:  # JSMPEG_TS
         args += [
             "-r", spec.frame_rate or "30",
             "-c:v", "mpeg1video", "-b:v", f"{spec.video_kbps}k", "-maxrate", f"{spec.video_kbps * 2}k",
             "-bufsize", f"{spec.video_kbps * 2}k", "-bf", "0",
             "-c:a", "mp2", "-b:a", "128k", "-ar", "44100", "-ac", "2",
             "-f", "mpegts", "-muxdelay", "0.001", "pipe:1",
-        ]
-    else:
-        args += [
-            "-pix_fmt", "yuv420p",  # see the H.264 branch: browsers can't decode 4:4:4
-            # frag_keyframe emits a fragment per keyframe; x264's default GOP (250 frames
-            # ≈ 8 s) meant nothing reached the <video> element for 8 s and it "stalled".
-            "-g", "30",
-            "-c:v", "libx264", "-preset", "veryfast", "-b:v", f"{spec.video_kbps}k",
-            "-c:a", "aac", "-b:a", "128k", "-ac", "2",
-            "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "pipe:1",
         ]
     return args
 

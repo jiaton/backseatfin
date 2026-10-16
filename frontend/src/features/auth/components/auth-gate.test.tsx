@@ -15,7 +15,7 @@ const server = setupServer(
   http.get('*/api/auth/session', () =>
     HttpResponse.json(signedIn ? { authenticated: true, via: 'device', device_id: 1, device_name: 'Tesla' } : { authenticated: false }),
   ),
-  http.get('*/api/youtube/videos', () =>
+  http.get('*/api/tube/history', () =>
     signedIn ? HttpResponse.json([]) : HttpResponse.json({ detail: 'not authenticated' }, { status: 401 }),
   ),
   http.post('*/api/auth/pairings', () =>
@@ -38,7 +38,7 @@ afterEach(() => {
 afterAll(() => server.close())
 
 function Protected() {
-  const q = useQuery({ queryKey: ['youtube', 'videos'], queryFn: () => unwrap(api.GET('/api/youtube/videos')) })
+  const q = useQuery({ queryKey: ['tube', 'history'], queryFn: () => unwrap(api.GET('/api/tube/history')) })
   return <p>protected:{q.status}</p>
 }
 

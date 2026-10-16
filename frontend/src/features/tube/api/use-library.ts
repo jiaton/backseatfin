@@ -28,6 +28,24 @@ export function useFollow(channelId: string) {
   })
 }
 
+export function useFollowing() {
+  return useQuery({
+    queryKey: tubeKeys.following,
+    queryFn: () => unwrap(api.GET('/api/tube/following')),
+  })
+}
+
+export function useFollowPlaylist(playlistId: string) {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (follow: boolean) =>
+      follow
+        ? unwrap(api.PUT('/api/tube/playlists/{playlist_id}/follow', { params: { path: { playlist_id: playlistId } } }))
+        : unwrap(api.DELETE('/api/tube/playlists/{playlist_id}/follow', { params: { path: { playlist_id: playlistId } } })),
+    onSuccess: invalidate,
+  })
+}
+
 export function useWatchLater(videoId: string) {
   const invalidate = useInvalidate()
   return useMutation({

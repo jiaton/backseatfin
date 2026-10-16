@@ -29,15 +29,6 @@ def test_jsmpeg_output_is_mpeg1_mp2_ts_paced_and_seeks_before_input():
     assert args[args.index("-f", args.index("-c:v")) + 1] == "mpegts"
 
 
-def test_test_pattern_needs_no_input_url():
-    args = build_ffmpeg_args(StreamSpec(input_url=None, output=OutputFormat.FRAGMENTED_MP4))
-    assert "lavfi" in args and "-ss" not in args
-    assert args[args.index("-c:v") + 1] == "libx264"
-    assert args[args.index("-pix_fmt") + 1] == "yuv420p"  # regression: testsrc made it 4:4:4
-    assert args[args.index("-g") + 1] == "30"  # regression: 8 s until the first fragment
-    assert "1:a:0" in args
-
-
 def test_token_goes_in_headers_not_url_and_tracks_are_mapped_by_absolute_index():
     args = build_ffmpeg_args(_spec(input_headers={"X-Emby-Token": "secret"}, video_stream_index=0, audio_stream_index=2))
     assert args[args.index("-headers") + 1] == "X-Emby-Token: secret\r\n"
@@ -87,17 +78,6 @@ def test_mpeg1_frame_rate_snaps_to_legal_rates(source, expected):
     from app.stream.ports import mpeg1_frame_rate
 
     assert mpeg1_frame_rate(source) == expected
-
-
-def test_h264_probe_output_is_annexb_video_only_with_auds_and_no_bframes():
-    args = build_ffmpeg_args(StreamSpec(input_url=None, output=OutputFormat.H264_ANNEXB, max_height=1080, video_kbps=5000))
-    assert args[args.index("-c:v") + 1] == "libx264"
-    assert args[args.index("-bf") + 1] == "0"
-    assert args[args.index("-x264-params") + 1] == "aud=1"
-    assert args[args.index("-pix_fmt") + 1] == "yuv420p"  # regression: main profile rejects 4:4:4
-    assert args[args.index("-f", args.index("-c:v")) + 1] == "h264"
-    assert "-an" in args and _maps(args) == ["[v]"]
-    assert "min(1080,ih)" in _graph(args)
 
 
 def test_webcodecs_ts_output_is_h264_high_aac_ts_with_initial_burst():
@@ -206,3 +186,10 @@ def test_youtube_passthrough_copies_h264_and_reencodes_only_the_separate_audio()
 def test_separate_audio_input_is_mapped_when_transcoding():
     args = build_ffmpeg_args(StreamSpec(input_url="https://v.example.com/vp9", audio_url="https://v.example.com/opus", output=OutputFormat.JSMPEG_TS))
     assert "-filter_complex" in args and _maps(args) == ["[v]", "1:a:0"]
+
+
+def test_test_pattern_needs_no_input_url():
+    args = build_ffmpeg_args(StreamSpec(input_url=None, output=OutputFormat.H264_TS))
+    assert "testsrc" in " ".join(args) and "sine" in " ".join(args)
+    assert _maps(args) == ["[v]", "1:a:0"]
+

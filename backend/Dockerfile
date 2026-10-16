@@ -2,7 +2,7 @@ FROM denoland/deno:bin AS deno
 
 FROM python:3.12-slim
 
-# ffmpeg: yt-dlp merges video+audio with it, and the stream domain transcodes with it.
+# ffmpeg: the stream domain transcodes with it (and passes YouTube's H.264 through).
 # fonts-noto-cjk: libass burns text subtitles into the picture and needs glyphs for
 # them — without a CJK font, Chinese/Japanese/Korean subtitles render as nothing.
 # deno: yt-dlp needs a JS runtime to solve YouTube's player challenges.
@@ -39,8 +39,7 @@ RUN poetry config virtualenvs.create false \
 
 COPY . .
 
-# The entrypoint drops to PUID:PGID (default 1000:1000) — set them to the user Emby runs
-# as, so downloaded files in the shared library folder are ones Emby can also rename/delete.
+# The entrypoint drops to PUID:PGID (default 1000:1000), the owner of /app/data.
 RUN mkdir -p /app/data
 
 # Intel's OpenCL compiles the tone-mapping kernels on first use (~4 s per stream start);

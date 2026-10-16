@@ -96,8 +96,11 @@ class TubeService:
             channel_id, lambda: asyncio.to_thread(self._source.channel, channel_id, LIST_LIMIT), LIST_TTL_S
         )
 
-    async def playlist(self, playlist_id: str) -> PlaylistPage:
+    async def playlist(self, playlist_id: str, fresh: bool = False) -> PlaylistPage:
+        """fresh: skip the cache (a followed playlist the viewer just added to)."""
         _check(PLAYLIST_ID, playlist_id, "playlist")
+        if fresh:
+            self._playlists.drop(playlist_id)
         return await self._playlists.get(
             playlist_id, lambda: asyncio.to_thread(self._source.playlist, playlist_id, LIST_LIMIT), LIST_TTL_S
         )

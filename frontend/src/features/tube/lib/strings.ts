@@ -40,6 +40,15 @@ const en = {
   liveNotYet: "Live streams can't be played yet.",
   notLink: "That isn't a YouTube video, channel or playlist link.",
   openingLink: 'Opening the link…',
+  recommended: 'Recommended for you',
+  recommendedHint: 'From what you watch, follow and search',
+  playlistHint: 'Add videos to this playlist on your phone; they show up here.',
+  followPlaylist: 'Show on home',
+  followingPlaylist: 'On home',
+  followingTitle: 'Following',
+  followingEmpty: "You don't follow any channels or playlists yet. Follow them from their pages.",
+  unfollowAction: 'Unfollow',
+  privatePlaylist: 'Only public or unlisted playlists can be followed (BackseatFin doesn\'t sign in to YouTube).',
 }
 export type TubeKey = keyof typeof en
 /** Every key (for tests). */
@@ -81,6 +90,15 @@ const zh: Record<TubeKey, string> = {
   liveNotYet: '暂时还不能播放直播。',
   notLink: '这不是 YouTube 的视频、频道或播放列表链接。',
   openingLink: '正在打开链接…',
+  recommended: '为你推荐',
+  recommendedHint: '根据你的观看、关注和搜索',
+  playlistHint: '在手机上往这个播放列表加视频，这里会自动出现。',
+  followPlaylist: '显示在首页',
+  followingPlaylist: '已在首页',
+  followingTitle: '我的关注',
+  followingEmpty: '还没有关注任何频道或播放列表。可以在它们的页面上关注。',
+  unfollowAction: '取消关注',
+  privatePlaylist: '只能关注公开或不公开（unlisted）的播放列表：BackseatFin 不登录 YouTube。',
 }
 
 const es: Record<TubeKey, string> = {
@@ -119,6 +137,15 @@ const es: Record<TubeKey, string> = {
   liveNotYet: 'Todavía no se pueden reproducir directos.',
   notLink: 'Eso no es un enlace a un vídeo, canal o lista de YouTube.',
   openingLink: 'Abriendo el enlace…',
+  recommended: 'Recomendado para ti',
+  recommendedHint: 'Según lo que ves, sigues y buscas',
+  playlistHint: 'Añade vídeos a esta lista en el móvil y aparecerán aquí.',
+  followPlaylist: 'Mostrar en inicio',
+  followingPlaylist: 'En inicio',
+  followingTitle: 'Siguiendo',
+  followingEmpty: 'Aún no sigues canales ni listas. Síguelos desde sus páginas.',
+  unfollowAction: 'Dejar de seguir',
+  privatePlaylist: 'Solo se pueden seguir listas públicas u ocultas (BackseatFin no inicia sesión en YouTube).',
 }
 
 const ja: Record<TubeKey, string> = {
@@ -157,6 +184,15 @@ const ja: Record<TubeKey, string> = {
   liveNotYet: 'ライブ配信はまだ再生できません。',
   notLink: 'YouTube の動画、チャンネル、再生リストのリンクではありません。',
   openingLink: 'リンクを開いています…',
+  recommended: 'おすすめ',
+  recommendedHint: '視聴・フォロー・検索の履歴から',
+  playlistHint: 'スマホでこの再生リストに動画を追加すると、ここに表示されます。',
+  followPlaylist: 'ホームに表示',
+  followingPlaylist: 'ホームに表示中',
+  followingTitle: 'フォロー中',
+  followingEmpty: 'まだチャンネルや再生リストをフォローしていません。それぞれのページからフォローできます。',
+  unfollowAction: 'フォロー解除',
+  privatePlaylist: 'フォローできるのは公開または限定公開の再生リストだけです（BackseatFin は YouTube にログインしません）。',
 }
 
 const ko: Record<TubeKey, string> = {
@@ -195,6 +231,15 @@ const ko: Record<TubeKey, string> = {
   liveNotYet: '라이브 스트림은 아직 재생할 수 없습니다.',
   notLink: 'YouTube 동영상, 채널 또는 재생목록 링크가 아닙니다.',
   openingLink: '링크를 여는 중…',
+  recommended: '추천',
+  recommendedHint: '시청·팔로우·검색 기록 기반',
+  playlistHint: '휴대폰에서 이 재생목록에 동영상을 추가하면 여기에 표시됩니다.',
+  followPlaylist: '홈에 표시',
+  followingPlaylist: '홈에 표시 중',
+  followingTitle: '팔로우',
+  followingEmpty: '아직 팔로우한 채널이나 재생목록이 없습니다. 각 페이지에서 팔로우할 수 있습니다.',
+  unfollowAction: '팔로우 취소',
+  privatePlaylist: '공개 또는 일부 공개 재생목록만 팔로우할 수 있습니다(BackseatFin은 YouTube에 로그인하지 않습니다).',
 }
 
 export const TUBE_TABLES: Record<Lang, Record<TubeKey, string>> = { en, zh, es, ja, ko }

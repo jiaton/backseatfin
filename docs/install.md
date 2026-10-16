@@ -51,15 +51,19 @@ nginx examples.
 Then open it in the car: it shows a pairing code and a QR code; scan the QR code with
 the signed-in phone (or type the code there) and the car is signed in for good.
 
-- The home screen has "Continue watching", new videos from the channels you follow, and
+- The home screen has "Continue watching", your followed playlists, new videos from the
+  channels you follow, recommendations (from what you watch, follow and search) and
   "Watch later". Search finds videos, channels and playlists; pasting a YouTube link
   opens what it points at.
+- **From the phone to the car**: make a playlist on YouTube (public or unlisted; private
+  ones can't be read without signing in, and BackseatFin never signs in to YouTube),
+  open it here (paste its link) and tap "Show on home". Whatever you add to it on the
+  phone is on the car's home screen next time it opens.
 - Play opens the car player: quality, pause (keeps the buffer), seeking, and it rides out
   dead zones. The back arrow returns to the video, which offers to resume.
 - Following, history and "watch later" are stored on your server only. No Google account
   is used; YouTube sees your server's address, never the car's.
-- Settings (the gear) has the YouTube → Emby downloads below, paired devices and a page
-  that tests what the car's browser can play.
+- Settings (the gear): everything you follow (unfollow there), paired devices, language.
 
 **Emby.** Open `https://car.example.com` in the car's browser and sign in to Emby once.
 Browse as usual; Play opens the car player and the back arrow returns to Emby. The
@@ -83,18 +87,6 @@ RENDER_GID=109  # getent group render
 ```
 
 NVIDIA and AMD aren't supported yet.
-
-## Optional: YouTube → Emby downloads
-
-The server can also follow YouTube playlists and download new videos into an Emby
-library, one show per channel (for watching offline, or keeping videos).
-
-1. Set `YOUTUBE_LIBRARY_DIR` to a host folder, and `PUID`/`PGID` to the user Emby runs as.
-2. Mount the same folder at `/media/youtube` in your Emby container.
-3. In Emby, add a **TV shows** library on `/media/youtube` with only the NFO metadata
-   reader (online fetchers off) and real-time monitoring on.
-4. Optional: set `EMBY_API_KEY` so new videos show up at once.
-5. In the app's settings, add a playlist link. An unlisted playlist works.
 
 ## When YouTube stops working
 

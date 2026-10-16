@@ -1,4 +1,4 @@
-"""Background loop: re-read followed channels into the home feed, prune the image cache."""
+"""Background loop: re-read followed channels and playlists, prune the image cache."""
 
 import asyncio
 import contextlib
@@ -8,14 +8,19 @@ from collections.abc import Callable
 from sqlmodel import Session
 
 from app.tube.library import TubeLibrary
+from app.tube.playlists import PlaylistLibrary
 from app.tube.service import TubeService
 
 log = logging.getLogger(__name__)
 
 
 class FeedRefreshLoop:
-    def __init__(self, library: TubeLibrary, tube: TubeService, session_factory: Callable[[], Session], interval_seconds: int) -> None:
+    def __init__(
+        self, library: TubeLibrary, playlists: PlaylistLibrary, tube: TubeService,
+        session_factory: Callable[[], Session], interval_seconds: int,
+    ) -> None:
         self._library = library
+        self._playlists = playlists
         self._tube = tube
         self._session_factory = session_factory
         self._interval = interval_seconds
@@ -35,6 +40,7 @@ class FeedRefreshLoop:
             try:
                 with self._session_factory() as session:
                     await self._library.refresh_all(session)
+                    await self._playlists.refresh_all(session)
                 self._tube.prune_images()
             except Exception:
                 log.exception("feed refresh iteration failed")

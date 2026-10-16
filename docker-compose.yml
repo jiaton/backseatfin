@@ -2,8 +2,8 @@
 #   frontend: nginx. Port CAR_PORT is the Emby car host (Emby + the car player; all an
 #             Emby user needs, Emby transcodes). Port APP_PORT is the BackseatFin app
 #             (YouTube in the car, settings), served when the server runs.
-#   backend:  the BackseatFin server: YouTube (browse and play live, or download to
-#             Emby), HDR tone mapping for Emby. Turn it on with COMPOSE_PROFILES=server.
+#   backend:  the BackseatFin server: YouTube in the car (browse, follow, play live),
+#             HDR tone mapping for Emby. Turn it on with COMPOSE_PROFILES=server.
 name: backseatfin
 
 services:
@@ -14,8 +14,6 @@ services:
     env_file: .env
     volumes:
       - data:/app/data
-      # Downloaded YouTube videos. Emby must see them at the same path (LIBRARY_ROOT).
-      - ${YOUTUBE_LIBRARY_DIR:-./youtube-library}:/media/youtube
     restart: unless-stopped
     logging:
       driver: json-file

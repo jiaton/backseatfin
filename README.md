@@ -33,8 +33,8 @@ brings a YouTube app of its own: open it in the car, press Play, and it plays.
   BackseatFin server, on an Intel GPU or the CPU).
 - **YouTube, self-hosted.** Search, follow channels and pick up where you stopped, on a
   screen made for the car. Videos stream through your own server as YouTube encoded
-  them (no re-encoding). No Google account, and your history stays with you. Downloading
-  into Emby is there too.
+  them (no re-encoding). No Google account, and your history stays with you. Add videos
+  to a YouTube playlist on your phone and they're on the car's home screen.
 
 > [!WARNING]
 > For passengers. The driver must keep their eyes on the road. Watching video while
@@ -81,9 +81,8 @@ are in [AGENTS.md](AGENTS.md) and [docs/player.md](docs/player.md).
 - [x] Emby, via the car host (reverse-proxy injection), playing Emby's own HLS
 - [x] Jellyfin plugin, playing Jellyfin's own HLS (no extra server)
 - [x] HDR / Dolby Vision tone mapping (Intel GPU, CPU)
-- [x] YouTube playlists → Emby library
 - [x] YouTube in the car: search, follow channels, play live, resume
-- [ ] Send a video from the phone to the car; playlists play through; captions; live streams
+- [ ] Playlists play through; captions; live streams
 - [ ] NVIDIA and AMD GPUs
 
 ## License

@@ -8,7 +8,7 @@ from app.core.config import settings
 Path(settings.database_path).parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(
     f"sqlite:///{settings.database_path}",
-    # The download worker and sync loop touch the DB from worker threads.
+    # Background loops and thread-pool routes touch the DB from other threads.
     connect_args={"check_same_thread": False},
 )
 
@@ -26,13 +26,21 @@ def _ensure_column(table: str, column: str, ddl_type: str) -> None:
 def init_db() -> None:
     # Import table modules so their metadata is registered before create_all.
     import app.auth.models  # noqa: F401
-    import app.diagnostics.models  # noqa: F401
     import app.tube.models  # noqa: F401
-    import app.youtube.models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
-    _ensure_column("carreport", "webcodecs_video", "BOOLEAN")
-    _ensure_column("carreport", "metrics", "TEXT NOT NULL DEFAULT ''")
+    _drop_removed_tables()
+
+
+# Tables of features that are gone (0.2: YouTube → Emby downloads and the car test
+# page). Downloaded files on disk are left alone.
+REMOVED_TABLES = ("video", "playlistsource", "carreport")
+
+
+def _drop_removed_tables() -> None:
+    with engine.begin() as conn:
+        for table in REMOVED_TABLES:  # code constants, never user input
+            conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
 
 
 def get_session():

@@ -12,16 +12,6 @@ class Settings(BaseSettings):
 
     database_path: str = "/app/data/backseatfin.db"
 
-    # Where finished downloads land. Mounted at the *same* path inside the Emby container,
-    # so a path we write is also the path Emby sees — no translation layer needed.
-    library_root: str = "/media/youtube"
-    # Scratch space for in-progress downloads (same filesystem as library_root is not
-    # required — finished files are moved, not renamed).
-    download_tmp: str = "/app/data/tmp"
-
-    playlist_sync_interval_seconds: int = 900
-    download_max_height: int = 1080
-
     # How often followed YouTube channels are re-read for the home feed.
     feed_refresh_interval_seconds: int = 1800
 
@@ -35,9 +25,8 @@ class Settings(BaseSettings):
     gpu_render_device: str = "/dev/dri/renderD128"
 
     # Emby, reached directly (not through the reverse proxy). Optional: without Emby,
-    # only YouTube is offered. The API key is optional too:
-    # without it the library still picks new files up via Emby's own real-time folder
-    # monitoring, just less promptly.
+    # only YouTube is offered. The API key is what the server uses for Emby when a
+    # viewer signed in to BackseatFin (not Emby) plays something from it; optional.
     emby_url: str = "http://emby:8096"
     emby_api_key: str = ""
 

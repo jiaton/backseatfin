@@ -1,11 +1,13 @@
 """What BackseatFin remembers about YouTube, all local: followed channels, their recent
 uploads (for the home feed), what was watched and how far, and "watch later"."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
 
-from app.youtube.models import utcnow
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class FollowedChannel(SQLModel, table=True):
@@ -52,3 +54,34 @@ class LaterVideo(SQLModel, table=True):
     channel_name: str | None = None
     duration_seconds: int | None = None
     added_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class FollowedPlaylist(SQLModel, table=True):
+    """A YouTube playlist (public or unlisted) whose videos show on the home screen:
+    add a video to it on the phone, and it's in the car."""
+
+    playlist_id: str = Field(primary_key=True)
+    title: str
+    channel_name: str | None = None
+    followed_at: datetime = Field(default_factory=utcnow)
+    last_checked_at: datetime | None = None
+    last_error: str | None = None
+
+
+class PlaylistItem(SQLModel, table=True):
+    playlist_id: str = Field(primary_key=True)
+    video_id: str = Field(primary_key=True)
+    title: str
+    channel_id: str | None = None
+    channel_name: str | None = None
+    duration_seconds: int | None = None
+    # When it first showed up in the playlist (as far as we know): newest first on home.
+    seen_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class SearchQuery(SQLModel, table=True):
+    """What was searched (for recommendations), lower-cased."""
+
+    query: str = Field(primary_key=True)
+    count: int = 1
+    last_at: datetime = Field(default_factory=utcnow, index=True)
