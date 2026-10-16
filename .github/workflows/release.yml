@@ -95,8 +95,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" site/jellyfin/*.zip release/backseatfin-emby-player.zip --generate-notes --verify-tag
+      # Pages: the plugin manifest, and the Emby car player (the "hosted" way in
+      # docs/emby.md: a server's page loads emby/inject.js from here).
       - name: Pages content
-        run: rm site/jellyfin/*.zip
+        run: |
+          rm site/jellyfin/*.zip
+          mkdir -p site/emby && cp -r frontend/dist/. site/emby/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

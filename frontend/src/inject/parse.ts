@@ -8,6 +8,11 @@
 export const CLOSE_MESSAGE = 'backseatfin:close'
 /** sessionStorage key under which inject.js leaves the viewer's session for the player. */
 export const CREDENTIALS_KEY = 'backseatfin:session'
+/** The player, when it's hosted on another origin (GitHub Pages), asks the server's page
+ * for the viewer's session with READY; the page answers with SESSION (postMessage, to
+ * that origin only). Same origin, sessionStorage carries it instead. */
+export const READY_MESSAGE = 'backseatfin:ready'
+export const SESSION_MESSAGE = 'backseatfin:session'
 /** localStorage key: '1' = this browser is in car mode (see isActive). */
 export const CAR_MODE_KEY = 'backseatfin:car'
 
@@ -74,10 +79,12 @@ export function isPlayerRoute(href: string): boolean {
 }
 
 /** `playerPath`: where the player page is, next to inject.js (/car/play on our car
- * host, <jellyfin>/BackseatFin/play from the plugin). */
-export function playerUrl(h: Handoff, back: string, embed = false, playerPath = '/car/play'): string {
+ * host, <jellyfin>/BackseatFin/play from the plugin, or a full URL when it's hosted
+ * elsewhere). `server`: the media server's origin, given to a player hosted elsewhere. */
+export function playerUrl(h: Handoff, back: string, embed = false, playerPath = '/car/play', server?: string): string {
   const q = new URLSearchParams({ item: h.item, t: String(h.t), back })
   if (embed) q.set('embed', '1')
+  if (server) q.set('server', server)
   if (h.audio != null) q.set('audio', String(h.audio))
   if (h.sub != null) q.set('sub', String(h.sub))
   return `${playerPath}?${q}`

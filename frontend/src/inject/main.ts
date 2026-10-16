@@ -13,11 +13,16 @@
  * script tag): then it only acts in browsers switched to car mode (BackseatFin/car).
  */
 
-import { CAR_MODE_KEY, CLOSE_MESSAGE, CREDENTIALS_KEY, isActive, isPlayerRoute, parsePlaybackUrl, playerUrl, type Handoff } from './parse'
+import {
+  CAR_MODE_KEY, CLOSE_MESSAGE, CREDENTIALS_KEY, isActive, isPlayerRoute, parsePlaybackUrl, playerUrl, READY_MESSAGE, SESSION_MESSAGE,
+  type Handoff,
+} from './parse'
 
 const LAYER_ID = 'backseatfin-player'
-/** The player page sits next to this script: /car/play, or /BackseatFin/play. */
-const PLAYER_PATH = new URL('play', import.meta.url).pathname
+/** The player page sits next to this script: /car/play, /BackseatFin/play, or on
+ * another origin when this script is loaded from there (GitHub Pages). */
+const PLAYER = new URL('play', import.meta.url)
+const HOSTED = PLAYER.origin !== location.origin
 // The server's own HLS playlist request, once we've taken over, is left pending forever and
 // never sent: the server then doesn't start a server-side transcode for a video we're
 // already streaming, and its player (torn down when we leave its player screen) aborts
@@ -64,8 +69,15 @@ function install() {
     leaveServerPlayer()
   }
 
+  let session: { token: string; userId: string } | null = null
   window.addEventListener('message', (e) => {
-    if (e.origin === location.origin && e.data?.type === CLOSE_MESSAGE) closeLayer()
+    const frame = layer() as HTMLIFrameElement | null
+    if (!frame || e.source !== frame.contentWindow || e.origin !== PLAYER.origin) return
+    if (e.data?.type === CLOSE_MESSAGE) closeLayer()
+    // A player on another origin asks for the session; only that origin gets it.
+    if (e.data?.type === READY_MESSAGE && HOSTED && session) {
+      frame.contentWindow?.postMessage({ type: SESSION_MESSAGE, ...session }, PLAYER.origin)
+    }
   })
 
   function handoff(h: Handoff): boolean {
@@ -74,13 +86,15 @@ function install() {
     const token = window.ApiClient?.accessToken()
     const userId = window.ApiClient?.getCurrentUserId()
     if (!token || !userId) return false
-    // Same tab, same origin: the player picks the credentials up from here.
-    sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ token, userId }))
+    session = { token, userId }
+    // Same tab, same origin: the player picks the credentials up from here (a hosted
+    // player asks by message instead, see above).
+    if (!HOSTED) sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify(session))
     if (h.session) handedOff.add(h.session)
 
     const frame = document.createElement('iframe')
     frame.id = LAYER_ID
-    frame.src = playerUrl(h, lastPage, true, PLAYER_PATH)
+    frame.src = HOSTED ? playerUrl(h, lastPage, true, PLAYER.href, location.origin) : playerUrl(h, lastPage, true, PLAYER.pathname)
     frame.allow = 'autoplay; fullscreen; screen-wake-lock'
     frame.setAttribute('style', 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483647')
     document.body.appendChild(frame)

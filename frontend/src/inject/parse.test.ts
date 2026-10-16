@@ -80,3 +80,10 @@ it("keeps the server's PlaySessionId (a retry of a handed-off playback has the s
   expect(parsePlaybackUrl('/videos/77/master.m3u8?PlaySessionId=abc', 'https://car.example.com/web/')?.session).toBe('abc')
   expect(parsePlaybackUrl('/videos/77/stream.mkv?Static=true', 'https://car.example.com/web/')?.session).toBeUndefined()
 })
+
+it('gives a hosted player the full address and the server origin', () => {
+  const url = playerUrl({ item: '5', t: 0 }, '/web/', true, 'https://jiaton.github.io/backseatfin/emby/play', 'https://emby.example.com')
+  const u = new URL(url)
+  expect(u.origin + u.pathname).toBe('https://jiaton.github.io/backseatfin/emby/play')
+  expect(u.searchParams.get('server')).toBe('https://emby.example.com')
+})

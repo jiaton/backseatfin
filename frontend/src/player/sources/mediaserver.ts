@@ -15,7 +15,7 @@ import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoic
 export type MediaServer = 'Emby' | 'Jellyfin'
 
 export const CLIENT_NAME = 'BackseatFin'
-const CLIENT_VERSION = '0.2.3'
+const CLIENT_VERSION = '0.2.4'
 const DEVICE_KEY = 'backseatfin:device'
 const TICKS_PER_SECOND = 10_000_000
 const AUDIO_BITRATE = 128_000
@@ -159,14 +159,23 @@ export function streamQuery(
 
 const choiceKey = (c: StreamChoice) => JSON.stringify([c.quality, c.audio, c.sub, c.box.w, c.box.h])
 
-export async function createServerSource(server: MediaServer, itemId: string, root = ''): Promise<PlaybackSource> {
-  const credentials = readServerCredentials(server)
+/** A player hosted on another origin than the server: where the server is (its origin
+ * + base path) and the viewer's session, which the server's page handed over. */
+export interface HostedServer {
+  base: string
+  credentials: SessionCredentials | null
+}
+
+export async function createServerSource(server: MediaServer, itemId: string, root = '', hosted?: HostedServer): Promise<PlaybackSource> {
+  const credentials = hosted ? hosted.credentials : readServerCredentials(server)
+  // Requests go to the server: same origin (relative), or its full address when hosted.
+  const base = hosted ? hosted.base : root
   if (!credentials) throw new ServerError(401, 'not signed in')
   const device = deviceId()
   const auth = authorization(credentials.token, device)
 
   const call = async (method: string, path: string, body?: unknown, keepalive = false) => {
-    const response = await fetch(`${root}${path}`, {
+    const response = await fetch(`${base}${path}`, {
       method,
       headers: { Authorization: auth, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -221,7 +230,7 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
     levels: () => MEDIA_SERVER_LEVELS[server],
     streamUrl: (start, _engine, choice) => {
       const q = streamQuery(media.Id, sessionFor(choice), device, choice, MEDIA_SERVER_LEVELS[server][choice.quality])
-      return withStart(`${window.location.origin}${root}/Videos/${encodeURIComponent(item.Id)}/master.m3u8?${q}`, start)
+      return withStart(`${hosted ? base : window.location.origin + root}/Videos/${encodeURIComponent(item.Id)}/master.m3u8?${q}`, start)
     },
     headers: () => ({ Authorization: auth }),
     report: (event, position, choice, opts = {}) => {

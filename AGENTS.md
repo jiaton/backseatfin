@@ -285,6 +285,15 @@ by design.
      transcode per hand-off. Answering it with an empty playlist made Emby's player
      throw instead.
    - If `ApiClient` has no session, playback is left alone.
+   - **Hosted player** (docs/emby.md "no files at all"): inject.js loaded from GitHub
+     Pages (`site/emby/`, published by release.yml) finds the player next to itself on
+     another origin. Then the layer URL carries `server=<Emby origin>` (an origin only,
+     `params.ts: serverOrigin`), the session never goes into sessionStorage or a URL: the
+     player posts `backseatfin:ready` to the parent (that origin only) and inject.js
+     answers `backseatfin:session` to the player's origin only (`player/hosted.ts`), and
+     the player calls Emby at that origin (`HostedServer`; Emby allows CORS, also for
+     keepalive requests). No BackseatFin server in that mode. Test it with two
+     `*.localhost` names (always a secure context) mapped by `--host-resolver-rules`.
    - A playback already handed off (same `PlaySessionId`) never opens the player again:
      the web app's player can outlive our layer and retry its held request seconds later.
 3. With the server transcoding (`sources/backseatfin.ts`), `play.html` POSTs the token

@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
 
-import { CLOSE_MESSAGE as INJECT_CLOSE, CREDENTIALS_KEY as INJECT_CREDENTIALS } from '@/inject/parse'
+import { CLOSE_MESSAGE as INJECT_CLOSE, CREDENTIALS_KEY as INJECT_CREDENTIALS, READY_MESSAGE as INJECT_READY, SESSION_MESSAGE as INJECT_SESSION } from '@/inject/parse'
 
-import { CLOSE_MESSAGE, CREDENTIALS_KEY, formatClock, readPlayerParams, readSessionCredentials, readTubeParams } from './params'
+import { CLOSE_MESSAGE, CREDENTIALS_KEY, formatClock, READY_MESSAGE, readPlayerParams, readSessionCredentials, readTubeParams, SESSION_MESSAGE } from './params'
 
 it('parses player params and confines back to Emby', () => {
   expect(readPlayerParams('?item=5&t=90&audio=2&sub=4&back=%2Fweb%2Findex.html%23!%2Fitem%3Fid%3D5')).toEqual({
@@ -42,4 +42,18 @@ it('reads a YouTube play link and keeps "back" inside this app', () => {
   expect(readTubeParams('?yt=aqz-KE-bpKQ&back=//evil.example.com')?.back).toBe('/')
   expect(readTubeParams('?yt=aqz-KE-bpKQ&back=https://evil.example.com')?.back).toBe('/')
   expect(readTubeParams('?yt=../../x')).toBeNull()
+})
+
+it('shares the hosted-player handshake with inject.js', () => {
+  expect([READY_MESSAGE, SESSION_MESSAGE]).toEqual([INJECT_READY, INJECT_SESSION])
+})
+
+it('takes the server origin a hosted player is given, and nothing else', () => {
+  const p = (server: string) => readPlayerParams(`?item=5&server=${encodeURIComponent(server)}`)?.server
+  expect(p('https://emby.example.com')).toBe('https://emby.example.com')
+  expect(p('http://192.168.1.10:8096')).toBe('http://192.168.1.10:8096')
+  expect(p('https://emby.example.com/web/')).toBeUndefined() // not just an origin
+  expect(p('javascript:alert(1)')).toBeUndefined()
+  expect(p('https://user:pw@emby.example.com')).toBeUndefined()
+  expect(readPlayerParams('?item=5')?.server).toBeUndefined()
 })

@@ -7,6 +7,8 @@ export interface PlayerParams {
   /** Opened as a layer inside the media server's page (inject.js): "back" closes the
    * layer instead of navigating, so the server's page never reloads. */
   embed: boolean
+  /** The media server's origin, when this player is hosted elsewhere (GitHub Pages). */
+  server?: string
 }
 
 /** The viewer's media server session, as its own web app holds it. */
@@ -17,6 +19,9 @@ export interface SessionCredentials {
 
 /** Must equal inject/parse.ts CREDENTIALS_KEY (a copy, so inject.js stays standalone; params.test.ts checks). */
 export const CREDENTIALS_KEY = 'backseatfin:session'
+/** Must equal inject/parse.ts READY_MESSAGE / SESSION_MESSAGE (copies; params.test.ts checks). */
+export const READY_MESSAGE = 'backseatfin:ready'
+export const SESSION_MESSAGE = 'backseatfin:session'
 /** Must equal inject/parse.ts CLOSE_MESSAGE (a copy, not an import, so inject.js stays
  * one standalone file; params.test.ts checks they match). */
 export const CLOSE_MESSAGE = 'backseatfin:close'
@@ -38,6 +43,18 @@ export function readPlayerParams(search: string, root = ''): PlayerParams | null
     sub: optInt(q.get('sub')),
     back: back.startsWith(`${root}/web/`) ? back : `${root}/web/`,
     embed: q.get('embed') === '1',
+    server: serverOrigin(q.get('server')),
+  }
+}
+
+/** An http(s) origin and nothing else (no path, no credentials), or undefined. */
+function serverOrigin(raw: string | null): string | undefined {
+  if (!raw) return undefined
+  try {
+    const u = new URL(raw)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.origin === raw ? raw : undefined
+  } catch {
+    return undefined
   }
 }
 

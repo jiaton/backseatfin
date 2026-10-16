@@ -227,7 +227,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     reportStopped(true)
     // As a layer over the server's page: inject.js removes us (the page stays as it
     // was). Standalone: navigate back into it.
-    if (params.embed && window.parent !== window) window.parent.postMessage({ type: CLOSE_MESSAGE }, window.location.origin)
+    if (params.embed && window.parent !== window) window.parent.postMessage({ type: CLOSE_MESSAGE }, params.server ?? window.location.origin)
     else if (cameFrom(params.back)) window.history.back() // the page we came from, as it was
     else window.location.replace(params.back)
   }

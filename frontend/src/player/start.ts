@@ -5,6 +5,7 @@ import { mountPlayer, showMessage } from './page'
 import { readPlayerParams, readTubeParams } from './params'
 import type { PlaybackSource } from './source'
 import { createBackseatfinSource } from './sources/backseatfin'
+import { requestSession } from './hosted'
 import { createServerSource, type MediaServer, ServerError, serverRoot } from './sources/mediaserver'
 import { createYoutubeSource } from './sources/youtube'
 import { loadTranscoder, saveTranscoder, prefersBackseatfin } from './transcoder'
@@ -28,12 +29,16 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
   const root = serverRoot(window.location.pathname)
   const params = readPlayerParams(window.location.search, root)
   if (!params) return showMessage('noItem', server, {}, `${root}/web/`)
+  // Hosted on another origin (GitHub Pages): the server is params.server, the session
+  // comes from its page, and there's no BackseatFin server next to us.
+  const hosted = params.server ? { base: params.server, credentials: await requestSession(params.server) } : undefined
+  const home = `${hosted?.base ?? root}/web/`
   try {
-    const [engine, hasBackend] = await Promise.all([pickEngine(), backend ? backendAvailable() : false])
-    if (engine !== 'webcodecs' && !hasBackend) return showMessage('needsWebCodecs', server, {}, `${root}/web/`)
+    const [engine, hasBackend] = await Promise.all([pickEngine(), backend && !hosted ? backendAvailable() : false])
+    if (engine !== 'webcodecs' && !hasBackend) return showMessage('needsWebCodecs', server, {}, home)
     const pref = loadTranscoder()
     // The media server's item says whether it's HDR (which 'auto' sends to our server).
-    let source: PlaybackSource | null = engine === 'webcodecs' ? await createServerSource(server, params.item, root) : null
+    let source: PlaybackSource | null = engine === 'webcodecs' ? await createServerSource(server, params.item, root, hosted) : null
     if (hasBackend && prefersBackseatfin(pref, Boolean(source?.item.hdr), engine)) source = await createBackseatfinSource(params.item, engine)
     mountPlayer(source!, params, {
       transcoder: hasBackend
@@ -56,8 +61,8 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
     })
   } catch (e) {
     const status = e instanceof ServerError || e instanceof HttpError ? e.status : 0
-    if (status === 401) showMessage('signedOut', server, {}, `${root}/web/`)
-    else showMessage('loadFailed', server, { detail: String(e) }, `${root}/web/`)
+    if (status === 401) showMessage('signedOut', server, {}, home)
+    else showMessage('loadFailed', server, { detail: String(e) }, home)
   }
 }
 

@@ -115,6 +115,34 @@ into `caddy:2`), or use way C instead.
 
 3. Reload Caddy.
 
+### Or: no files at all (hosted player)
+
+Instead of downloading the zip, your proxy can load the player from this project's
+GitHub Pages: then the only change is the line that adds the script, pointing at
+`https://jiaton.github.io/backseatfin/emby/inject.js`, and there's no `/car/` location or
+`handle_path /car/*` block. The player opens from there and talks to your Emby directly
+(Emby allows that); it always runs the latest release.
+
+nginx (in place of the `/web/` location's `sub_filter` line, and without `location /car/`):
+
+```nginx
+sub_filter '</head>' '<script type="module" src="https://jiaton.github.io/backseatfin/emby/inject.js"></script></head>';
+```
+
+Caddy (in place of the `replace` line, and without `handle_path /car/*`):
+
+```caddyfile
+replace "</head>" "<script type=\"module\" src=\"https://jiaton.github.io/backseatfin/emby/inject.js\"></script></head>"
+```
+
+> [!CAUTION]
+> This runs code from GitHub Pages inside your Emby page, with access to your Emby
+> sign-in, and it changes whenever a new release is published. Whoever can publish to
+> this project's Pages (its maintainers, or someone who takes over their account) could
+> read your Emby session. The zip doesn't have that risk: you choose what runs and when
+> it updates. Use the hosted player only if you're fine trusting this project like a
+> browser extension.
+
 ## C. The BackseatFin container
 
 No web server of your own, or a Caddy without plugins: run the car host, a small nginx
