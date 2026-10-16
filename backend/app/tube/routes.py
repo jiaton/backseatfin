@@ -57,7 +57,8 @@ def _channel_card(row: FollowedChannel) -> TubeChannelCardOut:
 
 
 @router.get("/home", response_model=TubeHomeOut)
-def home(session: Session = Depends(get_session)):
+async def home(session: Session = Depends(get_session)):
+    # async: prefetch starts a task on the event loop (a sync route runs in a thread).
     continuing = tube_library.continue_watching(session, HOME_ROW)
     if continuing:
         tube_service.prefetch(continuing[0].video_id)  # the likeliest next Play
