@@ -1,7 +1,8 @@
 """Recommendations from what this household does, nothing else: more from channels it
-watches often (or, early on, most recently) but doesn't follow, older videos of channels it follows, and fresh
-results for what it searches for most. Nothing it has watched, saved or already sees on
-the home screen. Computed in the background (several YouTube lookups) and cached."""
+watches often (or, early on, most recently) but doesn't follow, older videos of channels
+it follows, and fresh results for what it searches for repeatedly (twice within 30
+days). Nothing it has watched, saved or already sees on the home screen. Computed in the
+background (several YouTube lookups) and cached."""
 
 import asyncio
 import logging
@@ -9,6 +10,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlmodel import Session, col, select
 
@@ -24,6 +26,9 @@ LIMIT = 24
 SEARCH_HISTORY = 50
 # Watched at least this often and not followed: "you seem to like this channel".
 OFTEN = 2
+# Searched at least this often within this many days: "you're interested in this".
+SEARCH_REPEATS = 2
+SEARCH_DAYS = 30
 
 
 @dataclass(frozen=True)
@@ -45,7 +50,13 @@ def read_inputs(s: Session) -> Inputs:
         | {f.video_id for f in s.exec(select(FeedVideo)).all()}
         | {p.video_id for p in s.exec(select(PlaylistItem)).all()}
     )
-    searches = s.exec(select(SearchQuery).order_by(col(SearchQuery.count).desc(), col(SearchQuery.last_at).desc()).limit(2)).all()
+    # A search is an interest only when it's repeated, and only for a while: one-off
+    # searches (a quick look-up) say little.
+    searches = s.exec(
+        select(SearchQuery).where(col(SearchQuery.count) >= SEARCH_REPEATS)
+        .where(col(SearchQuery.last_at) >= utcnow() - timedelta(days=SEARCH_DAYS))
+        .order_by(col(SearchQuery.count).desc(), col(SearchQuery.last_at).desc()).limit(2)
+    ).all()
     by_channel = Counter(w.channel_id for w in watched if w.channel_id)
     often = [c for c, n in by_channel.most_common() if n >= OFTEN and c not in followed][:3]
     # Early on nothing is watched twice: the channels watched most recently fill in.

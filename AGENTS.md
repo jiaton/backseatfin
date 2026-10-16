@@ -192,7 +192,8 @@ by design.
   videos taken out of the playlist are dropped.
 - **Recommendations** (`tube/recommend.py`): channels watched ≥ 2 times but not
   followed (their newest; early on, the most recently watched channels fill in), followed channels most watched (videos 6–20: the newest are
-  in the feed), the two most frequent searches (`SearchQuery`, last 50 kept). Round-robin
+  in the feed), the two most frequent searches made at least twice within 30 days (`SearchQuery`,
+  last 50 kept; one-off searches are not interests). Round-robin
   (`pick`), nothing watched, saved or already on home, no live. Inputs are read from the
   request's session; the YouTube lookups run in a task, cached 30 min, invalidated by a
   follow or a first watch; the first ask waits ≤ 3 s.

@@ -31,7 +31,8 @@ def test_recommends_from_often_watched_channels_and_searches_but_nothing_already
         s.add(WatchedVideo(video_id="w" * 11, title="w", channel_id=UCX))
         s.add(LaterVideo(video_id="y" * 11, title="y"))
         rec.record_search(s, "  Blender   Open movie ")
-        assert s.get(SearchQuery, "blender open movie").count == 1
+        rec.record_search(s, "blender open movie")  # twice: an interest
+        assert s.get(SearchQuery, "blender open movie").count == 2
         out = asyncio.run(rec.recommendations(s))
     assert [c.id for c in out] == ["x" * 11, "s" * 11]  # not watched "w", not saved "y", "x" once
 
@@ -54,3 +55,19 @@ def test_early_on_the_channels_watched_last_fill_in(tmp_path, session_factory):
         s.add(WatchedVideo(video_id="o" * 11, title="once", channel_id=UCX))  # one watch only
         s.commit()
         assert [c.title for c in asyncio.run(rec.recommendations(s))] == ["video n", "video m"]
+
+
+def test_a_one_off_or_old_search_is_not_an_interest(tmp_path, session_factory):
+    from datetime import timedelta
+
+    from app.tube.models import utcnow
+
+    src = FakeSource()
+    src.search_videos = [_v("s")]
+    src.channel_videos = []
+    rec = Recommender(TubeService(src, FakeWeb(), tmp_path))
+    with session_factory() as s:
+        rec.record_search(s, "big buck bunny")  # once
+        s.add(SearchQuery(query="old interest", count=5, last_at=utcnow() - timedelta(days=40)))
+        s.commit()
+        assert asyncio.run(rec.recommendations(s)) == []
