@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class SessionOut(BaseModel):
     authenticated: bool
-    via: Literal["api_key", "device"] | None = None
+    via: Literal["api_key", "device", "open"] | None = None
     device_id: int | None = None
     device_name: str | None = None
 

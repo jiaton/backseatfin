@@ -76,7 +76,7 @@ it('drops back to sign-in when any request comes back 401', async () => {
       <Protected />
     </AuthGate>,
   )
-  expect((await screen.findAllByText('Sign in with an API key')).length).toBeGreaterThan(0)
+  expect((await screen.findAllByText('Sign in with a setup code')).length).toBeGreaterThan(0)
 })
 
 it('logout returns to sign-in immediately', async () => {

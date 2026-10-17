@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session, col, select
 
+from app.auth import setup_codes
 from app.auth.models import Device, utcnow
 from app.auth.player_sessions import PlayerSessionStore
 from app.auth.ports import EmbyTokenVerifierPort
@@ -104,7 +105,7 @@ class PairingRegistry:
 
 @dataclass(frozen=True)
 class Principal:
-    via: str  # "api_key" | "device" | "player"
+    via: str  # "api_key" | "device" | "player" | "open" (AUTH=off)
     device_id: int | None = None
     device_name: str | None = None
     # Set only for via="player": the Emby login the player session was minted from.
@@ -119,8 +120,10 @@ class AuthService:
         pairings: PairingRegistry | None = None,
         emby_verifier: EmbyTokenVerifierPort | None = None,
         player_sessions: PlayerSessionStore | None = None,
+        required: bool = True,
     ) -> None:
         self._api_key = api_key
+        self.required = required
         self.pairings = pairings or PairingRegistry()
         self._emby_verifier = emby_verifier
         self.player_sessions = player_sessions or PlayerSessionStore()
@@ -128,7 +131,8 @@ class AuthService:
     # --- credentials -------------------------------------------------------------------
 
     def check_api_key(self, candidate: str) -> bool:
-        return secrets.compare_digest(candidate.encode(), self._api_key.encode())
+        # No key configured = no key accepted (an empty one would otherwise match "").
+        return bool(self._api_key) and secrets.compare_digest(candidate.encode(), self._api_key.encode())
 
     def authenticate_device(self, session: Session, token: str) -> Device | None:
         device = session.exec(select(Device).where(Device.token_hash == hash_token(token))).first()
@@ -152,8 +156,10 @@ class AuthService:
         return device, token
 
     def login_with_key(self, session: Session, key: str, name: str, user_agent: str) -> tuple[Device, str]:
-        if not self.check_api_key(key):
-            raise InvalidCredentialsError("wrong key")
+        # The setup code is checked only when the key doesn't match, so a script's key
+        # never counts as a wrong try at it.
+        if not self.check_api_key(key) and not setup_codes.redeem(session, key.strip()):
+            raise InvalidCredentialsError("wrong setup code or key")
         return self._issue(session, name, user_agent)
 
     async def start_player_session(self, emby_token: str, emby_user_id: str) -> str:

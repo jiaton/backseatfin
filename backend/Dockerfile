@@ -40,7 +40,7 @@ RUN poetry config virtualenvs.create false \
 COPY . .
 
 # The entrypoint drops to PUID:PGID (default 1000:1000), the owner of /app/data.
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && ln -s /app/backseatfin-code /usr/local/bin/backseatfin-code
 
 # Intel's OpenCL compiles the tone-mapping kernels on first use (~4 s per stream start);
 # caching them on the data volume makes that a one-off.

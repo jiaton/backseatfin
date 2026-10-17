@@ -485,10 +485,20 @@ apply.
 ## Auth & security
 
 Credentials:
-- `X-API-Key` header: scripts and curl. Browsers never store the key.
+- **Setup code** (`auth/setup_codes.py`, table `SetupCode`, one row, SHA-256 only): 6
+  digits, one use, burnt after 5 wrong tries. Issued at startup when no device is
+  signed in (24 h, printed to the log: the one credential that is ever logged) and by
+  `backseatfin-code` in the image (`app/scripts/setup_code.py`, 15 min; runs as
+  PUID:PGID so the DB keeps its owner). Server and command share it through the DB.
+  `POST /api/auth/login {key}` takes a setup code or the API key.
+- `X-API-Key` header: scripts and curl. `API_KEY` is optional (empty = no key
+  accepted). Browsers never store the key.
 - `bsf_device` cookie (HttpOnly, Lax, Secure behind https, 400 days, SHA-256 in DB),
-  minted by key login or TV-style pairing (6-digit code + QR, approved from a signed-in
-  phone; the car polls with a 128-bit pairing id and gets the cookie once).
+  minted by a code/key login or TV-style pairing (6-digit code + QR, approved from a
+  signed-in phone; the car polls with a 128-bit pairing id and gets the cookie once).
+- `AUTH=off` (`AuthService.required`): every request is `Principal(via="open")`; the
+  settings screen hides sign-out and devices. Only behind a gate that authenticates
+  (documented with a warning in docs/youtube.md).
 - `bsf_player` cookie: the car player only, see the hand-off above.
 
 **fail2ban contract:** 401/403 only for a *presented* wrong credential (bad key,
@@ -573,7 +583,8 @@ English first, then Chinese. A test checks the Chinese table has every key.
   route (run in a thread) must not start event-loop tasks: make it `async`.
 - YouTube cookies anywhere in this repo or its env.
 - Any credential (API key, device/player cookie, Emby token) in a URL, browser storage
-  beyond the tab-scoped hand-off, or a log line.
+  beyond the tab-scoped hand-off, or a log line (the one exception: the first start's
+  one-time setup code).
 - A 401/403 for "not signed in yet" (see the fail2ban contract).
 - Gating car-only behaviour on the User-Agent (the car's UA has no "Tesla" token).
 - Imports in `src/inject/` beyond `./parse` (it must build to one standalone file).

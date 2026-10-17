@@ -65,7 +65,7 @@ líneas) o usa nuestro contenedor. Las tres formas: [docs/emby.md](docs/emby.md)
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
 # Emby:    pon EMBY_URL
-# YouTube: descomenta COMPOSE_PROFILES=server y pon API_KEY
+# YouTube: descomenta COMPOSE_PROFILES=server (entra con el código del registro)
 docker compose up -d
 ```
 

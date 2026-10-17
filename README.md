@@ -61,7 +61,7 @@ or run our container. All three ways: [docs/emby.md](docs/emby.md).
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
 # Emby:    set EMBY_URL
-# YouTube: uncomment COMPOSE_PROFILES=server and set API_KEY
+# YouTube: uncomment COMPOSE_PROFILES=server (sign in with the code in the log)
 docker compose up -d
 ```
 

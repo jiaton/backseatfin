@@ -22,7 +22,17 @@ export function KeyLoginForm() {
     <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-3">
       <div className="flex flex-col gap-2">
         <Label htmlFor="api-key">{t('apiKeyLabel')}</Label>
-        <Input id="api-key" type="password" autoComplete="current-password" value={key} onChange={(e) => setKey(e.target.value)} />
+        <Input
+          id="api-key"
+          type="password"
+          autoComplete="one-time-code"
+          aria-describedby="setup-code-hint"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+        />
+        <p id="setup-code-hint" className="text-sm text-muted-foreground">
+          {t('setupCodeHint')}
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="device-name">{t('deviceNameLabel')}</Label>

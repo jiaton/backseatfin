@@ -18,8 +18,10 @@ const en = {
 
   // sign-in and pairing
   signInWithCode: 'Sign in with a pairing code',
-  signInWithKey: 'Sign in with an API key',
-  apiKeyLabel: 'API key (API_KEY in backend/.env)',
+  signInWithKey: 'Sign in with a setup code',
+  apiKeyLabel: 'Setup code (or API key)',
+  setupCodeHint:
+    'The server prints a code in its log at the first start (docker compose logs backend). For a new one, run: docker compose exec backend backseatfin-code',
   deviceNameLabel: 'Name this device',
   defaultPhoneName: 'Phone',
   defaultBrowserName: 'Browser',
@@ -65,8 +67,9 @@ const zh: Record<Key, string> = {
   signOut: '退出登录',
 
   signInWithCode: '用配对码登录',
-  signInWithKey: '用 API Key 登录',
-  apiKeyLabel: 'API Key（backend/.env 里的 API_KEY）',
+  signInWithKey: '用设置码登录',
+  apiKeyLabel: '设置码（或 API Key）',
+  setupCodeHint: '服务器第一次启动时会在日志里打印一个设置码（docker compose logs backend）。要新的，运行：docker compose exec backend backseatfin-code',
   deviceNameLabel: '这台设备叫',
   defaultPhoneName: '手机',
   defaultBrowserName: '浏览器',
@@ -107,8 +110,10 @@ const es: Record<Key, string> = {
   signOut: 'Cerrar sesión',
 
   signInWithCode: 'Iniciar sesión con un código de emparejamiento',
-  signInWithKey: 'Iniciar sesión con una clave de API',
-  apiKeyLabel: 'Clave de API (API_KEY en backend/.env)',
+  signInWithKey: 'Iniciar sesión con un código de configuración',
+  apiKeyLabel: 'Código de configuración (o clave de API)',
+  setupCodeHint:
+    'El servidor escribe un código en su registro al arrancar por primera vez (docker compose logs backend). Para uno nuevo, ejecuta: docker compose exec backend backseatfin-code',
   deviceNameLabel: 'Nombre de este dispositivo',
   defaultPhoneName: 'Teléfono',
   defaultBrowserName: 'Navegador',
@@ -150,8 +155,10 @@ const ja: Record<Key, string> = {
   signOut: 'ログアウト',
 
   signInWithCode: 'ペアリングコードでログイン',
-  signInWithKey: 'API キーでログイン',
-  apiKeyLabel: 'API キー（backend/.env の API_KEY）',
+  signInWithKey: 'セットアップコードでログイン',
+  apiKeyLabel: 'セットアップコード（または API キー）',
+  setupCodeHint:
+    'サーバーは初回起動時にコードをログに出します（docker compose logs backend）。新しいコードは docker compose exec backend backseatfin-code で発行できます。',
   deviceNameLabel: 'このデバイスの名前',
   defaultPhoneName: 'スマートフォン',
   defaultBrowserName: 'ブラウザ',
@@ -193,8 +200,10 @@ const ko: Record<Key, string> = {
   signOut: '로그아웃',
 
   signInWithCode: '페어링 코드로 로그인',
-  signInWithKey: 'API 키로 로그인',
-  apiKeyLabel: 'API 키 (backend/.env의 API_KEY)',
+  signInWithKey: '설정 코드로 로그인',
+  apiKeyLabel: '설정 코드 (또는 API 키)',
+  setupCodeHint:
+    '서버가 처음 시작할 때 로그에 코드를 출력합니다 (docker compose logs backend). 새 코드: docker compose exec backend backseatfin-code',
   deviceNameLabel: '이 기기의 이름',
   defaultPhoneName: '휴대폰',
   defaultBrowserName: '브라우저',

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -6,9 +7,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Admin key: X-API-Key header for scripts; browsers exchange it once for a device
-    # cookie (POST /api/auth/login) or get a cookie via pairing instead.
-    api_key: str
+    # Optional key for scripts (X-API-Key header); a browser may also sign in with it
+    # once. Browsers normally sign in with a one-time setup code (first start's log, or
+    # `backseatfin-code`) or by pairing.
+    api_key: str = ""
+
+    # "off" = no sign-in at all: only behind something that authenticates already
+    # (Cloudflare Access, Tailscale, a password gate). Default "on".
+    auth: Literal["on", "off"] = "on"
 
     database_path: str = "/app/data/backseatfin.db"
 

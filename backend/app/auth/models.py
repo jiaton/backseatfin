@@ -18,3 +18,14 @@ class Device(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     last_seen_at: datetime = Field(default_factory=utcnow)
     revoked_at: datetime | None = None
+
+
+class SetupCode(SQLModel, table=True):
+    """A one-time 6-digit code that signs in a browser without the API key: issued at
+    the first start (no devices yet) and by the `backseatfin-code` command. One row at
+    most; the server and the command share it through the database."""
+
+    id: int | None = Field(default=1, primary_key=True)
+    code_hash: str
+    expires_at: datetime
+    attempts: int = 0

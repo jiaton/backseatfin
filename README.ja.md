@@ -49,7 +49,7 @@
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
 # Emby:    EMBY_URL を設定
-# YouTube: COMPOSE_PROFILES=server のコメントを外し、API_KEY を設定
+# YouTube: COMPOSE_PROFILES=server のコメントを外す（ログのセットアップコードでログイン）
 docker compose up -d
 ```
 

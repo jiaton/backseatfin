@@ -25,7 +25,6 @@ In `.env`:
 | Setting | What to put |
 |---|---|
 | `COMPOSE_PROFILES=server` | Uncomment it: this starts the server |
-| `API_KEY` | A random key to sign in with: `openssl rand -hex 24` |
 | `APP_PORT` | Host port of the app (default 8098) |
 
 ## 2. Start
@@ -44,10 +43,47 @@ Give the app its own hostname, for example `tube.example.com` → `APP_PORT`. Se
 
 ## 4. Sign in
 
-1. On your phone, open `https://tube.example.com` and sign in with `API_KEY`.
-2. In the car, open the same address: it shows a pairing code and a QR code. Scan the QR
+1. Get the setup code: at its first start the server prints one to its log.
+
+   ```sh
+   docker compose logs backend | grep "Setup code"
+   ```
+
+2. On your phone, open `https://tube.example.com`, choose "Sign in with a setup code"
+   and enter it. The code works once, for 24 hours.
+3. In the car, open the same address: it shows a pairing code and a QR code. Scan the QR
    code with the signed-in phone (or type the code in the phone's Settings → Devices).
    The car stays signed in.
+
+### A new phone
+
+- **The old one is still signed in:** open the app on the new phone (it shows a pairing
+  code) and approve it from the old one, like the car.
+- **No device is signed in any more** (lost phone), or the first code expired: make a
+  new code on the server. It works once, for 15 minutes.
+
+  ```sh
+  docker compose exec backend backseatfin-code
+  ```
+
+  Then sign out the lost phone in Settings → Devices.
+
+Five wrong tries burn a code (make a new one). For scripts, set `API_KEY` in `.env` and
+send it as the `X-API-Key` header; a browser can also sign in with it instead of a code.
+
+### Already behind a login? (`AUTH=off`)
+
+If the app's hostname is already behind something that checks who you are, such as
+Cloudflare Access, Tailscale or a password gate in your reverse proxy, you can turn
+BackseatFin's own sign-in off with `AUTH=off` in `.env`. Then no codes and no pairing:
+whoever gets past the gate uses the app (there are no devices to sign out).
+
+> [!WARNING]
+> With `AUTH=off`, anyone who can reach the server can use it: watch through your
+> server and its bandwidth, and see and change what you follow and watched. If the gate
+> is ever misconfigured or the port is reachable around it, the app is open. Keep the
+> backend's port off the internet (only the reverse proxy should reach it), and put
+> fail2ban on the gate instead.
 
 ## Using it
 

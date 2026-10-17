@@ -62,8 +62,8 @@ Pass `X-Forwarded-Proto`: the server marks its cookies `Secure` when it sees `ht
 
 ## fail2ban
 
-The server answers 401 or 403 only when a wrong credential is presented (a bad admin
-key, a revoked device, a rejected Emby token). "Not signed in yet" is never a 401. So
+The server answers 401 or 403 only when a wrong credential is presented (a wrong setup
+code or key, a revoked device, a rejected Emby token). "Not signed in yet" is never a 401. So
 you can ban IPs that collect several 401/403s in a few minutes from your proxy's access
 log, without the car banning itself. On the car host, the same log also shows Emby's own
 failed logins.

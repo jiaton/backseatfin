@@ -67,7 +67,7 @@ ein paar Zeilen ergänzen) oder unseren Container nutzen. Alle drei Wege:
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
 # Emby:    EMBY_URL setzen
-# YouTube: COMPOSE_PROFILES=server einkommentieren und API_KEY setzen
+# YouTube: COMPOSE_PROFILES=server einkommentieren (Anmeldung mit dem Code aus dem Log)
 docker compose up -d
 ```
 

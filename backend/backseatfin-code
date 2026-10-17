@@ -1,0 +1,8 @@
+#!/bin/sh
+# docker compose exec backend backseatfin-code → a one-time sign-in code.
+# Runs as PUID:PGID like the server, so the database keeps its owner.
+cd /app
+if [ "$(id -u)" = "0" ]; then
+  exec setpriv --reuid="${PUID:-1000}" --regid="${PGID:-1000}" --clear-groups python -m app.scripts.setup_code
+fi
+exec python -m app.scripts.setup_code

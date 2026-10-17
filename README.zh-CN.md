@@ -49,7 +49,7 @@
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
 # Emby：    填 EMBY_URL
-# YouTube： 取消注释 COMPOSE_PROFILES=server，填 API_KEY
+# YouTube： 取消注释 COMPOSE_PROFILES=server（用日志里的设置码登录）
 docker compose up -d
 ```
 

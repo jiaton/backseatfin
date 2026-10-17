@@ -175,7 +175,7 @@ nerds". While a video loads, the player says what it's doing and how fast the ne
 
 Emby's own tone mapping often leaves HDR and Dolby Vision films washed out. The
 BackseatFin server can transcode those instead, on an Intel GPU (up to 1080p) or the CPU
-(up to 720p). In `.env`, uncomment `COMPOSE_PROFILES=server` and set `API_KEY`, then
+(up to 720p). In `.env`, uncomment `COMPOSE_PROFILES=server`, then
 `docker compose up -d` again. The player's settings then offer **Transcoding**: *Auto*
 (the default: the server for HDR films, Emby for the rest), *Emby* or *BackseatFin
 server*. The same server also gives you [YouTube in the car](youtube.md).
