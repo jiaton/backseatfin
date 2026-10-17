@@ -75,7 +75,12 @@ def _acodec(f: dict) -> str | None:
 
 
 def _is_video(e: dict | None) -> bool:
-    return bool(e and e.get("id") and e.get("title") not in _HIDDEN_TITLES and e.get("ie_key", "Youtube") == "Youtube")
+    """A playable video entry. Unavailable ones (removed, private, blocked) come with a
+    placeholder title or, in playlists YouTube says it hides, with no title at all."""
+    return bool(
+        e and e.get("id") and e.get("title") and e["title"] not in _HIDDEN_TITLES
+        and e.get("ie_key", "Youtube") == "Youtube"
+    )
 
 
 def _expiry(formats: list[MediaFormat]) -> float | None:
