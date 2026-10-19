@@ -54,3 +54,25 @@ export function createUpNext() {
 
   return { el, show, cancel }
 }
+
+type NextVideo = { title: string; play(): void }
+
+/** A video of a list that won't play: offer the one after it, on a tap only (the viewer
+ * decides; nothing skips by itself). Nothing is shown at the list's end. */
+export function offerNext(into: HTMLElement, t: Translate, upNext: () => Promise<NextVideo | null>, stop = () => {}) {
+  into.querySelector('.cm-next')?.remove()
+  return upNext().then(
+    (next) => {
+      if (!next) return
+      const button = document.createElement('button')
+      button.className = 'cm-button cm-primary cm-next'
+      button.textContent = t('playNextOne', { title: next.title })
+      button.addEventListener('click', () => {
+        stop()
+        next.play()
+      })
+      into.append(button)
+    },
+    () => {},
+  )
+}

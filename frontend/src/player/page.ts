@@ -13,7 +13,7 @@ import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
 import { createCaptionLayer, loadCaptionLang, saveCaptionLang } from './captions'
-import { createUpNext } from './up-next'
+import { createUpNext, offerNext } from './up-next'
 import { diagnose } from './diagnose'
 import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
@@ -34,6 +34,8 @@ const MEDIA_CHROME_LANG: Partial<Record<Lang, string>> = { zh: 'zh-CN', es: 'es'
 
 let lang: Lang = 'en'
 let t: Translate = translator('en')
+/** The page's current language (pages built outside mountPlayer, like showMessage's). */
+export const currentT = (): Translate => t
 function switchLang(next: Lang) {
   lang = next
   t = translator(next)
@@ -94,14 +96,14 @@ function icon(name: keyof typeof ICONS): SVGSVGElement {
 /** A page with just a message and the way back (nothing to play, not signed in…).
  * `home`: where "back" goes (the media server's web app, or our own home). */
 export function showMessage(key: StringKey, server: string, vars: Record<string, string> = {}, home = '/web/') {
-  document.body.replaceChildren(
-    h(
-      'main',
-      { class: 'cm-message' },
-      h('p', {}, t(key, { server, ...vars })),
-      h('a', { href: home }, t('backTo', { server })),
-    ),
+  const main = h(
+    'main',
+    { class: 'cm-message' },
+    h('p', {}, t(key, { server, ...vars })),
+    h('a', { href: home }, t('backTo', { server })),
   )
+  document.body.replaceChildren(main)
+  return main
 }
 
 export interface MountOptions {
@@ -306,6 +308,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     updateStatus()
     errorMessage.textContent = errorText(video.error)
     errorPanel.hidden = false
+    if (opts.upNext) offerNext(errorPanel, t, opts.upNext, () => video.stop())
   })
   video.addEventListener('audiolockchange', () => (unlock.hidden = !video.audioLocked))
   video.addEventListener('enginechange', renderSheet)

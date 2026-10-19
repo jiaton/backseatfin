@@ -75,6 +75,7 @@ const en = {
   autoCaptions: '{name} (auto-generated)',
   upNext: 'Up next in {s} s',
   playNow: 'Play now',
+  playNextOne: 'Play the next one: {title}',
   cancel: 'Cancel',
 }
 export type StringKey = keyof typeof en
@@ -147,6 +148,7 @@ const zh: Record<StringKey, string> = {
   autoCaptions: '{name}（自动生成）',
   upNext: '{s} 秒后播放下一个',
   playNow: '立即播放',
+  playNextOne: '播放下一个：{title}',
   cancel: '取消',
 }
 
@@ -217,6 +219,7 @@ const es: Record<StringKey, string> = {
   autoCaptions: '{name} (generados automáticamente)',
   upNext: 'A continuación en {s} s',
   playNow: 'Reproducir ahora',
+  playNextOne: 'Reproducir el siguiente: {title}',
   cancel: 'Cancelar',
 }
 
@@ -287,6 +290,7 @@ const ja: Record<StringKey, string> = {
   autoCaptions: '{name}（自動生成）',
   upNext: '{s} 秒後に次の動画',
   playNow: '今すぐ再生',
+  playNextOne: '次を再生：{title}',
   cancel: 'キャンセル',
 }
 
@@ -357,6 +361,7 @@ const ko: Record<StringKey, string> = {
   autoCaptions: '{name} (자동 생성)',
   upNext: '{s}초 후 다음 동영상',
   playNow: '지금 재생',
+  playNextOne: '다음 재생: {title}',
   cancel: '취소',
 }
 

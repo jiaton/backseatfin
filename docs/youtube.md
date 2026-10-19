@@ -106,7 +106,8 @@ whoever gets past the gate uses the app (there are no devices to sign out).
   arrow returns to the video, which offers to resume.
 - **One after another**: a video started from a playlist (its page has "Play all"), a
   followed playlist's home row or "Watch later" is followed by the next one in that list
-  ("Up next" counts down 8 seconds; Play now or Cancel).
+  ("Up next" counts down 8 seconds; Play now or Cancel). A video in the list that won't
+  play (taken down since) offers a button for the one after it; nothing skips by itself.
 - **Captions**: the player's settings list the uploader's subtitles in the video's
   language and the app's languages, or YouTube's automatic captions in the video's
   language. They're drawn over the picture; the language you pick is used again next

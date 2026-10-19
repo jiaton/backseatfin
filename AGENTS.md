@@ -219,7 +219,10 @@ by design.
 - **Play-through**: video and player URLs carry `list` (`playlist:<id>` in YouTube's
   order, `shelf:<id>` = a followed playlist's home row, newest first, or `later`). At the
   end the player asks `GET /next?list&after` and shows "Up next" (`player/up-next.ts`,
-  8 s); the next video's back goes to its page with the same list.
+  8 s); the next video's back goes to its page with the same list. A video of the list
+  that fails (load error or stream error) offers "Play the next one" (`offerNext`): a
+  button, never an automatic skip (owner's choice). Playlist entries with no title
+  (videos YouTube hides as unavailable) are dropped in `adapter.py: _is_video`.
 - Frontend: `features/tube/` (`api/` hooks + `keys.ts`, `components/`, `lib/` with its
   own five-language string table `strings.ts` and `format.ts`), screens
   `tube-*-screen.tsx`. A card clicked in a list seeds its video page (`tubeKeys.card`)
