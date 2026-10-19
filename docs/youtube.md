@@ -71,19 +71,13 @@ Give the app its own hostname, for example `tube.example.com` → `APP_PORT`. Se
 Five wrong tries burn a code (make a new one). For scripts, set `API_KEY` in `.env` and
 send it as the `X-API-Key` header; a browser can also sign in with it instead of a code.
 
-### Already behind a login? (`AUTH=off`)
+### Protecting it
 
-If the app's hostname is already behind something that checks who you are, such as
-Cloudflare Access, Tailscale or a password gate in your reverse proxy, you can turn
-BackseatFin's own sign-in off with `AUTH=off` in `.env`. Then no codes and no pairing:
-whoever gets past the gate uses the app (there are no devices to sign out).
-
-> [!WARNING]
-> With `AUTH=off`, anyone who can reach the server can use it: watch through your
-> server and its bandwidth, and see and change what you follow and watched. If the gate
-> is ever misconfigured or the port is reachable around it, the app is open. Keep the
-> backend's port off the internet (only the reverse proxy should reach it), and put
-> fail2ban on the gate instead.
+The app takes care of its own sign-in; brute force is up to your reverse proxy. The
+server answers 401/403 only to a wrong code, key or device, so a fail2ban jail on those
+in the proxy's access log is enough ([reverse-proxy.md](reverse-proxy.md#fail2ban)).
+Keep the video off CDN proxies (e.g. Cloudflare's orange cloud or Tunnel): their terms
+usually forbid streaming video through them.
 
 ## Using it
 

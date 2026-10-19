@@ -499,9 +499,6 @@ Credentials:
 - `bsf_device` cookie (HttpOnly, Lax, Secure behind https, 400 days, SHA-256 in DB),
   minted by a code/key login or TV-style pairing (6-digit code + QR, approved from a
   signed-in phone; the car polls with a 128-bit pairing id and gets the cookie once).
-- `AUTH=off` (`AuthService.required`): every request is `Principal(via="open")`; the
-  settings screen hides sign-out and devices. Only behind a gate that authenticates
-  (documented with a warning in docs/youtube.md).
 - `bsf_player` cookie: the car player only, see the hand-off above.
 
 **fail2ban contract:** 401/403 only for a *presented* wrong credential (bad key,

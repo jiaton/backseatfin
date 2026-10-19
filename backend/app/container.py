@@ -41,7 +41,7 @@ def _transcoder() -> FfmpegTranscoder:
 
 
 emby_api = EmbyHttpApi(settings.emby_url)
-auth_service = AuthService(settings.api_key, emby_verifier=emby_api, required=settings.auth == "on")
+auth_service = AuthService(settings.api_key, emby_verifier=emby_api)
 
 subtitle_cache = SubtitleCache(emby_api, Path(settings.database_path).parent / "subtitles")
 emby_playback = EmbyPlaybackService(emby_api, settings.emby_api_key, subtitle_cache)

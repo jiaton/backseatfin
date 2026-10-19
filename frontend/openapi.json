@@ -345,8 +345,7 @@
               {
                 "enum": [
                   "api_key",
-                  "device",
-                  "open"
+                  "device"
                 ],
                 "type": "string"
               },

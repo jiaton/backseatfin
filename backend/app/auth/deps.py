@@ -2,7 +2,7 @@
 
 Admin routes (require_auth) accept the X-API-Key header (scripts, curl) or the device
 session cookie (browsers; logging in with a setup code or the key mints a device
-cookie). With AUTH=off everyone is let in (via="open").
+cookie).
 Player routes (require_player / require_ws_player) additionally accept the Emby player
 session cookie minted on the car host — that one grants playback only, never admin."""
 
@@ -27,8 +27,6 @@ def resolve_principal(
     headers_key: str | None, cookie: str | None, session: Session, service: AuthService = auth_service
 ) -> Principal | None:
     """None = no credential presented. Raises nothing; callers decide 401 vs 200."""
-    if not service.required:
-        return Principal(via="open")
     if headers_key:
         return Principal(via="api_key") if service.check_api_key(headers_key) else _INVALID
     if cookie:

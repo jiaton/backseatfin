@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from app.auth import setup_codes
 from app.auth.models import SetupCode, utcnow
 from app.auth.service import AuthService, InvalidCredentialsError
-from app.container import auth_service
 from app.core.db import get_session
 from app.main import app
 
@@ -74,7 +73,6 @@ def client(session_factory):
     app.dependency_overrides[get_session] = override
     yield TestClient(app)
     app.dependency_overrides.clear()
-    auth_service.required = True
 
 
 def test_login_api_takes_a_setup_code(client, session_factory):
@@ -85,8 +83,3 @@ def test_login_api_takes_a_setup_code(client, session_factory):
     assert r.status_code == 200
     assert client.get("/api/tube/history").status_code == 200
 
-
-def test_auth_off_lets_everyone_in(client):
-    auth_service.required = False
-    assert client.get("/api/auth/session").json()["via"] == "open"
-    assert client.get("/api/tube/history").status_code == 200

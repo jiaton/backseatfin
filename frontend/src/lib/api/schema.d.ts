@@ -658,7 +658,7 @@ export interface components {
             /** Device Name */
             device_name?: string | null;
             /** Via */
-            via?: ("api_key" | "device" | "open") | null;
+            via?: ("api_key" | "device") | null;
         };
         /** SubtitleStatusOut */
         SubtitleStatusOut: {

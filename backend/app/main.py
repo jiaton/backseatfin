@@ -7,7 +7,7 @@ from app.auth.routes import router as auth_router
 from sqlmodel import Session
 
 from app.auth import setup_codes
-from app.container import auth_service, feed_refresh_loop, subtitle_cache
+from app.container import feed_refresh_loop, subtitle_cache
 from app.core.db import engine, init_db
 from app.emby.routes import router as emby_router
 from app.stream.routes import router as stream_router
@@ -21,9 +21,6 @@ log = logging.getLogger("backseatfin")
 def _first_start_code() -> None:
     """No device signed in yet: print a one-time code to sign in the first phone with
     (the one credential that is ever logged: it works once, for 24 h)."""
-    if not auth_service.required:
-        log.warning("AUTH=off: anyone who reaches this server can use it")
-        return
     with Session(engine) as session:
         if setup_codes.has_devices(session):
             return

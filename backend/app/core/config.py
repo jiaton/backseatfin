@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,10 +10,6 @@ class Settings(BaseSettings):
     # once. Browsers normally sign in with a one-time setup code (first start's log, or
     # `backseatfin-code`) or by pairing.
     api_key: str = ""
-
-    # "off" = no sign-in at all: only behind something that authenticates already
-    # (Cloudflare Access, Tailscale, a password gate). Default "on".
-    auth: Literal["on", "off"] = "on"
 
     database_path: str = "/app/data/backseatfin.db"
 

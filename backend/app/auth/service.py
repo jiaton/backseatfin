@@ -105,7 +105,7 @@ class PairingRegistry:
 
 @dataclass(frozen=True)
 class Principal:
-    via: str  # "api_key" | "device" | "player" | "open" (AUTH=off)
+    via: str  # "api_key" | "device" | "player"
     device_id: int | None = None
     device_name: str | None = None
     # Set only for via="player": the Emby login the player session was minted from.
@@ -120,10 +120,8 @@ class AuthService:
         pairings: PairingRegistry | None = None,
         emby_verifier: EmbyTokenVerifierPort | None = None,
         player_sessions: PlayerSessionStore | None = None,
-        required: bool = True,
     ) -> None:
         self._api_key = api_key
-        self.required = required
         self.pairings = pairings or PairingRegistry()
         self._emby_verifier = emby_verifier
         self.player_sessions = player_sessions or PlayerSessionStore()
