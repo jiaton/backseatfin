@@ -171,6 +171,20 @@ The player's settings sheet has quality (each level shows its real picture size,
 and data per hour), audio track, subtitles (burned in by Emby), language, and "Stats for
 nerds". While a video loads, the player says what it's doing and how fast the network is.
 
+### Subtitles don't show
+
+The car player has Emby burn subtitles into the picture. For text subtitles (SRT, ASS)
+Emby's ffmpeg needs a system font to fall back on, and the `emby/embyserver` image has
+none: picture subtitles (PGS) show, text ones come out blank, while Emby's web app on a
+computer (which draws them itself) shows them fine. Give the container a font folder,
+with a font that covers your subtitles' languages (for Chinese, Japanese or Korean, e.g.
+[Noto Sans CJK](https://github.com/notofonts/noto-cjk)):
+
+```yaml
+    volumes:
+      - ./fonts:/usr/share/fonts/extra:ro
+```
+
 ## Optional: HDR films (the BackseatFin server, way C only)
 
 Emby's own tone mapping often leaves HDR and Dolby Vision films washed out. The
