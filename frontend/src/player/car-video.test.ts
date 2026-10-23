@@ -312,3 +312,54 @@ describe('<car-video> holding the stream on pause', () => {
     expect(v.currentTime).toBe(130)
   })
 })
+
+describe('<car-video> seeking within the buffer', () => {
+  /** An engine whose buffer reaches `bufferedTo` seconds of elapsed time. */
+  function skippable(bufferedTo: number) {
+    const base = CarVideoElement.engineFactory
+    CarVideoElement.engineFactory = async (...args) => {
+      const e = (await base(...args)) as FakeEngine
+      e.skipTo = (elapsed) => {
+        if (elapsed <= e.elapsedValue || elapsed > bufferedTo) return false
+        e.elapsedValue = elapsed
+        return true
+      }
+      return e
+    }
+  }
+
+  async function playing() {
+    const { v, events } = setup()
+    await v.play()
+    await flush()
+    latest().cb.onFirstFrame()
+    latest().elapsedValue = 30
+    return { v, events }
+  }
+
+  it('a jump forward into the buffer skips ahead without a new stream', async () => {
+    skippable(50)
+    const { v, events } = await playing()
+    v.currentTime = 140 // 130 + 10 s, buffered to 150
+    await vi.advanceTimersByTimeAsync(SEEK_SETTLE_MS + 1)
+    expect(engines).toHaveLength(1)
+    expect(latest().destroyed).toBe(false)
+    expect(v.currentTime).toBe(140)
+    expect(v.seeking).toBe(false)
+    expect(events.slice(-2)).toEqual(['seeking', 'seeked'])
+  })
+
+  it('past the buffer, or backwards, opens a new stream as before', async () => {
+    skippable(50)
+    const { v } = await playing()
+    v.currentTime = 200
+    await vi.advanceTimersByTimeAsync(SEEK_SETTLE_MS + 1)
+    expect(engines).toHaveLength(2)
+    expect(latest().url).toContain('t=200')
+    latest().cb.onFirstFrame()
+    v.currentTime = 190
+    await vi.advanceTimersByTimeAsync(SEEK_SETTLE_MS + 1)
+    expect(engines).toHaveLength(3)
+    expect(latest().url).toContain('t=190')
+  })
+})

@@ -87,6 +87,9 @@ export interface StreamEngine {
   pause?(): void
   /** After pause(): true = playing again from the buffer; false = can't (reconnect). */
   resume?(): boolean
+  /** Optional: jump forward to `elapsed` seconds within what's already received (lands
+   * on the keyframe at or before it). false = not buffered that far (reconnect). */
+  skipTo?(elapsed: number): boolean
   destroy(): void
 }
 

@@ -37,6 +37,9 @@ const AUDIO_SNAP_S = 0.05
  * doesn't trail the sound (people notice sound leading the picture sooner than the
  * other way round). */
 const PRESENT_LEAD_S = 0.02
+/** A skip forward within the buffer must leave at least this much to play, or the
+ * stream would run dry right after it: reconnect instead. */
+export const SKIP_MIN_LEFT_S = 2
 /** Window for the receive-rate statistics (long enough to span an HLS segment). */
 const RATE_WINDOW_MS = 6000
 
@@ -571,6 +574,32 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     stats,
     unlockAudio: () => {
       if (audio.state !== 'running') void audio.resume()
+    },
+    skipTo: (elapsed) => {
+      // Not while paused (the player drops the stream then) or before playback started.
+      const now = mediaNow()
+      if (destroyed || paused || now == null || firstPts == null || lastReceived == null) return false
+      const target = elapsed + firstPts - startOffset
+      if (target <= now || lastReceived - target < SKIP_MIN_LEFT_S) return false
+      // Decoding has to start on a keyframe: the last one at or before the target that
+      // isn't decoded yet. Frames are kept compressed until just before they're due, so
+      // the buffer costs no extra memory; what's skipped is just thrown away.
+      const key = pending.findLastIndex((p) => p.chunk.type === 'key' && p.chunk.timestamp / 1e6 <= target)
+      const at = key >= 0 ? pending[key].chunk.timestamp / 1e6 : null
+      if (at == null || at <= now || videoDecoder.state !== 'configured') return false
+      videoDecoder.reset()
+      videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
+      for (const f of frames.splice(0)) f.close()
+      decodeStarted.clear()
+      pending.splice(0, key)
+      skippedChunks += key
+      lastDrawnTs = null
+      while (audioPending.length && audioPending[0].timestamp / 1e6 < at) audioPending.shift()
+      anchor(at) // takes back what WebAudio hadn't played yet…
+      audioReady = audioReady.filter((a) => a.ts + a.buffer.duration > at) // …which is now in the past
+      lastFrameAt = performance.now() // the stall watchdog counts from here
+      pump()
+      return true
     },
     pause: () => {
       if (paused || destroyed) return

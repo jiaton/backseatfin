@@ -177,15 +177,17 @@ by design.
 - **Caching** (`tube/service.py`): search 10 min, channels/playlists 30 min, a video's
   details (and stream URLs) until 30 min before YouTube's `expire`. One load per key in
   flight. Opening a video page extracts it (~5 s), so Play starts in ~1.5 s; `home`
-  prefetches the first "continue watching" video. A stream URL that stops answering
-  (picture and sound each checked with a 1-byte range request before each stream) is
-  extracted again; if the fresh file URLs answer 403 too (it happens: all of one YouTube
-  client's formats), the video plays its HLS formats like a live stream, remembered for
-  that extraction (`_files_refused`) so seeks don't extract again.
-- **Format choice** (`tube/formats.py`): the largest H.264 DASH (`https`, not HLS) that
-  fits the quality level and the window (portrait: short side vs height), AAC `140`
-  (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams:
-  see below.
+  prefetches the first "continue watching" video. Before each stream picture and sound are
+  each checked with a 1-byte range request (~40 ms); when neither the HLS nor the file
+  pair answers, the video is extracted again.
+- **Format choice** (`tube/formats.py`, order in `service.py: _playable`): **HLS first**,
+  the plain files (DASH `https`) only when HLS doesn't answer. HLS is short segment
+  requests, so no hour-long connection for YouTube to cut, and on 2026-10-23 every file
+  URL of one client answered 403 while HLS played; seeks start in ~1 s either way.
+  Within a kind: the largest H.264 that fits the quality level and the window
+  (portrait: short side vs height); sound AAC `140` (never `-drc`) for files, the
+  highest HLS audio id (no codec name, `adapter.py: _acodec`) for HLS; no H.264 at all
+  → the best other video, transcoded. Live streams: see below.
 - **Following by link**: Settings → Following has a field for a playlist or channel
   link (`useFollowLink`: `/link`, then the follow call); a video link is refused.
 - **Followed playlists** (`tube/playlists.py`): the way in from the phone without a
@@ -341,6 +343,12 @@ by design.
        calls `reload()` after changing what `url()` encodes).
      - Seeks while playing settle for `SEEK_SETTLE_MS` (300 ms) first, so dragging the
        bar or tapping +30 s three times opens one server stream.
+     - A seek forward that lands inside what's already received (a "+10 s" tap) needs
+       no stream at all: the engine's `skipTo` (`webcodecs-pipeline.ts`) drops the
+       compressed frames up to the last keyframe at or before the target, resets the
+       decoder and re-anchors the clock. It only uses the buffer that's there anyway
+       (kept compressed), so it costs no memory; it refuses when less than
+       `SKIP_MIN_LEFT_S` (2 s) would be left, backwards, or while paused.
      - 4 s with no new frame means the end (within 10 s of the runtime) or a dropped
        connection, which resumes in place. 20 s without a first frame is an error.
      - **Loading box** (`player/loading.ts`): while waiting for a picture (start, seek,
