@@ -76,6 +76,8 @@ const en = {
   upNext: 'Up next in {s} s',
   playNow: 'Play now',
   playNextOne: 'Play the next one: {title}',
+  qualityAdviceDown: 'The network can’t keep up: switch to {name}',
+  qualityAdviceUp: 'The network is better: back to {name}',
   cancel: 'Cancel',
 }
 export type StringKey = keyof typeof en
@@ -149,6 +151,8 @@ const zh: Record<StringKey, string> = {
   upNext: '{s} 秒后播放下一个',
   playNow: '立即播放',
   playNextOne: '播放下一个：{title}',
+  qualityAdviceDown: '网络跟不上：切到{name}',
+  qualityAdviceUp: '网络好转：恢复到{name}',
   cancel: '取消',
 }
 
@@ -220,6 +224,8 @@ const es: Record<StringKey, string> = {
   upNext: 'A continuación en {s} s',
   playNow: 'Reproducir ahora',
   playNextOne: 'Reproducir el siguiente: {title}',
+  qualityAdviceDown: 'La red no da abasto: cambiar a {name}',
+  qualityAdviceUp: 'La red va mejor: volver a {name}',
   cancel: 'Cancelar',
 }
 
@@ -291,6 +297,8 @@ const ja: Record<StringKey, string> = {
   upNext: '{s} 秒後に次の動画',
   playNow: '今すぐ再生',
   playNextOne: '次を再生：{title}',
+  qualityAdviceDown: '回線が追いつきません：{name}に切り替え',
+  qualityAdviceUp: '回線が回復しました：{name}に戻す',
   cancel: 'キャンセル',
 }
 
@@ -362,6 +370,8 @@ const ko: Record<StringKey, string> = {
   upNext: '{s}초 후 다음 동영상',
   playNow: '지금 재생',
   playNextOne: '다음 재생: {title}',
+  qualityAdviceDown: '네트워크가 따라가지 못합니다: {name}(으)로 전환',
+  qualityAdviceUp: '네트워크가 좋아졌습니다: {name}(으)로 복귀',
   cancel: '취소',
 }
 

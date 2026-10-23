@@ -31,11 +31,13 @@ export function diagnose({ paused, retrying, started, stats: s }: PlayerState): 
   if (retrying) return { key: 'statsOutage' }
   if (paused) return { key: 'statsPaused', vars: { buffer: (s.bufferAheadS ?? 0).toFixed(1) } }
   if (!started) return { key: 'statsStarting' }
-  if ((s.videoBehindMs ?? 0) > DECODER_BEHIND_MS) return { key: 'statsSlowDecoder', vars: { ms: String(s.videoBehindMs) } }
+  // An empty buffer explains a picture behind the clock: nothing to decode, not slow
+  // decoding (2026-10-23: "can't decode fast enough, 18 s behind" at 0.49× real time).
   const lowBuffer = (s.bufferAheadS ?? Number.POSITIVE_INFINITY) < LOW_BUFFER_S
   if (lowBuffer && (s.segmentWaitMs ?? 0) > SERVER_WAIT_MS) return { key: 'statsSlowServer', vars: { ms: String(s.segmentWaitMs) } }
   if (lowBuffer && s.realtime != null && s.realtime < REALTIME_MIN && s.streamKbps) {
     return { key: 'statsSlowData', vars: { rate: mbps(s.receiveKbps ?? 0), need: mbps(s.streamKbps) } }
   }
+  if (!lowBuffer && (s.videoBehindMs ?? 0) > DECODER_BEHIND_MS) return { key: 'statsSlowDecoder', vars: { ms: String(s.videoBehindMs) } }
   return { key: 'statsOk' }
 }

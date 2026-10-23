@@ -19,6 +19,7 @@ import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { fitLevel, gbPerHour, loadQuality, type Quality, QUALITY_VALUES, saveQuality } from './quality'
+import { createQualityAdvisor, type QualityAdvice } from './quality-advisor'
 import type { PlaybackSource, StreamChoice, Track } from './source'
 import { type Transcoder, TRANSCODERS } from './transcoder'
 import './page.css'
@@ -27,6 +28,9 @@ const PROGRESS_EVERY_MS = 10_000
 const SUBTITLE_POLL_MS = 3000
 const AUTOHIDE_S = 3
 const STATS_EVERY_MS = 500
+/** Quality advice: how often the network is looked at, and how long a button stays. */
+const ADVICE_EVERY_MS = 2000
+const ADVICE_SHOWN_MS = 20_000
 const STATS_KEY = 'backseatfin:stats'
 
 /** Media Chrome ships labels for some of our languages only; the rest stay English. */
@@ -167,6 +171,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const subChip = h('p', { class: 'cm-chip', role: 'status', hidden: '' })
   const unlockLabel = h('span')
   const unlock = h('button', { class: 'cm-unlock', hidden: '' }, icon('volume'), unlockLabel)
+  const qualityHint = h('button', { class: 'cm-hint', hidden: '' })
   const errorMessage = h('p')
   const retry = h('button', { class: 'cm-button cm-primary' })
   const errorBack = h('button', { class: 'cm-button' })
@@ -179,7 +184,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
 
   const captionLayer = createCaptionLayer(() => video.currentTime)
   const upNext = createUpNext()
-  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, errorPanel, statsPanel, upNext.el, sheet)
+  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, qualityHint, errorPanel, statsPanel, upNext.el, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -265,7 +270,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     loadingDetail.textContent = lines.join('\n')
   }
   const updateStatus = () => {
-    const loading = !video.paused && video.readyState < 4 && !video.error
+    const loading = !video.paused && (video.readyState < 4 || video.buffering) && !video.error
     if (loading && loadingSince == null) {
       loadingSince = performance.now()
       loadingTimer = window.setInterval(renderLoading, STATS_EVERY_MS)
@@ -344,10 +349,52 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   rewind.addEventListener('click', () => (video.currentTime -= 15))
   forward.addEventListener('click', () => (video.currentTime += 30))
 
+  // --- quality advice: a button, never a switch by itself ------------------------------
+  // The network can't keep up → offer a lower level; once it clearly can again → offer
+  // the way back (no higher than where the viewer was). Not saved as their choice.
+  const advisor = createQualityAdvisor(() => source.levels(video.engine))
+  let advice: QualityAdvice | null = null
+  let hintTimer = 0
+  const hideHint = () => {
+    window.clearTimeout(hintTimer)
+    advice = null
+    qualityHint.hidden = true
+  }
+  const showHint = (a: QualityAdvice) => {
+    advice = a
+    qualityHint.textContent = t(a.direction === 'down' ? 'qualityAdviceDown' : 'qualityAdviceUp', { name: t(QUALITY_NAME[a.to]) })
+    qualityHint.hidden = false
+    window.clearTimeout(hintTimer)
+    hintTimer = window.setTimeout(() => {
+      advisor.snooze(a, performance.now())
+      hideHint()
+    }, ADVICE_SHOWN_MS)
+  }
+  qualityHint.addEventListener('click', () => {
+    if (!advice) return
+    advisor.taken(advice, state.quality)
+    state.quality = advice.to
+    hideHint()
+    video.reload()
+  })
+  window.setInterval(() => {
+    if (video.paused || advice) return
+    const s = video.stats()
+    const next = advisor.sample(
+      { at: performance.now(), buffering: video.buffering, networkKbps: s.networkKbps, networkSamples: s.networkSamples },
+      state.quality,
+    )
+    if (next) showHint(next)
+  }, ADVICE_EVERY_MS)
+
   // --- settings sheet (quality / audio / subtitles) ----------------------------------
   const choose = (patch: Partial<typeof state>) => {
     Object.assign(state, patch)
-    if (patch.quality) saveQuality(patch.quality)
+    if (patch.quality) {
+      saveQuality(patch.quality)
+      advisor.reset()
+      hideHint()
+    }
     closeSheet()
     if ('sub' in patch && source.captions) return void showCaptions() // drawn here: same stream
     if ('sub' in patch) watchSubtitle()
@@ -496,7 +543,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       t(d.key, d.vars),
       '',
       `engine   ${s.engine} · ${s.codec || '–'} · ${s.videoWidth || 0}×${s.videoHeight || 0} · ${(s.fps ?? 0).toFixed(0)} fps`,
-      `network  in ${mbit(s.receiveKbps)} · stream ${mbit(s.streamKbps)}${s.realtime != null ? ` (${s.realtime.toFixed(2)}× real time)` : ''}`,
+      `network  in ${mbit(s.receiveKbps)} · stream ${mbit(s.streamKbps)}${s.realtime != null ? ` (${s.realtime.toFixed(2)}× real time)` : ''} · link ${mbit(s.networkKbps)}${s.rebuffers ? ` · waited for data ${s.rebuffers}×` : ''}`,
       `buffer   ${(s.bufferAheadS ?? 0).toFixed(1)} s video · ${(s.audioBufferedS ?? 0).toFixed(1)} s audio`,
     ]
     if (s.segment != null) lines.push(`segment  #${s.segment} · server ${ms(s.segmentWaitMs)} · total ${ms(s.segmentLoadMs)}${s.segmentRetries ? ` · retried ${s.segmentRetries}` : ''}`)

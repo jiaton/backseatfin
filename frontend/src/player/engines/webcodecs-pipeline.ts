@@ -41,6 +41,10 @@ const PRESENT_LEAD_S = 0.02
  * time and its sound exactly at it (ffmpeg copying the video): up to this much picture
  * before the sound is skipped, so the film starts where asked, with sound. */
 const MAX_PREROLL_S = 10
+/** The clock caught up with everything received (a slow network): it stops, like a
+ * pause, until this much is buffered again. Running on would only show the frames that
+ * trickle in as already late (a stutter) and drop the sound as past. */
+export const REBUFFER_S = 2
 /** A skip forward within the buffer must leave at least this much to play, or the
  * stream would run dry right after it: reconnect instead. */
 export const SKIP_MIN_LEFT_S = 2
@@ -83,6 +87,10 @@ export interface InputStats {
   segment?: number
   /** Segment requests retried (network failures, stalls). */
   segmentRetries?: number
+  /** The network's rate while the input was actually fetching (a whole segment, or a
+   * stretch of the stream not held back), kbit/s, and how many such measurements. */
+  networkKbps?: number
+  networkSamples?: number
 }
 
 /** The decoding half of a WebCodecs engine. An input (WebSocket, HLS) feeds it MPEG-TS
@@ -112,6 +120,12 @@ export interface Pipeline extends StreamEngine {
    */
   spliceAt(cut: number): void
   inputStats: InputStats
+}
+
+/** Records a network rate an input measured while fetching (InputStats.networkKbps). */
+export function measured(pipeline: Pipeline, bytes: number, ms: number) {
+  pipeline.inputStats.networkKbps = Math.round((bytes * 8) / ms)
+  pipeline.inputStats.networkSamples = (pipeline.inputStats.networkSamples ?? 0) + 1
 }
 
 interface ReadyAudio {
@@ -187,10 +201,12 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   let pausedMedia = 0
   let skipTarget: number | null = null // skipTo: media time held until its picture is decoded
   let firstAudioPts: number | null = null
+  let starved = false // waiting for data with the clock stopped at pausedMedia (REBUFFER_S)
+  let rebuffers = 0
 
   const mediaNow = (): number | null => {
     if (anchorMedia == null) return null
-    if (paused) return pausedMedia
+    if (paused || starved) return pausedMedia
     if (skipTarget != null) return skipTarget
     return onAudioClock
       ? anchorMedia + (heardTime(audio) - anchorCtx)
@@ -475,6 +491,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     unschedule()
     audioReady = audioReady.filter((a) => a.ts + a.buffer.duration > target)
     skipTarget = target
+    starved = false // the target is buffered
     lastFrameAt = performance.now() // the stall watchdog counts from here
     pump()
   }
@@ -504,6 +521,18 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     if (skipTarget != null && !paused && frames.length) {
       anchor(skipTarget) // the target's picture is ready: the clock and the sound go on from it
       skipTarget = null
+    }
+    if (!paused && skipTarget == null && firstFrameShown && anchorMedia != null && lastReceived != null) {
+      const clock = mediaNow()!
+      if (!starved && !frames.length && clock > lastReceived + 0.1) {
+        starved = true
+        rebuffers++
+        pausedMedia = clock
+        unschedule(clock) // the sound not yet heard is kept for when it goes on
+      } else if (starved && lastReceived - pausedMedia >= REBUFFER_S) {
+        starved = false
+        anchor(pausedMedia)
+      }
     }
     pump()
     scheduleAudio()
@@ -575,6 +604,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       avOffsetMs: heard != null && lastDrawnTs != null ? Math.round((lastDrawnTs - heard) * 1000) : undefined,
       outputLatencyMs: Math.round(((audio.outputLatency || 0) + (audio.baseLatency || 0)) * 1000),
       audioClock: onAudioClock ? 'audio' : 'wall',
+      rebuffers,
       audioFormat: audioConfig ? `AAC ${audioConfig.sampleRate / 1000} kHz ${audioConfig.channels} ch` : undefined,
       audioBufferedS: audioReady.reduce((n, a) => n + a.buffer.duration, 0) + audioPending.length * 0.021,
       ...pipeline.inputStats,
@@ -584,6 +614,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   const pipeline: Pipeline = {
     push: (bytes) => {
       if (destroyed) return
+      if (starved) lastFrameAt = performance.now() // data still coming: not a stall
       bytesTotal += bytes.length
       try {
         demuxer.push(bytes)
@@ -621,6 +652,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       demuxer = splicedDemuxer(cut)
     },
     inputStats: {},
+    buffering: () => starved,
     elapsed: () => {
       const now = mediaNow()
       return now == null || firstPts == null ? 0 : now - firstPts + startOffset
@@ -645,6 +677,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     pause: () => {
       if (paused || destroyed) return
       pausedMedia = mediaNow() ?? firstPts ?? 0
+      starved = false // playing again checks the buffer anew
       skipTarget = null // playing again starts from pausedMedia (= the target)
       paused = true
       unschedule(pausedMedia) // silence at once; the sound not yet heard is kept for later

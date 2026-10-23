@@ -119,6 +119,7 @@ export class CarVideoElement extends HTMLElement {
   #settle = 0
   #connects = 0
   #outageSince: number | null = null
+  #buffering = false
 
   constructor() {
     super()
@@ -193,6 +194,12 @@ export class CarVideoElement extends HTMLElement {
 
   get seeking() {
     return this.#seeking
+  }
+
+  /** Playing, but the clock is stopped waiting for data (the network is slower than the
+   * stream). Like a `<video>` that runs dry: 'waiting' on the way in, 'playing' out. */
+  get buffering() {
+    return this.#buffering
   }
 
   get readyState() {
@@ -368,6 +375,7 @@ export class CarVideoElement extends HTMLElement {
   }
 
   #stopStream() {
+    this.#buffering = false
     window.clearTimeout(this.#settle)
     this.#generation++
     this.#engine?.destroy()
@@ -497,6 +505,11 @@ export class CarVideoElement extends HTMLElement {
       if (this.#outageSince != null && waited > RETRY_START_TIMEOUT_MS) this.#retryAfterOutage('connect timed out')
       else if (waited > START_TIMEOUT_MS) this.#fail({ code: MEDIA_ERR_NETWORK, reason: 'timeout', message: 'no first frame' })
       return
+    }
+    const buffering = Boolean(engine?.buffering?.())
+    if (buffering !== this.#buffering) {
+      this.#buffering = buffering
+      this.#emit(buffering ? 'waiting' : 'playing')
     }
     if (!engine || performance.now() - engine.lastFrameAt() < STALL_MS) return
     // Stalled: the end of the film, or a dropped connection (4G) — resume in place.

@@ -358,6 +358,23 @@ by design.
        ≤ `MAX_PREROLL_S`), so playback starts at `t` with sound. Before, the car
        showed up to a few seconds of earlier picture in silence, with the time display
        ahead by that much.
+     - **Waiting for data** (`REBUFFER_S`): when the clock passes the newest frame
+       received (the network slower than the stream), the pipeline stops the clock like
+       a pause and goes on once 2 s are buffered again; `<car-video>` reports
+       `buffering` with 'waiting'/'playing' and the loading box shows. Before, the clock
+       ran on: every frame that trickled in was late (7 fps in the car, 2026-10-23), the
+       sound was dropped as past, and the stats blamed the decoder (`diagnose.ts` now
+       checks an empty buffer first). Data still arriving keeps the stall watchdog quiet.
+     - **Quality advice** (`quality-advisor.ts`, a button, never a switch by itself,
+       like "play next"): two waits for data within 90 s, or one of 5 s, offers the
+       highest lower level that fits 80% of the measured link; after taking it, "back
+       to …" is offered once the link carries the next level ×1.5 in 3 measurements
+       with no wait for 2 min, never above the level before. Not saved as the viewer's
+       choice; a manual pick resets it. The link rate (`networkKbps`) is measured by
+       the inputs while actually fetching: whole HLS segments, or ≥ 4 s stretches the
+       WebSocket isn't held.
+     - Known: "hold" lags the socket buffers on the way, so the WebSocket buffer can
+       reach 30–70 s instead of 20 s (a few MB compressed). Fix would be byte acks.
      - The start lead counts as met when the decoded-frame cap is full: at 60 fps the
        24-frame cap holds 0.4 s < `START_LEAD_S`, so every start used to wait out
        `START_MAX_WAIT_MS` (1.5 s).

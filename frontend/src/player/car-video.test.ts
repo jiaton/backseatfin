@@ -363,3 +363,28 @@ describe('<car-video> seeking within the buffer', () => {
     expect(latest().url).toContain('t=190')
   })
 })
+
+describe('<car-video> waiting for data', () => {
+  it('reports waiting while the engine buffers and playing after, without reconnecting', async () => {
+    let buffering = false
+    const base = CarVideoElement.engineFactory
+    CarVideoElement.engineFactory = async (...args) => {
+      const e = (await base(...args)) as FakeEngine
+      e.buffering = () => buffering
+      return e
+    }
+    const { v, events } = setup()
+    await v.play()
+    await flush()
+    latest().cb.onFirstFrame()
+    buffering = true
+    await vi.advanceTimersByTimeAsync(300)
+    expect(v.buffering).toBe(true)
+    expect(events.at(-1)).toBe('waiting')
+    buffering = false
+    await vi.advanceTimersByTimeAsync(300)
+    expect(v.buffering).toBe(false)
+    expect(events.at(-1)).toBe('playing')
+    expect(engines).toHaveLength(1)
+  })
+})

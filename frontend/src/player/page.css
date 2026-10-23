@@ -199,6 +199,24 @@ car-video {
   font-size: 18px;
 }
 
+/* Quality advice: a button under the top bar, never in the way of the controls. */
+.cm-hint {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  min-height: var(--cm-target);
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cm-accent);
+  color: var(--cm-accent-fg);
+  font: inherit;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
 .cm-unlock svg {
   width: 24px;
   height: 24px;

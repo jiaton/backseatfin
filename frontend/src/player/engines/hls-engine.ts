@@ -1,6 +1,6 @@
 import { firstVariant, parseMediaPlaylist, type Segment, segmentAt, splitStart } from './hls'
 import type { EngineCallbacks, EngineErrorKind, StreamEngine } from './types'
-import { createPipeline, type Pipeline } from './webcodecs-pipeline'
+import { createPipeline, measured, type Pipeline } from './webcodecs-pipeline'
 
 /** Compressed video fetched ahead of the clock (about seven 3 s segments; 4–8 MB at
  * 1.5–3 Mbps). Rides out a mobile dead zone of that length, like the WebSocket engine's
@@ -150,14 +150,18 @@ export async function fetchSegment(pipeline: Pipeline, url: string, headers: Rec
       const response = await get(url, headers, attemptAbort.signal)
       const reader = response.body!.getReader()
       let seen = 0 // bytes of this response so far
+      let firstByteAt = 0
       for (;;) {
         arm(SEGMENT_STALL_MS)
         const { done, value } = await reader.read()
         if (done) {
           // Waiting = the server preparing the segment; the rest = the network.
-          pipeline.inputStats.segmentLoadMs = Math.round(performance.now() - asked)
+          const end = performance.now()
+          pipeline.inputStats.segmentLoadMs = Math.round(end - asked)
+          if (firstByteAt && end - firstByteAt > 50) measured(pipeline, seen, end - firstByteAt)
           return
         }
+        if (seen === 0) firstByteAt = performance.now()
         if (seen === 0 && pushed === 0) pipeline.inputStats.segmentWaitMs = Math.round(performance.now() - asked)
         // A retried segment repeats what we already have: skip that part (segments are
         // files on the server, the same bytes every time).

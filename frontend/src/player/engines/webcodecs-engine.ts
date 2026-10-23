@@ -1,5 +1,5 @@
 import type { EngineCallbacks, StreamEngine } from './types'
-import { createPipeline, type PipelineOptions } from './webcodecs-pipeline'
+import { createPipeline, measured, type PipelineOptions } from './webcodecs-pipeline'
 
 /** Flow control: the server sends as fast as it can (with flow=1 on the URL) until we
  * hold it at this much buffered… */
@@ -23,6 +23,9 @@ const RETRY_MS = 2000
 /** With less than this buffered, there's nothing to continue from: reconnect instead. */
 const MIN_RESUME_S = 2
 const CHECK_MS = 500
+/** The network's rate is measured over stretches of at least this long that the server
+ * isn't held (it then sends as fast as the network takes). */
+const MEASURE_MS = 4000
 
 /**
  * Our server's stream WebSocket (format=h264ts; B-frames only when YouTube's H.264 is
@@ -52,6 +55,17 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
   let nextAttemptAt = 0
   let reconnects = 0
   let replaceNow = false // a stuck connection was dropped: reconnect without waiting
+  let burstAt = performance.now() // since when the server has been sending freely…
+  let burstBytes = 0 // …and how much it sent
+  const restartBurst = () => {
+    burstAt = performance.now()
+    burstBytes = 0
+  }
+  const endBurst = (minMs: number) => {
+    const ms = performance.now() - burstAt
+    if (ms >= minMs && burstBytes > 0) measured(pipeline, burstBytes, ms)
+    restartBurst()
+  }
 
   const connect = (streamUrl: string, onFailedStart?: (e: CloseEvent) => void) => {
     const ws = new WebSocket(streamUrl)
@@ -62,6 +76,7 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
       gotData = true
       replaceNow = false
       lastDataAt = performance.now()
+      burstBytes += (e.data as ArrayBuffer).byteLength
       pipeline.push(new Uint8Array(e.data as ArrayBuffer))
     }
     ws.onclose = (e) => {
@@ -74,6 +89,7 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
     socket = ws
     open = true
     held = false
+    restartBurst()
     lastDataAt = performance.now() + CONNECT_GRACE_MS - DATA_STALL_MS
   }
   const closeSocket = () => {
@@ -112,11 +128,14 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
       if (!held && buffered > BUFFER_HIGH_S) {
         send('hold')
         held = true
+        endBurst(1000)
       } else if (held && !pipeline.paused && buffered < BUFFER_LOW_S) {
         send('go')
         held = false
+        restartBurst()
         lastDataAt = now // nothing came while held: the stall clock starts now
       }
+      if (!held && now - burstAt >= MEASURE_MS) endBurst(MEASURE_MS)
       if (pipeline.paused && now - pausedAt > PAUSE_HOLD_MS) closeSocket()
       else if (!pipeline.paused && !held && firstFrameShown && now - lastDataAt > DATA_STALL_MS) {
         closeSocket() // stuck: replace it now, before the buffer runs out

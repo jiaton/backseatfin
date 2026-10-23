@@ -63,6 +63,8 @@ export interface EngineStats {
   /** Our server's stream: connections replaced mid-stream (stuck, or after a long
    * pause), and whether the server is told to hold (buffer full). */
   reconnects?: number
+  /** Times the clock stopped to wait for data (the network slower than the stream). */
+  rebuffers?: number
   held?: boolean
   /** HLS: the last segment's time to first byte / to the end, and its number. */
   segmentWaitMs?: number
@@ -70,6 +72,9 @@ export interface EngineStats {
   segment?: number
   /** HLS: segment requests retried (network failures, stalls). */
   segmentRetries?: number
+  /** The network's rate while actually fetching, kbit/s (see InputStats). */
+  networkKbps?: number
+  networkSamples?: number
 }
 
 export interface StreamEngine {
@@ -87,6 +92,8 @@ export interface StreamEngine {
   pause?(): void
   /** After pause(): true = playing again from the buffer; false = can't (reconnect). */
   resume?(): boolean
+  /** Optional: true while the clock is stopped waiting for data (rebuffering). */
+  buffering?(): boolean
   /** Optional: jump forward to `elapsed` seconds within what's already received (lands
    * on the keyframe at or before it). false = not buffered that far (reconnect). */
   skipTo?(elapsed: number): boolean

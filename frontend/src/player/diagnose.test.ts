@@ -30,3 +30,11 @@ it('blames the server when HLS segments take long to start arriving', () => {
     vars: { ms: '2600' },
   })
 })
+
+it('an empty buffer is the network, not the decoder, even with the picture behind', () => {
+  // The car on 2026-10-23: 0.49× real time, nothing buffered, picture 18.5 s behind.
+  expect(diagnose(playing({ framesDrawn: 1, videoBehindMs: 18516, bufferAheadS: 0, realtime: 0.49, receiveKbps: 1740, streamKbps: 3530 }))).toEqual({
+    key: 'statsSlowData',
+    vars: { rate: '1.7', need: '3.5' },
+  })
+})
