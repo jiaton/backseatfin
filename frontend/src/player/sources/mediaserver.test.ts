@@ -42,7 +42,7 @@ describe('media server source helpers', () => {
 
   it('builds the authorization header without letting values break out of quotes', () => {
     expect(authorization('tok"en', 'dev')).toBe(
-      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.6", Token="token"',
+      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.7", Token="token"',
     )
   })
 

@@ -37,6 +37,10 @@ const AUDIO_SNAP_S = 0.05
  * doesn't trail the sound (people notice sound leading the picture sooner than the
  * other way round). */
 const PRESENT_LEAD_S = 0.02
+/** A stream started mid-film may begin its picture at the keyframe before the requested
+ * time and its sound exactly at it (ffmpeg copying the video): up to this much picture
+ * before the sound is skipped, so the film starts where asked, with sound. */
+const MAX_PREROLL_S = 10
 /** A skip forward within the buffer must leave at least this much to play, or the
  * stream would run dry right after it: reconnect instead. */
 export const SKIP_MIN_LEFT_S = 2
@@ -181,10 +185,13 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   let anchorWall = 0
   let onAudioClock = false
   let pausedMedia = 0
+  let skipTarget: number | null = null // skipTo: media time held until its picture is decoded
+  let firstAudioPts: number | null = null
 
   const mediaNow = (): number | null => {
     if (anchorMedia == null) return null
     if (paused) return pausedMedia
+    if (skipTarget != null) return skipTarget
     return onAudioClock
       ? anchorMedia + (heardTime(audio) - anchorCtx)
       : anchorMedia + (performance.now() / 1000 - anchorWall)
@@ -239,6 +246,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
         if (decodeTimes.length > 60) decodeTimes.shift()
       }
       if (destroyed) return frame.close()
+      if (skipTarget != null && frame.timestamp / 1e6 < skipTarget - 0.001) return frame.close() // skipped over
       if (firstPts == null) {
         firstPts = frame.timestamp / 1e6
         firstDecodedAt = performance.now()
@@ -350,7 +358,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   /** Hands decoded audio to WebAudio, timed so it's heard when the picture shows the
    * same moment, up to AUDIO_SCHEDULE_AHEAD_S ahead. */
   const scheduleAudio = () => {
-    if (destroyed || paused || anchorMedia == null) return
+    if (destroyed || paused || anchorMedia == null || skipTarget != null) return
     if (!onAudioClock) {
       // Sound is held back (no tap yet): drop what the picture has already passed.
       const now = mediaNow() ?? 0
@@ -392,14 +400,16 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     audioConfigKey = key
     audioConfig = config
     audioDecoder = new AudioDecoder({ output: onAudioData, error: (e) => fail(`audio decoder: ${e.message}`, 'decode') })
-    audioDecoder.configure({
-      codec: AAC_CODEC,
-      sampleRate: config.sampleRate,
-      numberOfChannels: config.channels,
-      description: config.asc,
-    })
+    audioDecoder.configure(audioDecoderConfig(config))
   }
+  const audioDecoderConfig = (config: AacConfig): AudioDecoderConfig => ({
+    codec: AAC_CODEC,
+    sampleRate: config.sampleRate,
+    numberOfChannels: config.channels,
+    description: config.asc,
+  })
   const onAudio = (s: AudioSample) => {
+    firstAudioPts ??= s.pts
     configureAudio(s.config)
     audioPending.push(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.pts * 1e6), data: s.data }))
     pump()
@@ -438,6 +448,37 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     return null
   }
 
+  /** Continues from `target` (ahead of the clock, within what's received). Frames wait
+   * compressed until just before they're due, so this only uses the buffer that's there
+   * anyway. Decoding restarts at the last keyframe at or before the target (none ahead =
+   * the frames being decoded already lead there); what comes out before the target is
+   * thrown away, and the clock and the sound hold until the target's picture is ready
+   * (render). */
+  const jumpTo = (target: number) => {
+    const key = pending.findLastIndex((p) => p.chunk.type === 'key' && p.chunk.timestamp / 1e6 <= target)
+    if (key >= 0 && videoDecoder.state === 'configured') {
+      videoDecoder.reset()
+      videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
+      decodeStarted.clear()
+      pending.splice(0, key)
+      skippedChunks += key
+    }
+    for (const f of frames.splice(0)) f.close()
+    lastDrawnTs = null
+    while (audioPending.length && audioPending[0].timestamp / 1e6 < target - 0.05) audioPending.shift()
+    if (audioDecoder?.state === 'configured' && audioConfig) {
+      // Chrome's AAC decoder times its output by counting on from earlier input: after
+      // skipped input everything would come out stamped in the past (and be dropped).
+      audioDecoder.reset()
+      audioDecoder.configure(audioDecoderConfig(audioConfig))
+    }
+    unschedule()
+    audioReady = audioReady.filter((a) => a.ts + a.buffer.duration > target)
+    skipTarget = target
+    lastFrameAt = performance.now() // the stall watchdog counts from here
+    pump()
+  }
+
   // --- presentation loop ---------------------------------------------------------------
   let raf = 0
   const render = () => {
@@ -445,7 +486,24 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     raf = requestAnimationFrame(render)
     if (anchorMedia == null && firstPts != null) {
       const buffered = frames.length ? frames[frames.length - 1].timestamp / 1e6 - firstPts : 0
-      if (buffered >= START_LEAD_S || performance.now() - firstDecodedAt > START_MAX_WAIT_MS) anchor(firstPts)
+      // Wait for the sound's start too (it comes after any picture before it), unless
+      // there's evidently none.
+      const soundKnown = firstAudioPts != null || (lastReceived ?? firstPts) - firstPts > MAX_PREROLL_S
+      // At 60 fps the frame cap holds less than START_LEAD_S: a full queue is enough.
+      const full = frames.length + videoDecoder.decodeQueueSize >= MAX_QUEUED_FRAMES
+      if (((buffered >= START_LEAD_S || full) && soundKnown) || performance.now() - firstDecodedAt > START_MAX_WAIT_MS) {
+        const preroll = firstAudioPts != null ? firstAudioPts - firstPts : 0
+        if (preroll > 0.1 && preroll < MAX_PREROLL_S && (lastReceived ?? 0) > firstAudioPts!) {
+          const start = firstAudioPts!
+          anchor(start)
+          jumpTo(start) // the picture before the sound is decoded and dropped
+          firstPts = start // elapsed() counts from here: the requested time
+        } else anchor(firstPts)
+      }
+    }
+    if (skipTarget != null && !paused && frames.length) {
+      anchor(skipTarget) // the target's picture is ready: the clock and the sound go on from it
+      skipTarget = null
     }
     pump()
     scheduleAudio()
@@ -580,30 +638,14 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       const now = mediaNow()
       if (destroyed || paused || now == null || firstPts == null || lastReceived == null) return false
       const target = elapsed + firstPts - startOffset
-      if (target <= now || lastReceived - target < SKIP_MIN_LEFT_S) return false
-      // Decoding has to start on a keyframe: the last one at or before the target that
-      // isn't decoded yet. Frames are kept compressed until just before they're due, so
-      // the buffer costs no extra memory; what's skipped is just thrown away.
-      const key = pending.findLastIndex((p) => p.chunk.type === 'key' && p.chunk.timestamp / 1e6 <= target)
-      const at = key >= 0 ? pending[key].chunk.timestamp / 1e6 : null
-      if (at == null || at <= now || videoDecoder.state !== 'configured') return false
-      videoDecoder.reset()
-      videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
-      for (const f of frames.splice(0)) f.close()
-      decodeStarted.clear()
-      pending.splice(0, key)
-      skippedChunks += key
-      lastDrawnTs = null
-      while (audioPending.length && audioPending[0].timestamp / 1e6 < at) audioPending.shift()
-      anchor(at) // takes back what WebAudio hadn't played yet…
-      audioReady = audioReady.filter((a) => a.ts + a.buffer.duration > at) // …which is now in the past
-      lastFrameAt = performance.now() // the stall watchdog counts from here
-      pump()
+      if (target <= now || lastReceived - target < SKIP_MIN_LEFT_S || videoDecoder.state !== 'configured') return false
+      jumpTo(target)
       return true
     },
     pause: () => {
       if (paused || destroyed) return
       pausedMedia = mediaNow() ?? firstPts ?? 0
+      skipTarget = null // playing again starts from pausedMedia (= the target)
       paused = true
       unschedule(pausedMedia) // silence at once; the sound not yet heard is kept for later
     },

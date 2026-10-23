@@ -344,11 +344,23 @@ by design.
      - Seeks while playing settle for `SEEK_SETTLE_MS` (300 ms) first, so dragging the
        bar or tapping +30 s three times opens one server stream.
      - A seek forward that lands inside what's already received (a "+10 s" tap) needs
-       no stream at all: the engine's `skipTo` (`webcodecs-pipeline.ts`) drops the
-       compressed frames up to the last keyframe at or before the target, resets the
-       decoder and re-anchors the clock. It only uses the buffer that's there anyway
-       (kept compressed), so it costs no memory; it refuses when less than
-       `SKIP_MIN_LEFT_S` (2 s) would be left, backwards, or while paused.
+       no stream at all: the engine's `skipTo` (`webcodecs-pipeline.ts: jumpTo`)
+       restarts decoding at the last keyframe at or before the target, drops what comes
+       out before it, and holds the clock and sound until the target's picture is ready:
+       it lands exactly. Both decoders are reset (Chrome's AAC decoder otherwise stamps
+       its output by counting on from the skipped input, and everything was dropped as
+       past). It only uses the buffer that's there anyway (kept compressed), so it
+       costs no memory; it refuses when less than `SKIP_MIN_LEFT_S` (2 s) would be
+       left, backwards, or while paused.
+     - A stream started mid-film (copied H.264) has its picture from the keyframe
+       before `t` and its sound from `t` exactly. The pipeline waits for the first
+       sound before starting the clock and skips the picture before it (`jumpTo`,
+       ≤ `MAX_PREROLL_S`), so playback starts at `t` with sound. Before, the car
+       showed up to a few seconds of earlier picture in silence, with the time display
+       ahead by that much.
+     - The start lead counts as met when the decoded-frame cap is full: at 60 fps the
+       24-frame cap holds 0.4 s < `START_LEAD_S`, so every start used to wait out
+       `START_MAX_WAIT_MS` (1.5 s).
      - 4 s with no new frame means the end (within 10 s of the runtime) or a dropped
        connection, which resumes in place. 20 s without a first frame is an error.
      - **Loading box** (`player/loading.ts`): while waiting for a picture (start, seek,
