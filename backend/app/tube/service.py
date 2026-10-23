@@ -18,7 +18,7 @@ from app.stream.ports import (
 )
 from app.tube.cache import TtlCache
 from app.tube.captions import parse_json3
-from app.tube.formats import pick_stream
+from app.tube.formats import StreamChoice, pick_stream
 from app.tube.ports import (
     ChannelPage,
     Cue,
@@ -63,6 +63,8 @@ class TubeService:
         self._image_dir = image_dir
         self._searches: TtlCache[SearchResults] = TtlCache(200)
         self._videos: TtlCache[VideoDetails] = TtlCache(300)
+        # Video id → the extraction whose file URLs YouTube refused (see resolve).
+        self._files_refused: dict[str, VideoDetails] = {}
         self._channels: TtlCache[ChannelPage] = TtlCache(200)
         self._playlists: TtlCache[PlaylistPage] = TtlCache(100)
         self._captions: TtlCache[list[Cue]] = TtlCache(50)
@@ -153,6 +155,11 @@ class TubeService:
 
     # --- playing (SourceResolverPort for "youtube:<id>") --------------------------------
 
+    async def _works(self, choice: StreamChoice) -> bool:
+        """Both URLs answer: the sound can come from another YouTube client than the picture."""
+        urls = [choice.video.url, *([choice.audio.url] if choice.audio else [])]
+        return all(await asyncio.gather(*(self._web.url_works(u) for u in urls)))
+
     async def resolve(self, source_id: str, request: StreamRequest, viewer: Viewer, output: OutputFormat) -> ResolvedInput:
         try:
             details = await self.video(source_id)
@@ -160,8 +167,10 @@ class TubeService:
             raise SourceUnavailableError(str(e)) from e
         live = details.card.is_live
         width, height, kbps = output_size(output, request)
-        choice = pick_stream(details.formats, height, width, live)
-        if choice and not await self._web.url_works(choice.video.url):
+        # Live streams come only as HLS; so does a video whose file URLs YouTube refused.
+        hls = live or self._files_refused.get(source_id) is details
+        choice = pick_stream(details.formats, height, width, hls)
+        if choice and not await self._works(choice):
             # Expired or revoked early: extract again (once).
             log.info("stream URL for %s stopped working; extracting again", source_id)
             self._videos.drop(source_id)
@@ -169,7 +178,15 @@ class TubeService:
                 details = await self.video(source_id)
             except TubeUnavailableError as e:
                 raise SourceUnavailableError(str(e)) from e
-            choice = pick_stream(details.formats, height, width, live)
+            choice = pick_stream(details.formats, height, width, hls)
+            if choice and not hls and not await self._works(choice):
+                # Now and then every file URL of a fresh extraction answers 403 (all of one
+                # YouTube client's formats, 2026-10-23); the HLS copies of the same streams
+                # still play. Remembered for this extraction so a seek doesn't extract again.
+                log.info("YouTube refuses the file URLs for %s; playing its HLS", source_id)
+                self._files_refused = {k: v for k, v in self._files_refused.items() if self._videos.peek(k) is v}
+                self._files_refused[source_id] = details
+                choice = pick_stream(details.formats, height, width, hls=True) or choice
         if choice is None:
             raise SourceUnavailableError("YouTube offers no stream for this video")
         return ResolvedInput(StreamSpec(

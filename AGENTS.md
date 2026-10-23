@@ -178,7 +178,10 @@ by design.
   details (and stream URLs) until 30 min before YouTube's `expire`. One load per key in
   flight. Opening a video page extracts it (~5 s), so Play starts in ~1.5 s; `home`
   prefetches the first "continue watching" video. A stream URL that stops answering
-  (checked with a 1-byte range request before each stream) is extracted again.
+  (picture and sound each checked with a 1-byte range request before each stream) is
+  extracted again; if the fresh file URLs answer 403 too (it happens: all of one YouTube
+  client's formats), the video plays its HLS formats like a live stream, remembered for
+  that extraction (`_files_refused`) so seeks don't extract again.
 - **Format choice** (`tube/formats.py`): the largest H.264 DASH (`https`, not HLS) that
   fits the quality level and the window (portrait: short side vs height), AAC `140`
   (never `-drc`); no H.264 at all → the best other video, transcoded. Live streams:

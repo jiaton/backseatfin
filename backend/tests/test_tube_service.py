@@ -27,6 +27,8 @@ def _details(live=False, tag="1") -> VideoDetails:
             MediaFormat("298", f"https://v.example.com/298?{tag}", "avc1.4d401f", None, 720, 1280),
             MediaFormat("299", f"https://v.example.com/299?{tag}", "avc1.640028", None, 1080, 1920),
             MediaFormat("140", f"https://v.example.com/140?{tag}", None, "mp4a.40.2", kbps=129),
+            MediaFormat("232", f"https://v.example.com/hls/232?{tag}", "avc1.4d401f", None, 720, 1280, protocol="m3u8_native"),
+            MediaFormat("234", f"https://v.example.com/hls/234?{tag}", None, "unknown", protocol="m3u8_native"),
         ],
         expires_at=None,
     )
@@ -57,10 +59,11 @@ class FakeSource:
 class FakeWeb:
     def __init__(self):
         self.dead: set[str] = set()
+        self.refuse_files = False  # every non-HLS URL answers 403
         self.images = 0
 
     async def url_works(self, url):
-        return url not in self.dead
+        return url not in self.dead and not (self.refuse_files and "/hls/" not in url)
 
     async def fetch_image(self, url):
         self.images += 1
@@ -98,6 +101,32 @@ def test_a_dead_stream_url_is_extracted_again(tmp_path):
         return (await svc.resolve(VID, _request(), Viewer(), OutputFormat.H264_TS)).spec
 
     assert asyncio.run(main()).input_url == "https://v.example.com/298?2" and src.video_calls == 2
+
+
+def test_a_dead_sound_url_is_extracted_again_too(tmp_path):
+    svc, src, web = _svc(tmp_path)
+
+    async def main():
+        await svc.video(VID)
+        web.dead.add("https://v.example.com/140?1")
+        return (await svc.resolve(VID, _request(), Viewer(), OutputFormat.H264_TS)).spec
+
+    assert asyncio.run(main()).audio_url == "https://v.example.com/140?2" and src.video_calls == 2
+
+
+def test_refused_file_urls_fall_back_to_hls_without_extracting_on_every_seek(tmp_path):
+    svc, src, web = _svc(tmp_path)
+    web.refuse_files = True
+
+    async def main():
+        first = (await svc.resolve(VID, _request(), Viewer(), OutputFormat.H264_TS)).spec
+        seek = (await svc.resolve(VID, _request(start_seconds=600), Viewer(), OutputFormat.H264_TS)).spec
+        return first, seek
+
+    first, seek = asyncio.run(main())
+    assert first.input_url == "https://v.example.com/hls/232?2" and first.audio_url == "https://v.example.com/hls/234?2"
+    assert first.copy_video and seek.start_seconds == 600 and seek.input_url == first.input_url
+    assert src.video_calls == 2  # one extraction again, not one per seek
 
 
 def test_a_live_stream_plays_its_hls_from_the_live_edge(tmp_path):

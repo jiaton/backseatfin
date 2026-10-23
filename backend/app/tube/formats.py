@@ -21,11 +21,11 @@ def _fits(f: MediaFormat, max_height: int, max_width: int | None) -> bool:
     return short <= max_height and (max_width is None or long <= max_width)
 
 
-def pick_stream(formats: list[MediaFormat], max_height: int, max_width: int | None, live: bool = False) -> StreamChoice | None:
+def pick_stream(formats: list[MediaFormat], max_height: int, max_width: int | None, hls: bool = False) -> StreamChoice | None:
     """The best H.264 picture that fits the level and the screen, plus AAC sound; if
     the video has no H.264 at all, the best other picture (to be transcoded). A video
-    plays from its plain HTTPS files; a live stream has only HLS ones."""
-    direct = [f for f in formats if (f.protocol.startswith("m3u8") if live else f.protocol == "https")]
+    plays from its plain HTTPS files (hls=False); a live stream has only HLS ones."""
+    direct = [f for f in formats if (f.protocol.startswith("m3u8") if hls else f.protocol == "https")]
     videos = [f for f in direct if f.vcodec and not f.acodec]
     audios = [f for f in direct if f.acodec and not f.vcodec]
     # "-drc" = dynamic range compressed: quieter loud scenes, not what the film sounds like.
