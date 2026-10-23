@@ -90,6 +90,13 @@ def _video_graph(spec: StreamSpec, video_in: str, tone_map: ToneMapping | None =
     return f"{_video_chain(spec, video_in, tone_map)},setsar=1[v]"
 
 
+# A paced input stays connected for the whole video, and YouTube's servers reset long
+# connections now and then. Without these, a reset ends that input quietly: the sound
+# stopped after ~30 min while the picture played on. ffmpeg picks up where it was with
+# a range request instead.
+_RECONNECT = ["-reconnect", "1", "-reconnect_on_network_error", "1", "-reconnect_delay_max", "10"]
+
+
 def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneMapping | None = None) -> list[str]:
     """fast_probe: skip most of ffmpeg's input analysis (default ~5 s / 5 MB of reading).
     Streams are mapped by index from what Emby already knows, so the long probe only
@@ -124,12 +131,12 @@ def build_ffmpeg_args(spec: StreamSpec, fast_probe: bool = True, tone_map: ToneM
             if spec.output is OutputFormat.H264_TS:
                 args += ["-readrate_initial_burst", "2"]
             args += ["-re"]
-        args += ["-i", spec.input_url]
+        args += [*_RECONNECT, "-i", spec.input_url]
         if spec.audio_url:
             # The same seek and pacing for the sound's own input.
             args += ["-ss", f"{spec.start_seconds:.3f}"] if spec.start_seconds > 0 else []
             args += ["-re"] if spec.paced else []
-            args += ["-i", spec.audio_url]
+            args += [*_RECONNECT, "-i", spec.audio_url]
         args += ["-t", str(spec.max_duration_seconds)]
         video_in = f"[0:{spec.video_stream_index}]" if spec.video_stream_index is not None else "[0:v:0]"
         # Trailing "?" = optional: a file without audio still streams.

@@ -150,7 +150,8 @@ by design.
 - The container drops to `PUID:PGID` (`backend/entrypoint.sh`, default 1000:1000) after
   updating yt-dlp (`YTDLP_AUTO_UPDATE`).
 - Streams: `-re` paced; the WS route closes the generator with `aclosing` so ffmpeg dies
-  with the socket. Emby input = the original file via `/Videos/{id}/stream?static=true`
+  with the socket. Every URL input gets `-reconnect` (`_RECONNECT`): YouTube resets long
+  connections, and without it a reset on the sound input left silent video playing on. Emby input = the original file via `/Videos/{id}/stream?static=true`
   with the token in `-headers`, never the URL. Audio and subtitle tracks are mapped by
   Emby's `MediaStream.Index` (= container stream index). Image subtitles (PGS/DVD) use
   `overlay`. Text/external subtitles are fetched as `.ass` from Emby and burned in with

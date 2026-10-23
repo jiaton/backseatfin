@@ -193,3 +193,12 @@ def test_test_pattern_needs_no_input_url():
     assert "testsrc" in " ".join(args) and "sine" in " ".join(args)
     assert _maps(args) == ["[v]", "1:a:0"]
 
+
+
+def test_every_input_reconnects_after_a_dropped_connection():
+    args = build_ffmpeg_args(StreamSpec(input_url="https://v.example.com/video", audio_url="https://v.example.com/audio", output=OutputFormat.H264_TS, start_seconds=30))
+    inputs = [i for i, a in enumerate(args) if a == "-i"]
+    for start, end in zip([0, *inputs], inputs):
+        opts = args[start:end]
+        assert opts[opts.index("-reconnect") + 1] == "1"
+        assert opts[opts.index("-reconnect_on_network_error") + 1] == "1"
