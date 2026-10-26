@@ -93,6 +93,8 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
         acked = received
       }
       pipeline.push(new Uint8Array(e.data as ArrayBuffer))
+      // Here, not only in tick(): on a fast link half a second between ticks is MBs.
+      if (!held && pipeline.bufferedAhead() > high()) hold()
     }
     ws.onclose = (e) => {
       if (ws !== socket) return
@@ -117,6 +119,12 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
   const send = (message: string) => {
     if (socket?.readyState === WebSocket.OPEN) socket.send(message)
   }
+  const high = () => BUFFER_HIGH_S + (probing ? PROBE_EXTRA_S : 0)
+  const hold = () => {
+    send('hold')
+    held = true
+    endBurst(MEASURE_MIN_MS, MEASURE_MIN_BYTES)
+  }
 
   // Closed before anything was shown = the stream never started (the server says why
   // in the close reason).
@@ -140,11 +148,8 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
     const now = performance.now()
     const buffered = pipeline.bufferedAhead()
     if (open) {
-      if (!held && buffered > BUFFER_HIGH_S + (probing ? PROBE_EXTRA_S : 0)) {
-        send('hold')
-        held = true
-        endBurst(MEASURE_MIN_MS, MEASURE_MIN_BYTES)
-      } else if (held && !pipeline.paused && buffered < BUFFER_LOW_S) {
+      if (!held && buffered > high()) hold()
+      else if (held && !pipeline.paused && buffered < BUFFER_LOW_S) {
         send('go')
         held = false
         restartBurst()
