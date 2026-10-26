@@ -25,16 +25,29 @@ def _request(
     )
 
 
+# At most this much sent and not yet acknowledged (once the client acknowledges): the
+# proxies' and kernels' socket buffers would otherwise take megabytes after a "hold", and
+# the player's buffer would overshoot by up to a minute of video. 1 MB still fills a
+# mobile link of tens of Mbps.
+SEND_WINDOW = 1 << 20
+
+
 class FlowControl:
-    """The client's "hold" / "go" text messages on the stream WebSocket. While held, we
-    stop reading the stream (and so ffmpeg stops at a full pipe) instead of sending more
-    than the client wants to buffer. A client that leaves releases the hold, so the send
-    loop wakes up and notices."""
+    """The client's text messages on the stream WebSocket:
+    - "hold" / "go": while held, we stop reading the stream (and so ffmpeg stops at a
+      full pipe) instead of sending more than the client wants to buffer;
+    - "ack <bytes>": how much the client has received in all; from the first one on, at
+      most SEND_WINDOW is in flight (older clients don't send it and aren't limited).
+    A client that leaves releases both, so the send loop wakes up and notices."""
 
     def __init__(self, websocket: WebSocket):
         self._ws = websocket
         self._go = asyncio.Event()
         self._go.set()
+        self._room = asyncio.Event()  # less than SEND_WINDOW in flight
+        self._room.set()
+        self._sent = 0
+        self._acked: int | None = None
         self._task = asyncio.create_task(self._listen())
 
     async def _listen(self) -> None:
@@ -45,13 +58,31 @@ class FlowControl:
                     self._go.clear()
                 elif message == "go":
                     self._go.set()
+                elif message.startswith("ack "):
+                    with suppress(ValueError):
+                        self._acked = int(message[4:])
+                        self._update()
         except (WebSocketDisconnect, RuntimeError, KeyError):
             pass
         finally:
+            self._acked = None
             self._go.set()
+            self._room.set()
+
+    def _update(self) -> None:
+        if self._acked is not None and self._sent - self._acked >= SEND_WINDOW:
+            self._room.clear()
+        else:
+            self._room.set()
+
+    def sent(self, size: int) -> None:
+        self._sent += size
+        self._update()
 
     async def wait(self) -> None:
-        await self._go.wait()
+        while not (self._go.is_set() and self._room.is_set()):
+            await self._go.wait()
+            await self._room.wait()
 
     def close(self) -> None:
         self._task.cancel()
@@ -78,7 +109,8 @@ async def stream_ws(
     await websocket.accept()
     # aclosing: the moment the client goes away, close the generator so its finally
     # block kills ffmpeg now, not whenever the GC gets to it.
-    # flow=1: the client buffers and says "hold"/"go" (H.264 only; JSMpeg needs pacing).
+    # flow=1: the client buffers, says "hold"/"go" and acknowledges what it got (H.264
+    # only; JSMpeg needs pacing).
     flow_control = flow and format is OutputFormat.H264_TS
     request = _request(source, t, audio, sub, quality, maxw, maxh, paced=not flow_control)
     control = FlowControl(websocket) if flow_control else None
@@ -87,6 +119,7 @@ async def stream_ws(
             async for chunk in chunks:
                 await websocket.send_bytes(chunk)
                 if control:
+                    control.sent(len(chunk))
                     await control.wait()
         except TooManyStreamsError as e:
             await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER, reason=str(e))

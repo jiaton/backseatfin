@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchSegment, SEGMENT_STALL_MS, sleep } from './hls-engine'
+import { fetchSegment, SEGMENT_STALL_MS, sleep, transferred } from './hls-engine'
 import type { Pipeline } from './webcodecs-pipeline'
 
 afterEach(() => vi.useRealTimers())
@@ -24,6 +24,17 @@ it('sleep rejects at once when the engine stops', async () => {
   const p = sleep(60_000, controller.signal)
   controller.abort(new Error('stopped'))
   await expect(p).rejects.toThrow('stopped')
+})
+
+it('small segments are measured together, once there is enough for a measurement', () => {
+  const pipeline = { inputStats: {} } as unknown as Pipeline
+  transferred(pipeline, 400_000, 400) // 450 KB in 0.4 s: too short alone
+  expect(pipeline.inputStats.networkSamples).toBeUndefined()
+  transferred(pipeline, 400_000, 400)
+  transferred(pipeline, 400_000, 300) // 1.2 MB in 1.1 s
+  expect(pipeline.inputStats).toMatchObject({ networkSamples: 1, networkKbps: Math.round((1_200_000 * 8) / 1100) })
+  transferred(pipeline, 2_000_000, 1500) // a big one on its own
+  expect(pipeline.inputStats).toMatchObject({ networkSamples: 2, networkKbps: Math.round((2_000_000 * 8) / 1500) })
 })
 
 describe('fetchSegment', () => {

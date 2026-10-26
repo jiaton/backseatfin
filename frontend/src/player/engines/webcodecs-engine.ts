@@ -1,5 +1,5 @@
 import type { EngineCallbacks, StreamEngine } from './types'
-import { createPipeline, measured, type PipelineOptions } from './webcodecs-pipeline'
+import { createPipeline, MEASURE_MIN_BYTES, MEASURE_MIN_MS, measured, PROBE_EXTRA_S, type PipelineOptions } from './webcodecs-pipeline'
 
 /** Flow control: the server sends as fast as it can (with flow=1 on the URL) until we
  * hold it at this much buffered… */
@@ -24,14 +24,20 @@ const RETRY_MS = 2000
 const MIN_RESUME_S = 2
 const CHECK_MS = 500
 /** The network's rate is measured over stretches of at least this long that the server
- * isn't held (it then sends as fast as the network takes). */
+ * isn't held (it then sends as fast as the network takes), and over each stretch that
+ * ends at a hold if long or big enough (MEASURE_MIN_*). The server's send window (at
+ * most ~1 MB unacknowledged) means a stretch starts with nothing left in flight from the
+ * one before. */
 const MEASURE_MS = 4000
+/** Received bytes are acknowledged every this many. */
+const ACK_BYTES = 128 * 1024
 
 /**
  * Our server's stream WebSocket (format=h264ts; B-frames only when YouTube's H.264 is
  * passed through, `opts.reorder`) → the WebCodecs pipeline.
  * `url` carries the start (`t`, seconds) the server seeks to. One long connection, kept
- * healthy here: flow control keeps BUFFER_LOW_S–BUFFER_HIGH_S buffered; a connection
+ * healthy here: flow control keeps BUFFER_LOW_S–BUFFER_HIGH_S buffered (holding the
+ * server, and acknowledging what arrived so it never has much more in flight); a connection
  * that stops delivering is replaced by one that starts where the buffer ends and is
  * spliced on (no gap); after the server finishes the film, nothing is retried.
  */
@@ -55,15 +61,16 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
   let nextAttemptAt = 0
   let reconnects = 0
   let replaceNow = false // a stuck connection was dropped: reconnect without waiting
+  let probing = false // buffer PROBE_EXTRA_S more, to measure in longer bursts
   let burstAt = performance.now() // since when the server has been sending freely…
   let burstBytes = 0 // …and how much it sent
   const restartBurst = () => {
     burstAt = performance.now()
     burstBytes = 0
   }
-  const endBurst = (minMs: number) => {
+  const endBurst = (minMs: number, minBytes = Infinity) => {
     const ms = performance.now() - burstAt
-    if (ms >= minMs && burstBytes > 0) measured(pipeline, burstBytes, ms)
+    if ((ms >= minMs || (burstBytes >= minBytes && ms > 0)) && burstBytes > 0) measured(pipeline, burstBytes, ms)
     restartBurst()
   }
 
@@ -71,12 +78,20 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
     const ws = new WebSocket(streamUrl)
     ws.binaryType = 'arraybuffer'
     let gotData = false
+    let received = 0
+    let acked = 0
     ws.onmessage = (e) => {
       if (ws !== socket) return
       gotData = true
       replaceNow = false
       lastDataAt = performance.now()
-      burstBytes += (e.data as ArrayBuffer).byteLength
+      const size = (e.data as ArrayBuffer).byteLength
+      burstBytes += size
+      received += size
+      if (received - acked >= ACK_BYTES && ws.readyState === WebSocket.OPEN) {
+        ws.send(`ack ${received}`)
+        acked = received
+      }
       pipeline.push(new Uint8Array(e.data as ArrayBuffer))
     }
     ws.onclose = (e) => {
@@ -125,10 +140,10 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
     const now = performance.now()
     const buffered = pipeline.bufferedAhead()
     if (open) {
-      if (!held && buffered > BUFFER_HIGH_S) {
+      if (!held && buffered > BUFFER_HIGH_S + (probing ? PROBE_EXTRA_S : 0)) {
         send('hold')
         held = true
-        endBurst(1000)
+        endBurst(MEASURE_MIN_MS, MEASURE_MIN_BYTES)
       } else if (held && !pipeline.paused && buffered < BUFFER_LOW_S) {
         send('go')
         held = false
@@ -162,6 +177,9 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
   }
   // A stream still open, or enough buffered to play while a new one is opened.
   pipeline.canResume = () => open || finished || pipeline.bufferedAhead() >= MIN_RESUME_S
+  pipeline.probe = (on) => {
+    probing = on
+  }
   const stats = pipeline.stats
   pipeline.stats = () => ({ ...stats(), reconnects, held })
   pipeline.onDestroy = () => {

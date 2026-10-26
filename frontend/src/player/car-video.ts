@@ -111,6 +111,7 @@ export class CarVideoElement extends HTMLElement {
   #readyState = HAVE_NOTHING
   #volume = 1
   #muted = false
+  #probing = false
   #error: CarVideoError | null = null
   #audioLocked = false
   #connectedAt = 0
@@ -352,6 +353,13 @@ export class CarVideoElement extends HTMLElement {
     this.#engine?.unlockAudio()
   }
 
+  /** true = buffer further ahead in longer bursts, to measure the network (see
+   * StreamEngine.probe); kept across reconnects. */
+  probe(on: boolean) {
+    this.#probing = on
+    this.#engine?.probe?.(on)
+  }
+
   /** Diagnostics: the running engine's counters. */
   stats(): EngineStats & { engine: EngineKind; connects: number } {
     return { framesDrawn: 0, ...this.#engine?.stats(), engine: this.#engineKind, connects: this.#connects }
@@ -433,6 +441,7 @@ export class CarVideoElement extends HTMLElement {
         if (!live()) return engine.destroy()
         this.#engine = engine
         this.#applyVolume()
+        engine.probe?.(this.#probing)
       },
       (e: unknown) => callbacks.onError(e instanceof Error ? e.message : String(e), 'connection'),
     )

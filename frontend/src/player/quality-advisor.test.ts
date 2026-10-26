@@ -46,18 +46,29 @@ describe('quality advice', () => {
   it('after taking "lower", offers going back up once the network clearly carries it, never above where it was', () => {
     const a = createQualityAdvisor(levels)
     const c = { n: 0 }
-    a.taken({ to: 'low', direction: 'down' }, 'medium')
+    expect(a.probing('medium')).toBe(false) // nothing to go back up to
+    a.taken({ to: 'low', direction: 'down' }, 'medium', 0)
+    expect(a.probing('low')).toBe(true) // measure, to know when going back up fits
     // Calm but only 3.5 Mbps: Standard needs 3 × 1.5 = 4.5.
     expect(feed(a, 0, 150, { buffering: false, kbps: 3500 }, 'low', c)).toBeNull()
     expect(feed(a, 150_000, 20, { buffering: false, kbps: 8000 }, 'low', c)).toEqual({ to: 'medium', direction: 'up' })
-    a.taken({ to: 'medium', direction: 'up' }, 'low')
+    a.taken({ to: 'medium', direction: 'up' }, 'low', 170_000)
     expect(feed(a, 170_000, 200, { buffering: false, kbps: 20000 }, 'medium', c)).toBeNull() // back where it was
+    expect(a.probing('medium')).toBe(false)
+  })
+
+  it('not up within 2 minutes of stepping down, however good the network looks', () => {
+    const a = createQualityAdvisor(levels)
+    const c = { n: 0 }
+    a.taken({ to: 'low', direction: 'down' }, 'medium', 0)
+    expect(feed(a, 0, 118, { buffering: false, kbps: 20000 }, 'low', c)).toBeNull()
+    expect(feed(a, 118_000, 4, { buffering: false, kbps: 20000 }, 'low', c)).toEqual({ to: 'medium', direction: 'up' })
   })
 
   it('not up again soon after a wait for data', () => {
     const a = createQualityAdvisor(levels)
     const c = { n: 0 }
-    a.taken({ to: 'low', direction: 'down' }, 'medium')
+    a.taken({ to: 'low', direction: 'down' }, 'medium', 0)
     feed(a, 0, 2, { buffering: true, kbps: 8000 }, 'low', c)
     expect(feed(a, 2000, 100, { buffering: false, kbps: 8000 }, 'low', c)).toBeNull()
     expect(feed(a, 130_000, 10, { buffering: false, kbps: 8000 }, 'low', c)).toEqual({ to: 'medium', direction: 'up' })
@@ -66,7 +77,7 @@ describe('quality advice', () => {
   it('a picked quality is the viewer\'s own; advice let pass waits a while', () => {
     const a = createQualityAdvisor(levels)
     const c = { n: 0 }
-    a.taken({ to: 'low', direction: 'down' }, 'medium')
+    a.taken({ to: 'low', direction: 'down' }, 'medium', 0)
     a.reset()
     expect(feed(a, 0, 200, { buffering: false, kbps: 20000 }, 'low', c)).toBeNull()
     const b = createQualityAdvisor(levels)

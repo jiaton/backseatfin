@@ -68,6 +68,22 @@ def test_flow_control_holds_and_releases_the_stream(client):
         assert streams.read > held + 5
 
 
+def test_acknowledging_client_gets_at_most_a_window_in_flight(client, monkeypatch):
+    c, streams = client
+    monkeypatch.setattr(routes, "SEND_WINDOW", 188 * 10)
+    with c.websocket_connect("/api/stream/ws?source=emby:5&format=h264ts&flow=1") as ws:
+        ws.receive_bytes()
+        ws.send_text("ack 188")
+        _settle()
+        assert streams.read <= 12  # one window past the ack (plus the chunk in hand)
+        ws.send_text(f"ack {188 * 11}")
+        _settle()
+        assert 18 <= streams.read <= 22
+        ws.send_text("ack nonsense")  # ignored
+        _settle()
+        assert streams.read <= 22
+
+
 def test_without_flow_control_the_stream_is_paced(client):
     c, streams = client
     with c.websocket_connect("/api/stream/ws?source=emby:5&format=h264ts") as ws:

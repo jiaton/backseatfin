@@ -378,6 +378,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     video.reload()
   })
   window.setInterval(() => {
+    video.probe(advisor.probing(state.quality))
     if (video.paused || advice) return
     const s = video.stats()
     const next = advisor.sample(

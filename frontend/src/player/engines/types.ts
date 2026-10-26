@@ -97,6 +97,10 @@ export interface StreamEngine {
   /** Optional: jump forward to `elapsed` seconds within what's already received (lands
    * on the keyframe at or before it). false = not buffered that far (reconnect). */
   skipTo?(elapsed: number): boolean
+  /** Optional: true = fetch PROBE_EXTRA_S further ahead than usual, in bursts long
+   * enough to measure what the network can do (to offer a higher quality). It's video
+   * that plays next anyway, so nothing is fetched for nothing. */
+  probe?(on: boolean): void
   destroy(): void
 }
 

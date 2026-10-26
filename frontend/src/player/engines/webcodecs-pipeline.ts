@@ -122,6 +122,13 @@ export interface Pipeline extends StreamEngine {
   inputStats: InputStats
 }
 
+/** While probing (StreamEngine.probe), inputs buffer this much more than usual. */
+export const PROBE_EXTRA_S = 10
+/** A measurement needs a transfer this long, or this big (TCP takes a moment to reach
+ * full speed; a short one would only say the network is at least that fast). */
+export const MEASURE_MIN_MS = 1000
+export const MEASURE_MIN_BYTES = 1 << 20
+
 /** Records a network rate an input measured while fetching (InputStats.networkKbps). */
 export function measured(pipeline: Pipeline, bytes: number, ms: number) {
   pipeline.inputStats.networkKbps = Math.round((bytes * 8) / ms)

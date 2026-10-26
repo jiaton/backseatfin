@@ -1,6 +1,6 @@
 import { firstVariant, parseMediaPlaylist, type Segment, segmentAt, splitStart } from './hls'
 import type { EngineCallbacks, EngineErrorKind, StreamEngine } from './types'
-import { createPipeline, measured, type Pipeline } from './webcodecs-pipeline'
+import { createPipeline, MEASURE_MIN_BYTES, MEASURE_MIN_MS, measured, PROBE_EXTRA_S, type Pipeline } from './webcodecs-pipeline'
 
 /** Compressed video fetched ahead of the clock (about seven 3 s segments; 4–8 MB at
  * 1.5–3 Mbps). Rides out a mobile dead zone of that length, like the WebSocket engine's
@@ -91,7 +91,7 @@ function classify(e: unknown): { message: string; kind: EngineErrorKind } {
  * A media server's HLS transcode (H.264 with B-frames + AAC in MPEG-TS segments) → the
  * WebCodecs pipeline. Starts at the segment holding the requested time; fetches
  * segments one after another, streaming each into the demuxer as it arrives, and stays
- * at most MAX_AHEAD_S ahead of the clock — also while paused, so playing again continues
+ * at most MAX_AHEAD_S (+ PROBE_EXTRA_S while probing) ahead of the clock — also while paused, so playing again continues
  * from the buffer and then the next segments. `url` = playlist URL + `#t=<start seconds>`.
  */
 export function createHlsEngine(
@@ -103,11 +103,15 @@ export function createHlsEngine(
   const pipeline = createPipeline(canvas, cb, { reorder: true })
   const abort = new AbortController()
   pipeline.onDestroy = () => abort.abort()
-  void run(pipeline, url, headers, abort.signal)
+  let probing = false
+  pipeline.probe = (on) => {
+    probing = on
+  }
+  void run(pipeline, url, headers, abort.signal, () => MAX_AHEAD_S + (probing ? PROBE_EXTRA_S : 0))
   return pipeline
 }
 
-async function run(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
+async function run(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal, maxAhead: () => number) {
   const { url: playlistUrl, start } = splitStart(url)
   try {
     const segments = await loadPlaylist(playlistUrl, headers, signal)
@@ -115,7 +119,7 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
     // The picture starts at the segment boundary, up to one segment before `start`.
     pipeline.setStartOffset(segments[i].start - start)
     for (; i < segments.length; i++) {
-      while (pipeline.bufferedAhead() > MAX_AHEAD_S) await sleep(WAIT_POLL_MS, signal)
+      while (pipeline.bufferedAhead() > maxAhead()) await sleep(WAIT_POLL_MS, signal)
       pipeline.inputStats.segment = i
       await fetchSegment(pipeline, segments[i].url, headers, signal)
     }
@@ -125,6 +129,21 @@ async function run(pipeline: Pipeline, url: string, headers: Record<string, stri
     const { message, kind } = classify(e)
     pipeline.fail(message, kind)
   }
+}
+
+/** Transfer time and bytes not yet measured, summed over segments until there's enough
+ * for a measurement (MEASURE_MIN_*): a small segment alone is over before TCP is at full
+ * speed. Only the transfers count, not the server preparing segments or our waits. */
+const unmeasured = new WeakMap<Pipeline, { bytes: number; ms: number }>()
+
+export function transferred(pipeline: Pipeline, bytes: number, ms: number) {
+  const sum = unmeasured.get(pipeline) ?? { bytes: 0, ms: 0 }
+  sum.bytes += bytes
+  sum.ms += ms
+  if (sum.ms >= MEASURE_MIN_MS || sum.bytes >= MEASURE_MIN_BYTES) {
+    if (sum.ms > 50) measured(pipeline, sum.bytes, sum.ms)
+    unmeasured.delete(pipeline)
+  } else unmeasured.set(pipeline, sum)
 }
 
 export async function fetchSegment(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal) {
@@ -158,7 +177,7 @@ export async function fetchSegment(pipeline: Pipeline, url: string, headers: Rec
           // Waiting = the server preparing the segment; the rest = the network.
           const end = performance.now()
           pipeline.inputStats.segmentLoadMs = Math.round(end - asked)
-          if (firstByteAt && end - firstByteAt > 50) measured(pipeline, seen, end - firstByteAt)
+          if (firstByteAt) transferred(pipeline, seen, end - firstByteAt)
           return
         }
         if (seen === 0) firstByteAt = performance.now()

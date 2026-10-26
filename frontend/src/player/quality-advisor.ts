@@ -41,6 +41,8 @@ export function createQualityAdvisor(levels: () => Record<Quality, Level>) {
   let lastSample = 0
   /** The level the viewer had before taking "lower" advice: "up" goes no higher. */
   let ceiling: Quality | null = null
+  /** When the current level started: "up" waits UP_CALM_MS from then too. */
+  let since = -Infinity
   const snoozed: Record<QualityAdvice['direction'], number> = { down: 0, up: 0 }
 
   const index = (q: Quality) => QUALITY_VALUES.indexOf(q)
@@ -70,15 +72,21 @@ export function createQualityAdvisor(levels: () => Record<Quality, Level>) {
         const fits = lower.filter((q) => levels()[q].kbps <= network * DOWN_HEADROOM)
         return { to: fits.at(-1) ?? lower[0], direction: 'down' }
       }
-      if (ceiling && index(current) < index(ceiling) && s.at >= snoozed.up && !stops.some((t) => s.at - t < UP_CALM_MS)) {
+      if (ceiling && index(current) < index(ceiling) && s.at >= snoozed.up && s.at - since >= UP_CALM_MS && !stops.some((t) => s.at - t < UP_CALM_MS)) {
         const next = QUALITY_VALUES[index(current) + 1]
         const good = rates.filter((r) => r.kbps >= levels()[next].kbps * UP_HEADROOM)
         if (good.length >= UP_SAMPLES) return { to: next, direction: 'up' }
       }
       return null
     },
+    /** After a step down and while below where the viewer was: the input should probe
+     * (StreamEngine.probe), so there are measurements to tell when going back up fits. */
+    probing(current: Quality): boolean {
+      return ceiling != null && index(current) < index(ceiling)
+    },
     /** The viewer took the advice (the stream restarts at the new level). */
-    taken(advice: QualityAdvice, from: Quality) {
+    taken(advice: QualityAdvice, from: Quality, at = performance.now()) {
+      since = at
       if (advice.direction === 'down') ceiling ??= from
       else if (ceiling && index(advice.to) >= index(ceiling)) ceiling = null
       stops = []

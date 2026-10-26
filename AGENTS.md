@@ -369,12 +369,16 @@ by design.
        like "play next"): two waits for data within 90 s, or one of 5 s, offers the
        highest lower level that fits 80% of the measured link; after taking it, "back
        to …" is offered once the link carries the next level ×1.5 in 3 measurements
-       with no wait for 2 min, never above the level before. Not saved as the viewer's
-       choice; a manual pick resets it. The link rate (`networkKbps`) is measured by
-       the inputs while actually fetching: whole HLS segments, or ≥ 4 s stretches the
-       WebSocket isn't held.
-     - Known: "hold" lags the socket buffers on the way, so the WebSocket buffer can
-       reach 30–70 s instead of 20 s (a few MB compressed). Fix would be byte acks.
+       with no wait for 2 min (counted from the step down too), never above the level
+       before. Not saved as the viewer's choice; a manual pick resets it. The link rate
+       (`networkKbps`) is measured by the inputs while actually fetching: HLS segment
+       transfers summed until ≥ 1 s or 1 MB, or WebSocket stretches the server isn't
+       held (≥ 4 s, or ending at a hold with ≥ 1 s or 1 MB).
+     - **Probing** (`StreamEngine.probe`, on while `advisor.probing()`: stepped down and
+       below the level before): the input buffers `PROBE_EXTRA_S` (10 s) more, so each
+       refill is a burst long enough to measure what the link can do. What it fetches
+       plays next anyway: no filler data, no mobile data spent for nothing. At a lower
+       level a normal 15 → 20 s refill is over in well under a second and measured nothing.
      - The start lead counts as met when the decoded-frame cap is full: at 60 fps the
        24-frame cap holds 0.4 s < `START_LEAD_S`, so every start used to wait out
        `START_MAX_WAIT_MS` (1.5 s).
@@ -394,6 +398,12 @@ by design.
        - Flow control (`flow=1`): the server sends unpaced (no `-re`) and the client says
          `hold` above 20 s buffered and `go` below 15 s (text frames; the server stops
          reading ffmpeg, whose pipe then fills and it waits). JSMpeg stays paced.
+       - Byte acks: the client sends `ack <bytes received>` every 128 KB, and from the
+         first one the server keeps at most `SEND_WINDOW` (1 MB) unacknowledged
+         (`stream/routes.py`). Without it "hold" lagged the proxies' and kernels' socket
+         buffers and the buffer reached 30–70 s instead of 20 s; it also makes each
+         burst after `go` start from an empty pipe, so it measures the link honestly.
+         Older clients send no acks and aren't limited.
        - Data watchdog: no bytes for 5 s while expecting some (not held) = stuck (mobile
          networks hang without closing). The socket is dropped and a new one opened
          **spliced** onto the buffer: it starts (`t`) where the buffer ends and its first
