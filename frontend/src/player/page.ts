@@ -19,6 +19,7 @@ import { loadingLines } from './loading'
 import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { fitLevel, gbPerHour, loadQuality, type Quality, QUALITY_VALUES, saveQuality } from './quality'
+import { createHistory, createNetGraph } from './net-graph'
 import { createQualityAdvisor, type QualityAdvice } from './quality-advisor'
 import type { PlaybackSource, StreamChoice, Track } from './source'
 import { type Transcoder, TRANSCODERS } from './transcoder'
@@ -180,7 +181,9 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const errorBack = h('button', { class: 'cm-button' })
   const errorPanel = h('div', { class: 'cm-error', role: 'alert', hidden: '' }, errorMessage, h('div', { class: 'cm-row' }, retry, errorBack))
   const sheet = h('div', { class: 'cm-sheet', role: 'dialog', hidden: '' })
-  const statsPanel = h('pre', { class: 'cm-stats', 'aria-live': 'off', hidden: '' })
+  const statsText = h('pre', { class: 'cm-stats-text' })
+  const graph = createNetGraph()
+  const statsPanel = h('div', { class: 'cm-stats', 'aria-live': 'off', hidden: '' }, graph.el, statsText)
   const loadingStage = h('p', { class: 'cm-loading-stage' })
   const loadingDetail = h('pre', { class: 'cm-loading-lines' })
   const loadingBox = h('div', { class: 'cm-loading', role: 'status', hidden: '' }, loadingStage, loadingDetail)
@@ -543,8 +546,16 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const ms = (v: number | undefined) => (v == null ? '–' : `${Math.round(v)} ms`)
   const signed = (v: number | undefined) => (v == null ? '–' : `${v > 0 ? '+' : ''}${Math.round(v)} ms`)
   const mbit = (kbps: number | undefined) => (kbps == null ? '–' : `${(kbps / 1000).toFixed(2)} Mbps`)
+  // The graph's history is kept while the panel is closed too (one point a second), so
+  // opening it shows the last two minutes; a new stream starts it over.
+  const history = createHistory()
+  window.setInterval(() => {
+    if (!video.paused) history.add(video.stats(), video.buffering)
+  }, 1000)
+  video.addEventListener('loadstart', () => history.clear())
   function renderStats() {
     const s = video.stats()
+    graph.draw(history.points)
     const d = diagnose({ paused: video.paused, retrying: video.retrying, started: video.readyState >= 4, stats: s })
     const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize
     const lines = [
@@ -561,7 +572,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       `audio    ${s.audioFormat ?? '–'} · output latency ${ms(s.outputLatencyMs)} · clock ${s.audioClock ?? '–'}`,
       `session  ${formatClock(video.currentTime)} · ${t(QUALITY_NAME[state.quality])} (${levelText(state.quality)}) · connects ${s.connects}${s.reconnects ? ` + ${s.reconnects} spliced` : ''}${s.held ? ' · server holding (buffer full)' : ''}${heap ? ` · JS ${(heap / 1048576).toFixed(1)} MB` : ''}`,
     )
-    statsPanel.textContent = lines.join('\n')
+    statsText.textContent = lines.join('\n')
   }
   if (statsOn) showStats(true)
 

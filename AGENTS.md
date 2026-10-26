@@ -481,8 +481,12 @@ by design.
      - Far behind (picture > 1.5 s behind the clock with a decoder backlog): the decoder
        is reset and restarts at the newest keyframe.
    - **Stats for nerds** (`page.ts` + `diagnose.ts`; toggle in the settings sheet's
-     quality section, remembered): a panel over the picture, updated twice a second,
-     with one sentence on how playback is going or why it stutters (network: data
+     quality section, remembered): a panel over the picture, updated twice a second.
+     On top a graph (`net-graph.ts`, one canvas, history kept at one point a second
+     even while the panel is closed): the buffer as a gauge (marks at 15/20 s, red under
+     5 s) and two minutes of what arrived, the link measurements, the stream's need and
+     the waits for data. The progress bar shows what's buffered ahead (`buffered`).
+     Then one sentence on how playback is going or why it stutters (network: data
      arriving slower than real time with a low buffer; server: HLS segments slow to
      start; decoder: picture behind the clock), then engine/codec/size/fps, receive rate
      vs the stream's own bitrate, buffer, last HLS segment's server wait and load time,

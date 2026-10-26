@@ -253,8 +253,14 @@ export class CarVideoElement extends HTMLElement {
     return ranges(Number.isFinite(this.duration) ? [[0, this.duration]] : [])
   }
 
+  /** Up to what's received ahead of the clock (the progress bar shows it). Starts where
+   * this stream did, not at the clock: Media Chrome draws the range holding its own
+   * last-known time, which lags ours a little. */
   get buffered(): TimeRanges {
-    return ranges([])
+    const ahead = this.#engine?.stats().bufferAheadS
+    if (!ahead) return ranges([])
+    const end = this.currentTime + ahead
+    return ranges([[Math.min(this.#base, this.currentTime), Number.isFinite(this.duration) ? Math.min(end, this.duration) : end]])
   }
 
   get playbackRate() {
@@ -508,6 +514,7 @@ export class CarVideoElement extends HTMLElement {
   #tick() {
     if (this.#paused) return
     this.#emit('timeupdate')
+    this.#emit('progress') // `buffered` moves with the clock
     const engine = this.#engine
     if (this.#readyState < HAVE_ENOUGH_DATA) {
       const waited = performance.now() - this.#connectedAt

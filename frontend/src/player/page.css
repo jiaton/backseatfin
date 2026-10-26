@@ -9,6 +9,7 @@
   --cm-scrim: oklch(0 0 0 / 0.55);
   --cm-panel: oklch(0.2 0.005 260 / 0.94);
   --cm-line: oklch(1 0 0 / 0.16);
+  --cm-buffered: oklch(1 0 0 / 0.45);
   --cm-accent: oklch(0.72 0.15 250);
   --cm-accent-fg: oklch(0.15 0.02 250);
   --cm-bad: oklch(0.7 0.17 25);
@@ -52,7 +53,8 @@ button {
   --media-range-thumb-height: 22px;
   --media-range-thumb-width: 22px;
   --media-range-bar-color: var(--cm-accent);
-  --media-time-range-buffered-color: var(--cm-line);
+  --media-range-track-background: var(--cm-line);
+  --media-time-range-buffered-color: var(--cm-buffered);
   --media-font-size: 18px;
   --media-text-color: var(--cm-fg);
 }
@@ -367,6 +369,21 @@ car-video {
   font: 13px/1.45 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   white-space: pre-wrap;
   pointer-events: none;
+}
+
+.cm-stats-text {
+  margin: 0;
+  font: inherit;
+}
+
+/* The network graph (net-graph.ts): drawn at 420 × 112 CSS px. */
+.cm-graph {
+  display: block;
+  width: 420px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 420 / 112;
+  margin-bottom: 8px;
 }
 
 .cm-captions {

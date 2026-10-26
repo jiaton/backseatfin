@@ -15,7 +15,7 @@ import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoic
 export type MediaServer = 'Emby' | 'Jellyfin'
 
 export const CLIENT_NAME = 'BackseatFin'
-const CLIENT_VERSION = '0.4.11'
+const CLIENT_VERSION = '0.4.12'
 const DEVICE_KEY = 'backseatfin:device'
 const TICKS_PER_SECOND = 10_000_000
 const AUDIO_BITRATE = 128_000
