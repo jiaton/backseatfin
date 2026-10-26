@@ -31,6 +31,9 @@ const STATS_EVERY_MS = 500
 /** Quality advice: how often the network is looked at, and how long a button stays. */
 const ADVICE_EVERY_MS = 2000
 const ADVICE_SHOWN_MS = 20_000
+/** A "lower" hint goes away (not snoozed) once playing again with this much buffered:
+ * the network caught up, so it was a bad patch, not a slow link. */
+const RECOVERED_AHEAD_S = 15
 const STATS_KEY = 'backseatfin:stats'
 
 /** Media Chrome ships labels for some of our languages only; the rest stay English. */
@@ -379,8 +382,12 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   })
   window.setInterval(() => {
     video.probe(advisor.probing(state.quality))
-    if (video.paused || advice) return
     const s = video.stats()
+    if (advice?.direction === 'down' && !video.buffering && (s.bufferAheadS ?? 0) >= RECOVERED_AHEAD_S) {
+      advisor.recovered(performance.now())
+      hideHint()
+    }
+    if (video.paused || advice) return
     const next = advisor.sample(
       { at: performance.now(), buffering: video.buffering, networkKbps: s.networkKbps, networkSamples: s.networkSamples },
       state.quality,

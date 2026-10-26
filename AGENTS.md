@@ -370,7 +370,10 @@ by design.
        highest lower level that fits 80% of the measured link; after taking it, "back
        to …" is offered once the link carries the next level ×1.5 in 3 measurements
        with no wait for 2 min (counted from the step down too), never above the level
-       before. Not saved as the viewer's choice; a manual pick resets it. The link rate
+       before. Not saved as the viewer's choice; a manual pick resets it. A "lower" hint
+       is withdrawn (not snoozed, its waits forgotten) once playing again with ≥ 15 s
+       buffered: the network caught up, so it was a bad patch of road (seen in a
+       simulated 30 s at 300 kbps: the hint outlived the patch by 20 s). The link rate
        (`networkKbps`) is measured by the inputs while actually fetching: HLS segment
        transfers summed until ≥ 1 s or 1 MB, or WebSocket stretches the server isn't
        held (≥ 4 s, or ending at a hold with ≥ 1 s or 1 MB).

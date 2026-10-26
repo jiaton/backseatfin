@@ -38,6 +38,14 @@ describe('quality advice', () => {
     expect(feed(a, 30_000, 30, { buffering: (t) => t === 40_000, kbps: 1700 }, 'medium', c)).toEqual({ to: 'low', direction: 'down' })
   })
 
+  it('a withdrawn "lower" hint forgets the waits before it (a bad patch, not a slow link)', () => {
+    const a = createQualityAdvisor(levels)
+    const c = { n: 0 }
+    expect(feed(a, 0, 8, { buffering: true, kbps: 300 }, 'medium', c)).toEqual({ to: 'low', direction: 'down' })
+    a.recovered(8000)
+    expect(feed(a, 8000, 60, { buffering: false, kbps: 5000 }, 'medium', c)).toBeNull()
+  })
+
   it('nothing lower than the lowest', () => {
     const a = createQualityAdvisor(levels)
     expect(feed(a, 0, 10, { buffering: true, kbps: 500 }, 'low', { n: 0 })).toBeNull()

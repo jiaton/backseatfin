@@ -41,7 +41,8 @@ export function createQualityAdvisor(levels: () => Record<Quality, Level>) {
   let lastSample = 0
   /** The level the viewer had before taking "lower" advice: "up" goes no higher. */
   let ceiling: Quality | null = null
-  /** When the current level started: "up" waits UP_CALM_MS from then too. */
+  /** When the current level started (or a "lower" hint was withdrawn): "up" waits
+   * UP_CALM_MS from then too. */
   let since = -Infinity
   const snoozed: Record<QualityAdvice['direction'], number> = { down: 0, up: 0 }
 
@@ -91,6 +92,13 @@ export function createQualityAdvisor(levels: () => Record<Quality, Level>) {
       else if (ceiling && index(advice.to) >= index(ceiling)) ceiling = null
       stops = []
       rates = []
+      bufferingSince = null
+    },
+    /** A "lower" hint is withdrawn because the network caught up again (a bad patch of
+     * road, not a slow link): the waits so far no longer count. */
+    recovered(at: number) {
+      since = at
+      stops = []
       bufferingSince = null
     },
     /** The viewer picked a quality themselves: theirs to keep, nothing to go back up to. */
