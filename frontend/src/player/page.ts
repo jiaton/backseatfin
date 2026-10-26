@@ -563,7 +563,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       '',
       `engine   ${s.engine} · ${s.codec || '–'} · ${s.videoWidth || 0}×${s.videoHeight || 0} · ${(s.fps ?? 0).toFixed(0)} fps`,
       `network  in ${mbit(s.receiveKbps)} · stream ${mbit(s.streamKbps)}${s.realtime != null ? ` (${s.realtime.toFixed(2)}× real time)` : ''} · link ${mbit(s.networkKbps)}${s.rebuffers ? ` · waited for data ${s.rebuffers}×` : ''}`,
-      `buffer   ${(s.bufferAheadS ?? 0).toFixed(1)} s video · ${(s.audioBufferedS ?? 0).toFixed(1)} s audio`,
+      `buffer   ${(s.bufferAheadS ?? 0).toFixed(1)} s video · ${(s.audioBufferedS ?? 0).toFixed(1)} s audio · ${(s.bufferBehindS ?? 0).toFixed(1)} s kept behind`,
     ]
     if (s.segment != null) lines.push(`segment  #${s.segment} · server ${ms(s.segmentWaitMs)} · total ${ms(s.segmentLoadMs)}${s.segmentRetries ? ` · retried ${s.segmentRetries}` : ''}`)
     lines.push(

@@ -89,7 +89,8 @@ const STYLE = `
  * `<car-video>`: the car player as a media element. It exposes the subset of the
  * HTMLMediaElement API that media UIs drive (play/pause/currentTime/duration/volume/
  * seekable + the standard events), so any controls library can sit on top. Underneath,
- * a seek forward within the buffer just skips ahead in it (`skipTo`); any other seek or
+ * a seek into what's buffered ahead or kept behind (the last 20 s played) just skips
+ * there (`skipTo`); any other seek or
  * source change opens a fresh server stream at that position and decodes it onto a canvas — never a `<video>`, which the car blocks while driving.
  *
  * Self-healing: a stream that stops producing frames is resumed where it was; an
@@ -235,7 +236,7 @@ export class CarVideoElement extends HTMLElement {
       this.#emit('timeupdate')
       this.#emit('seeked')
     } else if (this.#engine?.skipTo?.(target - this.#base)) {
-      // Forward into what's already buffered (a "+10 s" tap): no new server stream.
+      // Into what's buffered ahead or kept behind (a "−15 s" tap): no new server stream.
       this.#seeking = false
       this.#emit('timeupdate')
       this.#emit('seeked')

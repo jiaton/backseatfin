@@ -48,6 +48,10 @@ export const REBUFFER_S = 2
 /** A skip forward within the buffer must leave at least this much to play, or the
  * stream would run dry right after it: reconnect instead. */
 export const SKIP_MIN_LEFT_S = 2
+/** What's already played stays this long, *compressed* (≈ 2 MB at 480p, 7 MB at 1080p),
+ * from the keyframe before it on: a skip back within it (a "−15 s" tap) needs no new
+ * stream. Decoded frames are never kept. */
+export const KEEP_BEHIND_S = 20
 /** Window for the receive-rate statistics (long enough to span an HLS segment). */
 const RATE_WINDOW_MS = 6000
 
@@ -180,8 +184,12 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   let codec = ''
   let decoderResets = 0
   const frames: VideoFrame[] = [] // decoded, waiting for their time
-  const pending: { chunk: EncodedVideoChunk; dts: number }[] = [] // received, not yet decoded
-  const audioPending: EncodedAudioChunk[] = [] // received, not yet decoded
+  let pending: { chunk: EncodedVideoChunk; dts: number }[] = [] // received, not yet decoded
+  let audioPending: EncodedAudioChunk[] = [] // received, not yet decoded
+  // Decoded (or skipped over) already, kept for skips back (KEEP_BEHIND_S): in decode
+  // order and contiguous with `pending`, the video starting at a keyframe.
+  let pastVideo: { chunk: EncodedVideoChunk; dts: number }[] = []
+  let pastAudio: EncodedAudioChunk[] = []
   let audioReady: ReadyAudio[] = [] // decoded, not yet scheduled
   let scheduled: ScheduledAudio[] = [] // handed to WebAudio
   // Recently finished buffers: WebAudio reports a buffer "ended" when the graph is done
@@ -259,6 +267,30 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     if (!destroyed) cb.onError(message, kind, closeCode)
   }
 
+  /** Moves video off the front of `pending` into the kept past, and drops what's older
+   * than KEEP_BEHIND_S (keeping from a keyframe at or before that). */
+  const retireVideo = (count: number) => {
+    if (count <= 0) return
+    pastVideo.push(...pending.splice(0, count))
+    const cutoff = pastVideo[pastVideo.length - 1].chunk.timestamp / 1e6 - KEEP_BEHIND_S
+    const key = pastVideo.findLastIndex((p) => p.chunk.type === 'key' && p.chunk.timestamp / 1e6 <= cutoff)
+    if (key > 0) pastVideo = pastVideo.slice(key)
+  }
+  const retireAudio = (chunk: EncodedAudioChunk) => {
+    pastAudio.push(chunk)
+    const cutoff = chunk.timestamp / 1e6 - KEEP_BEHIND_S - 5 // the video's keyframe may be up to a GOP earlier
+    let drop = 0
+    while (drop < pastAudio.length && pastAudio[drop].timestamp / 1e6 < cutoff) drop++
+    if (drop > 64) pastAudio = pastAudio.slice(drop)
+  }
+  /** The oldest point a skip back can land on: the first kept keyframe, but not before
+   * where this stream was asked to start (the picture before that has no sound), or null. */
+  const keptFrom = (): number | null => {
+    const key = pastVideo.find((p) => p.chunk.type === 'key')
+    if (!key || firstPts == null) return null
+    return Math.max(key.chunk.timestamp / 1e6, firstPts - startOffset)
+  }
+
   // --- video ---------------------------------------------------------------------------
   const videoDecoder: VideoDecoder = new VideoDecoder({
     output: (frame) => {
@@ -302,7 +334,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
           videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
           for (const f of frames.splice(0)) f.close()
           decodeStarted.clear()
-          pending.splice(0, key)
+          retireVideo(key)
           skippedChunks += key
           decoderResets++
           lastDrawnTs = null
@@ -311,7 +343,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       if (now != null && !paused && pending.length && pending[0].dts < now - CATCH_UP_S) {
         for (let i = pending.length - 1; i > 0; i--) {
           if (pending[i].chunk.type === 'key' && pending[i].dts <= now + DECODE_AHEAD_S) {
-            pending.splice(0, i)
+            retireVideo(i)
             skippedChunks += i
             break
           }
@@ -324,7 +356,8 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
         pending[0].dts <= horizon &&
         frames.length + videoDecoder.decodeQueueSize < MAX_QUEUED_FRAMES
       ) {
-        const { chunk } = pending.shift()!
+        const { chunk } = pending[0]
+        retireVideo(1)
         decodeStarted.set(chunk.timestamp, performance.now())
         if (decodeStarted.size > 120) decodeStarted.delete(decodeStarted.keys().next().value!)
         videoDecoder.decode(chunk)
@@ -334,7 +367,9 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       const base = now ?? firstPts ?? (audioPending.length ? audioPending[0].timestamp / 1e6 : 0)
       const audioHorizon = base + (now == null ? START_LEAD_S + AUDIO_DECODE_AHEAD_S : AUDIO_DECODE_AHEAD_S)
       while (audioPending.length && audioPending[0].timestamp / 1e6 <= audioHorizon) {
-        audioDecoder.decode(audioPending.shift()!)
+        const chunk = audioPending.shift()!
+        retireAudio(chunk)
+        audioDecoder.decode(chunk)
       }
     }
   }
@@ -471,24 +506,33 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     return null
   }
 
-  /** Continues from `target` (ahead of the clock, within what's received). Frames wait
-   * compressed until just before they're due, so this only uses the buffer that's there
-   * anyway. Decoding restarts at the last keyframe at or before the target (none ahead =
-   * the frames being decoded already lead there); what comes out before the target is
-   * thrown away, and the clock and the sound hold until the target's picture is ready
-   * (render). */
+  /** Continues from `target`: ahead of the clock within what's received, or behind it
+   * within what's kept (KEEP_BEHIND_S). Both wait compressed, so this only uses buffers
+   * that are there anyway. A skip back first puts the kept past in front of `pending`
+   * again (everything after it is in there too: decoded audio and frames are re-made
+   * from it). Decoding restarts at the last keyframe at or before the target (none
+   * ahead = the frames being decoded already lead there); what comes out before the
+   * target is thrown away, and the clock and the sound hold until the target's picture
+   * is ready (render). */
   const jumpTo = (target: number) => {
+    const back = target < (mediaNow() ?? target)
+    if (back) {
+      pending = [...pastVideo, ...pending]
+      pastVideo = []
+      audioPending = [...pastAudio, ...audioPending]
+      pastAudio = []
+    }
     const key = pending.findLastIndex((p) => p.chunk.type === 'key' && p.chunk.timestamp / 1e6 <= target)
-    if (key >= 0 && videoDecoder.state === 'configured') {
+    if ((key >= 0 || back) && videoDecoder.state === 'configured') {
       videoDecoder.reset()
       videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
       decodeStarted.clear()
-      pending.splice(0, key)
-      skippedChunks += key
+      retireVideo(key)
+      if (!back) skippedChunks += Math.max(0, key)
     }
     for (const f of frames.splice(0)) f.close()
     lastDrawnTs = null
-    while (audioPending.length && audioPending[0].timestamp / 1e6 < target - 0.05) audioPending.shift()
+    while (audioPending.length && audioPending[0].timestamp / 1e6 < target - 0.05) retireAudio(audioPending.shift()!)
     if (audioDecoder?.state === 'configured' && audioConfig) {
       // Chrome's AAC decoder times its output by counting on from earlier input: after
       // skipped input everything would come out stamped in the past (and be dropped).
@@ -496,7 +540,8 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       audioDecoder.configure(audioDecoderConfig(audioConfig))
     }
     unschedule()
-    audioReady = audioReady.filter((a) => a.ts + a.buffer.duration > target)
+    // Back: all of it is decoded again from pastAudio.
+    audioReady = back ? [] : audioReady.filter((a) => a.ts + a.buffer.duration > target)
     skipTarget = target
     starved = false // the target is buffered
     lastFrameAt = performance.now() // the stall watchdog counts from here
@@ -605,6 +650,10 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       streamKbps,
       realtime: arrivals.length ? Math.round((mediaIn / (span / 1000)) * 100) / 100 : undefined,
       bufferAheadS: lastReceived == null ? 0 : Math.max(0, lastReceived - (now ?? firstPts ?? lastReceived)),
+      bufferBehindS: (() => {
+        const from = keptFrom()
+        return from == null || now == null ? 0 : Math.max(0, now - from)
+      })(),
       decodeMs: decodeTimes.length ? decodeTimes.reduce((a, b) => a + b, 0) / decodeTimes.length : undefined,
       decodeQueue: videoDecoder.state === 'configured' ? videoDecoder.decodeQueueSize : 0,
       videoBehindMs: now != null && lastDrawnTs != null && !paused ? Math.round((now - lastDrawnTs) * 1000) : undefined,
@@ -677,7 +726,11 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       const now = mediaNow()
       if (destroyed || paused || now == null || firstPts == null || lastReceived == null) return false
       const target = elapsed + firstPts - startOffset
-      if (target <= now || lastReceived - target < SKIP_MIN_LEFT_S || videoDecoder.state !== 'configured') return false
+      if (videoDecoder.state !== 'configured') return false
+      if (target < now) {
+        const from = keptFrom()
+        if (from == null || target < from) return false // further back than what's kept
+      } else if (target === now || lastReceived - target < SKIP_MIN_LEFT_S) return false
       jumpTo(target)
       return true
     },
@@ -707,8 +760,10 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       unschedule()
       out.disconnect() // silences audio already scheduled ahead
       for (const f of frames.splice(0)) f.close()
-      pending.length = 0
-      audioPending.length = 0
+      pending = []
+      audioPending = []
+      pastVideo = []
+      pastAudio = []
       audioReady = []
       if (videoDecoder.state !== 'closed') videoDecoder.close()
       if (audioDecoder && audioDecoder.state !== 'closed') audioDecoder.close()

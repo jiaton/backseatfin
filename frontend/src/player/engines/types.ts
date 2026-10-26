@@ -46,6 +46,9 @@ export interface EngineStats {
   realtime?: number
   /** Seconds of video received but not yet shown. */
   bufferAheadS?: number
+  /** Seconds already played that are still kept (compressed): how far a skip back
+   * can go without a new stream. */
+  bufferBehindS?: number
   /** Average time from handing a frame to the decoder to getting it back (includes
    * frames held back for B-frame reordering). */
   decodeMs?: number
@@ -94,8 +97,8 @@ export interface StreamEngine {
   resume?(): boolean
   /** Optional: true while the clock is stopped waiting for data (rebuffering). */
   buffering?(): boolean
-  /** Optional: jump forward to `elapsed` seconds within what's already received (lands
-   * on the keyframe at or before it). false = not buffered that far (reconnect). */
+  /** Optional: jump to `elapsed` seconds within what's received ahead, or kept behind,
+   * landing exactly. false = not buffered there (reconnect). */
   skipTo?(elapsed: number): boolean
   /** Optional: true = fetch PROBE_EXTRA_S further ahead than usual, in bursts long
    * enough to measure what the network can do (to offer a higher quality). It's video

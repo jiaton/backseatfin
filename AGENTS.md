@@ -351,7 +351,14 @@ by design.
        its output by counting on from the skipped input, and everything was dropped as
        past). It only uses the buffer that's there anyway (kept compressed), so it
        costs no memory; it refuses when less than `SKIP_MIN_LEFT_S` (2 s) would be
-       left, backwards, or while paused.
+       left, or while paused.
+     - **A seek back within the last `KEEP_BEHIND_S` (20 s) played** (a "−15 s" tap)
+       needs no stream either: the pipeline keeps what it handed to the decoders,
+       *compressed* (`pastVideo`/`pastAudio`, from the keyframe before that point on,
+       not before where the stream was asked to start), and `jumpTo` puts it back in
+       front of `pending` and decodes again from the keyframe at or before the target.
+       ≈ 2 MB at 480p, 7 MB at 1080p (owner OK'd ~10 MB); decoded frames are never kept.
+       Measured on prod (480p): −15 s lands exactly, sound on at once, A/V within 10 ms.
      - A stream started mid-film (copied H.264) has its picture from the keyframe
        before `t` and its sound from `t` exactly. The pipeline waits for the first
        sound before starting the clock and skips the picture before it (`jumpTo`,
