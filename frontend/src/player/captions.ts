@@ -1,5 +1,5 @@
-/** Text captions drawn over the picture (YouTube's: the stream itself has none burned
- * in). The page asks the source for a track's cues and this keeps the right lines on
+/** Text captions drawn over the picture (YouTube's, and a media server's text subtitles:
+ * the stream itself has none burned in). The page asks the source for a track's cues and this keeps the right lines on
  * screen as the clock moves. */
 
 export interface Cue {
@@ -22,6 +22,33 @@ export function activeText(cues: Cue[], t: number): string {
     if (t < Math.max(c.end, c.start + MIN_SHOW_S)) lines.push(c.text)
   }
   return lines.slice(-MAX_LINES).join('\n')
+}
+
+const TIME = /(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/
+const seconds = (m: RegExpExecArray) => Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4].padEnd(3, '0')) / 1000
+
+/** A media server's text subtitles as WebVTT or SRT → cues. Styling is dropped (tags,
+ * ASS overrides such as {\an8}): the layer draws plain lines. */
+export function parseSubtitles(text: string): Cue[] {
+  const cues: Cue[] = []
+  for (const block of text.replace(/\r/g, '').split(/\n{2,}/)) {
+    const lines = block.split('\n')
+    const at = lines.findIndex((l) => l.includes('-->'))
+    if (at < 0) continue
+    const [from, to] = lines[at].split('-->')
+    const start = TIME.exec(from)
+    const end = TIME.exec(to)
+    if (!start || !end) continue
+    const body = lines
+      .slice(at + 1)
+      .join('\n')
+      .replace(/<[^>]*>|\{\\[^}]*\}/g, '')
+      .replace(/\\N/g, '\n')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .trim()
+    if (body) cues.push({ start: seconds(start), end: seconds(end), text: body })
+  }
+  return cues.sort((a, b) => a.start - b.start)
 }
 
 export function createCaptionLayer(now: () => number) {

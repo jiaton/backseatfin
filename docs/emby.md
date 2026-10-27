@@ -168,22 +168,21 @@ usual; Play opens the car player and the back arrow returns to where you were. P
 and "watched" sync with Emby like any other client.
 
 The player's settings sheet has quality (each level shows its real picture size, bitrate
-and data per hour), audio track, subtitles (burned in by Emby), language, and "Stats for
+and data per hour), audio track, subtitles, language, and "Stats for
 nerds". While a video loads, the player says what it's doing and how fast the network is.
 
-### Subtitles don't show
+### Subtitles
 
-The car player has Emby burn subtitles into the picture. For text subtitles (SRT, ASS)
-Emby's ffmpeg needs a system font to fall back on, and the `emby/embyserver` image has
-none: picture subtitles (PGS) show, text ones come out blank, while Emby's web app on a
-computer (which draws them itself) shows them fine. Give the container a font folder,
-with a font that covers your subtitles' languages (for Chinese, Japanese or Korean, e.g.
-[Noto Sans CJK](https://github.com/notofonts/noto-cjk)):
+Text subtitles (SRT, ASS, WebVTT) are drawn by the car player in the browser's own font
+(plain lines; ASS styling is dropped). Picture subtitles (PGS, DVD) are burned into the
+picture by Emby. Emby has to read the whole file to extract a text track embedded in it,
+so the first time a film's subtitles are used they can take half a minute or more (a big
+file on a slow disk: minutes); the film plays meanwhile and "Loading subtitles…" shows.
+Emby keeps the extracted track, so after that they come at once.
 
-```yaml
-    volumes:
-      - ./fonts:/usr/share/fonts/extra:ro
-```
+Why not burn text subtitles in too: Emby's ffmpeg would read the whole file again at
+every start and every long skip, before the first picture (33 s for a 1.9 GB episode on a
+NAS disk, against 0.3 s without subtitles).
 
 ## Optional: HDR films (the BackseatFin server, way C only)
 

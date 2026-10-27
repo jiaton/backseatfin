@@ -1,7 +1,7 @@
 # Jellyfin
 
 On Jellyfin, BackseatFin is just a plugin: no other server or container. Jellyfin does the
-transcoding (including burning in subtitles and tone-mapping HDR, if you've set that up in
+transcoding (including burning in picture subtitles and tone-mapping HDR, if you've set that up in
 Jellyfin), and the plugin's player draws the result on a canvas in the car.
 
 Needs Jellyfin 12.0 or later, reached over HTTPS (the player uses WebCodecs, which browsers
@@ -47,7 +47,8 @@ capped to the screen: the stream is never sent larger than the window can show.
   served; nothing on disk changes). When Jellyfin's own player starts a video, the script
   opens `/BackseatFin/play` over the page instead.
 - The player asks Jellyfin for an HLS transcode: H.264 + stereo AAC in MPEG-TS segments,
-  sized to the screen, with the chosen subtitles burned in. It downloads segments one after
+  sized to the screen, with picture subtitles (PGS, DVD) burned in; text subtitles are
+  fetched as WebVTT and drawn by the player. It downloads segments one after
   another, demuxes them in JavaScript and decodes them with the car's hardware H.264 decoder
   (WebCodecs), drawing onto a canvas.
 - Seeking asks Jellyfin for the segment at the new position; Jellyfin restarts its encoder

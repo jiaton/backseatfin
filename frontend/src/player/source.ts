@@ -59,8 +59,9 @@ export interface PlaybackSource {
   /** Best effort: resume points and "watched" stay in sync with the server's other
    * clients. `leaving`: the page is going away (the request must survive that). */
   report(event: PlaybackEvent, positionSeconds: number, choice: StreamChoice, opts?: { paused?: boolean; leaving?: boolean }): void
-  /** Captions the page draws over the picture itself (YouTube's), by track index:
-   * choosing one needs no new stream. */
+  /** Captions the page draws over the picture itself, by track index: every track of
+   * YouTube's, a media server's text tracks (kind 'text'; image ones stay burned in).
+   * Choosing one needs no new stream. */
   captions?(index: number): Promise<Cue[]>
   /** Text subtitles the server has to prepare before it can burn them in (Emby). */
   prepareSubtitle?(index: number): Promise<SubtitleState>

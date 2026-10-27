@@ -256,7 +256,15 @@ by design.
   mid-film with PGS burned in took ~4.4 s, then ~0.4 s each.
   - Stream = `/Videos/{id}/master.m3u8` with `VideoCodec=h264`, `AudioCodec=aac`,
     `MaxAudioChannels=2`, `SegmentContainer=ts`, the level's bitrate, `MaxWidth`/`MaxHeight`
-    = the level's box capped to the screen, and `SubtitleMethod=Encode` (burned in).
+    = the level's box capped to the screen, and for an *image* subtitle
+    `SubtitleMethod=Encode` (burned in). **Text subtitles are never burned in**: to burn
+    an embedded one, the server's ffmpeg (`subtitles=filename=<the mkv>`) reads the whole
+    file before the first frame, at every start and seek (33 s for a 1.9 GB mkv on the
+    NAS disk, 0.3 s without). Instead `PlaybackSource.captions` fetches
+    `/Videos/{id}/{source}/Subtitles/{i}/0/Stream.vtt` (the server extracts it once and
+    keeps it; the first time can take as long, while the film plays) and the page draws
+    it like YouTube's (`captions.ts: parseSubtitles`, plain lines). So a text track's
+    choice isn't part of the transcode (`burned()`): switching it needs no new stream.
   - **Quality levels are sizes** (`quality.ts`, `PlaybackSource.levels`). Both servers pick
     the picture *width* from the bitrate (an explicit `Width` is ignored), with different
     tiers: Emby 4.8 gives 720 wide under 3 Mbps, 1280 from 3, 1920 from 4; Jellyfin 12

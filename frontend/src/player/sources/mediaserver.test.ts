@@ -42,7 +42,7 @@ describe('media server source helpers', () => {
 
   it('builds the authorization header without letting values break out of quotes', () => {
     expect(authorization('tok"en', 'dev')).toBe(
-      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.14", Token="token"',
+      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.15", Token="token"',
     )
   })
 
@@ -153,6 +153,30 @@ describe('createServerSource', () => {
     const stopped = calls.find((x) => x.url === '/jf/Sessions/Playing/Stopped')!
     expect(stopped).toMatchObject({ keepalive: true, body: { PositionTicks: 300_000_000 } })
     expect(calls.some((x) => x.method === 'DELETE' && x.keepalive)).toBe(true)
+  })
+
+  it('draws text subtitles itself (fetched as WebVTT) and has only image ones burned in', async () => {
+    const calls = setup()
+    const source = await createServerSource('Jellyfin', 'abc', '/jf')
+    const text = new URL(source.streamUrl(0, 'hls', CHOICE)) // sub 3: text
+    expect(text.searchParams.get('SubtitleStreamIndex')).toBe('-1')
+    expect(text.searchParams.has('SubtitleMethod')).toBe(false)
+    // no subtitles or a text one: the same transcode
+    const off = new URL(source.streamUrl(0, 'hls', { ...CHOICE, sub: undefined }))
+    expect(off.searchParams.get('PlaySessionId')).toBe(text.searchParams.get('PlaySessionId'))
+    const image = new URL(source.streamUrl(0, 'hls', { ...CHOICE, sub: 4 }))
+    expect(image.searchParams.get('SubtitleStreamIndex')).toBe('4')
+    expect(image.searchParams.get('SubtitleMethod')).toBe('Encode')
+    expect(image.searchParams.get('PlaySessionId')).not.toBe(text.searchParams.get('PlaySessionId'))
+
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
+      calls.push({ method: init.method ?? 'GET', url, auth: (init.headers as Record<string, string>).Authorization })
+      return new Response('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHi\n')
+    }))
+    expect(await source.captions!(3)).toEqual([{ start: 1, end: 2, text: 'Hi' }])
+    const get = calls.at(-1)!
+    expect(get.url).toBe('/jf/Videos/abc/ms1/Subtitles/3/0/Stream.vtt')
+    expect(get.auth).toContain('Token="tok"')
   })
 
   it('says "not signed in" without a session', async () => {

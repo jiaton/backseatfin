@@ -412,6 +412,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
 
   // --- settings sheet (quality / audio / subtitles) ----------------------------------
   const choose = (patch: Partial<typeof state>) => {
+    const burnedBefore = burnedSub(state.sub)
     Object.assign(state, patch)
     if (patch.quality) {
       saveQuality(patch.quality)
@@ -419,8 +420,11 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       hideHint()
     }
     closeSheet()
-    if ('sub' in patch && source.captions) return void showCaptions() // drawn here: same stream
-    if ('sub' in patch) watchSubtitle()
+    if ('sub' in patch) {
+      watchSubtitle()
+      if (source.captions) void showCaptions()
+      if (burnedSub(state.sub) === burnedBefore) return // drawn here: same stream
+    }
     video.reload()
   }
   function group(label: string, options: { label: string; detail?: string; selected: boolean; pick: () => void }[]) {
@@ -627,15 +631,23 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     void check()
   }
 
-  // --- captions drawn over the picture (sources that have them: YouTube) ---------------
+  // --- captions drawn over the picture (YouTube's; a media server's text tracks) -------
+  /** Drawn by the page, not burned into the stream. */
+  function drawn(index: number | undefined) {
+    return source.captions != null && item.subtitleTracks.find((tr) => tr.index === index)?.kind === 'text'
+  }
+  function burnedSub(index: number | undefined) {
+    return drawn(index) ? undefined : index
+  }
   let captionRequest = 0
   async function showCaptions() {
     const request = ++captionRequest
     captionLayer.clear()
     const track = item.subtitleTracks.find((tr) => tr.index === state.sub)
-    saveCaptionLang(track?.lang ?? null)
+    // The remembered language is YouTube's (its tracks have one).
+    if (item.subtitleTracks.some((tr) => tr.lang)) saveCaptionLang(track?.lang ?? null)
     subState = 'none'
-    if (track && source.captions) {
+    if (track && source.captions && drawn(track.index)) {
       subState = 'pending'
       renderSubChip()
       try {
@@ -656,7 +668,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   }
 
   applyTexts()
+  watchSubtitle()
   if (source.captions) void showCaptions()
-  else watchSubtitle()
   void video.play()
 }
