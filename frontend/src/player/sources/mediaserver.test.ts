@@ -42,7 +42,7 @@ describe('media server source helpers', () => {
 
   it('builds the authorization header without letting values break out of quotes', () => {
     expect(authorization('tok"en', 'dev')).toBe(
-      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.15", Token="token"',
+      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.16", Token="token"',
     )
   })
 
@@ -55,11 +55,11 @@ describe('media server source helpers', () => {
       MaxAudioChannels: '2', SegmentContainer: 'ts', VideoBitrate: '1500000', MaxHeight: '720', MaxWidth: '1280',
       AudioStreamIndex: '2', SubtitleStreamIndex: '3', SubtitleMethod: 'Encode',
     })
-    // a small window caps the height; no subtitles is -1
+    // a small window caps the height; no subtitles = no index (Emby burns its first for -1)
     const small = streamQuery('ms', 'ps', 'dev', { quality: 'high', box: { w: 800, h: 334 } }, JF.high)
     expect(small.get('MaxHeight')).toBe('334')
     expect(small.get('MaxWidth')).toBe('800')
-    expect(small.get('SubtitleStreamIndex')).toBe('-1')
+    expect(small.has('SubtitleStreamIndex')).toBe(false)
     expect(small.has('SubtitleMethod')).toBe(false)
     expect(small.has('AudioStreamIndex')).toBe(false)
     // unknown box (not laid out yet): the level alone
@@ -159,7 +159,7 @@ describe('createServerSource', () => {
     const calls = setup()
     const source = await createServerSource('Jellyfin', 'abc', '/jf')
     const text = new URL(source.streamUrl(0, 'hls', CHOICE)) // sub 3: text
-    expect(text.searchParams.get('SubtitleStreamIndex')).toBe('-1')
+    expect(text.searchParams.has('SubtitleStreamIndex')).toBe(false)
     expect(text.searchParams.has('SubtitleMethod')).toBe(false)
     // no subtitles or a text one: the same transcode
     const off = new URL(source.streamUrl(0, 'hls', { ...CHOICE, sub: undefined }))

@@ -265,6 +265,8 @@ by design.
     keeps it; the first time can take as long, while the film plays) and the page draws
     it like YouTube's (`captions.ts: parseSubtitles`, plain lines). So a text track's
     choice isn't part of the transcode (`burned()`): switching it needs no new stream.
+    No subtitle burned = **no `SubtitleStreamIndex` at all**: Emby 4.8 looks `-1` up as a
+    stream, finds none and falls back to the *first* subtitle stream (burned in).
   - **Quality levels are sizes** (`quality.ts`, `PlaybackSource.levels`). Both servers pick
     the picture *width* from the bitrate (an explicit `Width` is ignored), with different
     tiers: Emby 4.8 gives 720 wide under 3 Mbps, 1280 from 3, 1920 from 4; Jellyfin 12

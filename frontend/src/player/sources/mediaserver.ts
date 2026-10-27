@@ -16,7 +16,7 @@ import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoic
 export type MediaServer = 'Emby' | 'Jellyfin'
 
 export const CLIENT_NAME = 'BackseatFin'
-const CLIENT_VERSION = '0.4.15'
+const CLIENT_VERSION = '0.4.16'
 const DEVICE_KEY = 'backseatfin:device'
 const TICKS_PER_SECOND = 10_000_000
 const AUDIO_BITRATE = 128_000
@@ -152,9 +152,9 @@ export function streamQuery(
   if (choice.sub != null) {
     q.set('SubtitleStreamIndex', String(choice.sub))
     q.set('SubtitleMethod', 'Encode') // burned in: the canvas has no image tracks
-  } else {
-    q.set('SubtitleStreamIndex', '-1')
   }
+  // None: no SubtitleStreamIndex at all. Emby takes -1 as "a stream that doesn't exist"
+  // and falls back to the first subtitle stream, burning it in.
   return q
 }
 
