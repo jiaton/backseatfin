@@ -342,7 +342,7 @@ by design.
      - Pause, seek, quality and track changes all reconnect with new params (the page
        calls `reload()` after changing what `url()` encodes).
      - Seeks while playing settle for `SEEK_SETTLE_MS` (300 ms) first, so dragging the
-       bar or tapping +30 s three times opens one server stream.
+       bar or tapping +60 s three times opens one server stream.
      - A seek forward that lands inside what's already received (a "+10 s" tap) needs
        no stream at all: the engine's `skipTo` (`webcodecs-pipeline.ts: jumpTo`)
        restarts decoding at the last keyframe at or before the target, drops what comes
@@ -352,7 +352,7 @@ by design.
        past). It only uses the buffer that's there anyway (kept compressed), so it
        costs no memory; it refuses when less than `SKIP_MIN_LEFT_S` (2 s) would be
        left, or while paused.
-     - **A seek back within the last `KEEP_BEHIND_S` (20 s) played** (a "−15 s" tap)
+     - **A seek back within the last `KEEP_BEHIND_S` (20 s) played** (a "−10 s" tap)
        needs no stream either: the pipeline keeps what it handed to the decoders,
        *compressed* (`pastVideo`/`pastAudio`, from the keyframe before that point on,
        not before where the stream was asked to start), and `jumpTo` puts it back in
@@ -437,7 +437,9 @@ by design.
        for tests.
    - **Media Chrome** (MIT, web components, `media-chrome/dist/...` imports):
      - It provides the controller, play button, time range and time display. We
-       provide the back button and title (top), −15/+30 s (centre), and a settings sheet
+       provide the back button and title (top), skips −60/−10/+10/+60 s around play
+       (centre; ±10 lands in the buffer or the kept past, so it needs no stream, ±60
+       reconnects), and a settings sheet
        with big option buttons for quality, audio, subtitles and language (its own
        menus are desktop-sized).
      - `gesturesdisabled`: a tap never toggles play.

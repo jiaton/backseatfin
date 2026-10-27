@@ -94,7 +94,7 @@ car-video {
 .cm-center {
   display: flex;
   align-items: center;
-  gap: 48px;
+  gap: 32px;
 }
 
 .cm-icon-button {
@@ -123,6 +123,62 @@ car-video {
 .cm-round svg {
   width: 34px;
   height: 34px;
+}
+
+/* Skip buttons: the circular arrow with its seconds under it. */
+.cm-round:has(.cm-skip-n) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.cm-round:has(.cm-skip-n) svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cm-skip-n {
+  font: 600 14px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Long skips: a step smaller, further out. */
+.cm-long {
+  width: 60px;
+  height: 60px;
+}
+
+.cm-round.cm-long svg {
+  width: 24px;
+  height: 24px;
+}
+
+.cm-long .cm-skip-n {
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .cm-center {
+    gap: 10px;
+  }
+
+  .cm-round {
+    width: 60px;
+    height: 60px;
+  }
+
+  .cm-long {
+    width: 56px;
+    height: 56px;
+  }
+
+  .cm-play {
+    width: 80px;
+    height: 80px;
+    padding: 20px;
+  }
 }
 
 .cm-play {

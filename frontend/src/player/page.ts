@@ -30,6 +30,10 @@ const SUBTITLE_POLL_MS = 3000
 const AUTOHIDE_S = 3
 const STATS_EVERY_MS = 500
 /** Quality advice: how often the network is looked at, and how long a button stays. */
+/** The skip buttons: short ones stay within the buffer (≤ KEEP_BEHIND_S back, and
+ * usually ahead too), long ones jump further. */
+const SHORT_SKIP_S = 10
+const LONG_SKIP_S = 60
 const ADVICE_EVERY_MS = 2000
 const ADVICE_SHOWN_MS = 20_000
 /** A "lower" hint goes away (not snoozed) once playing again with this much buffered:
@@ -156,10 +160,21 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const title = h('h1', { class: 'cm-title' }, item.title)
   const top = h('div', { slot: 'top-chrome', class: 'cm-top' }, back, title)
 
-  const rewind = h('button', { class: 'cm-icon-button cm-round' }, icon('rewind'))
-  const forward = h('button', { class: 'cm-icon-button cm-round' }, icon('forward'))
+  // Short skips land in what's buffered ahead or kept behind (no new stream); long ones
+  // reconnect.
+  const skip = (seconds: number) => {
+    const button = h(
+      'button',
+      { class: `cm-icon-button cm-round${Math.abs(seconds) === LONG_SKIP_S ? ' cm-long' : ''}` },
+      icon(seconds < 0 ? 'rewind' : 'forward'),
+      h('span', { class: 'cm-skip-n', 'aria-hidden': 'true' }, String(Math.abs(seconds))),
+    )
+    button.addEventListener('click', () => (video.currentTime += seconds))
+    return button
+  }
+  const skips = [-LONG_SKIP_S, -SHORT_SKIP_S, SHORT_SKIP_S, LONG_SKIP_S].map((s) => ({ s, el: skip(s) }))
   const play = h('media-play-button', { class: 'cm-play', notooltip: '' })
-  const center = h('div', { slot: 'centered-chrome', class: 'cm-center' }, rewind, play, forward)
+  const center = h('div', { slot: 'centered-chrome', class: 'cm-center' }, skips[0].el, skips[1].el, play, skips[2].el, skips[3].el)
 
   const settings = h('button', { class: 'cm-icon-button', 'aria-haspopup': 'dialog' }, icon('settings'))
   const bar = h(
@@ -201,8 +216,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   }
   function applyTexts() {
     back.setAttribute('aria-label', t('backTo', { server }))
-    rewind.setAttribute('aria-label', t('rewind'))
-    forward.setAttribute('aria-label', t('forward'))
+    for (const { s, el } of skips) el.setAttribute('aria-label', t(s < 0 ? 'rewind' : 'forward', { n: Math.abs(s) }))
     settings.setAttribute('aria-label', t('settings'))
     sheet.setAttribute('aria-label', t('settings'))
     bar.querySelector('media-time-range')?.setAttribute('aria-label', t('progress'))
@@ -352,8 +366,6 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   document.addEventListener('pointerdown', () => video.unlockAudio(), { capture: true })
   unlock.addEventListener('click', () => video.unlockAudio())
 
-  rewind.addEventListener('click', () => (video.currentTime -= 15))
-  forward.addEventListener('click', () => (video.currentTime += 30))
 
   // --- quality advice: a button, never a switch by itself ------------------------------
   // The network can't keep up → offer a lower level; once it clearly can again → offer
