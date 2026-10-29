@@ -7,7 +7,8 @@ import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoic
 /**
  * Emby or Jellyfin, straight from the browser — no BackseatFin server. The media server
  * transcodes to HLS (H.264 + AAC in MPEG-TS, image subtitles burned in) and the `hls`
- * engine plays it on a canvas; text subtitles are fetched as WebVTT and drawn by the page. The player page is served on the media server's own origin (by
+ * engine plays it on a canvas; text subtitles are drawn by the page (Emby: WebVTT
+ * segments written by the same transcode; Jellyfin: the whole track as WebVTT). The player page is served on the media server's own origin (by
  * the Jellyfin plugin, or by the car host in front of Emby), so it uses the viewer's
  * session as is: the server checks every request itself. Both servers share this API
  * (Jellyfin forked from Emby): same paths, header and parameters.
@@ -16,7 +17,7 @@ import { episodeTitle, type PlaybackEvent, type PlaybackSource, type StreamChoic
 export type MediaServer = 'Emby' | 'Jellyfin'
 
 export const CLIENT_NAME = 'BackseatFin'
-const CLIENT_VERSION = '0.4.16'
+const CLIENT_VERSION = '0.4.17'
 const DEVICE_KEY = 'backseatfin:device'
 const TICKS_PER_SECOND = 10_000_000
 const AUDIO_BITRATE = 128_000
@@ -128,6 +129,7 @@ export function streamQuery(
   device: string,
   choice: StreamChoice,
   level: Level,
+  subtitleMethod: 'Encode' | 'Hls' = 'Encode',
 ): URLSearchParams {
   const { w, h } = choice.box
   const fits = w >= 160 && h >= 120
@@ -151,7 +153,14 @@ export function streamQuery(
   if (choice.audio != null) q.set('AudioStreamIndex', String(choice.audio))
   if (choice.sub != null) {
     q.set('SubtitleStreamIndex', String(choice.sub))
-    q.set('SubtitleMethod', 'Encode') // burned in: the canvas has no image tracks
+    if (subtitleMethod === 'Hls') {
+      // Segmented alongside the video, from the same read of the file (Emby).
+      q.set('SubtitleMethod', 'Hls')
+      q.set('ManifestSubtitles', 'vtt')
+      q.set('SubtitleStreamIndexes', String(choice.sub))
+    } else {
+      q.set('SubtitleMethod', 'Encode') // burned in: the canvas has no image tracks
+    }
   }
   // None: no SubtitleStreamIndex at all. Emby takes -1 as "a stream that doesn't exist"
   // and falls back to the first subtitle stream, burning it in.
@@ -195,12 +204,15 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
   const subtitleTracks = streams.filter((s) => s.Type === 'Subtitle').map(track)
   // Text subtitles are drawn by the page, never burned in: to burn an embedded one in,
   // the server's encoder reads the whole file first, at every start and seek (33 s for
-  // a 1.9 GB mkv on a NAS disk; 0.3 s without). Fetched as text, the server extracts it
-  // once and keeps it.
-  const burned = (choice: StreamChoice): StreamChoice => ({
-    ...choice,
-    sub: subtitleTracks.find((t) => t.index === choice.sub)?.kind === 'image' ? choice.sub : undefined,
-  })
+  // a 1.9 GB mkv on a NAS disk; 0.3 s without). Emby segments them into WebVTT in the
+  // same transcode (the same read of the file; nothing extra). Jellyfin can't do that
+  // for an embedded track, so it's fetched whole (extracted once, then kept).
+  const inStream = server === 'Emby'
+  const kindOf = (index?: number) => subtitleTracks.find((t) => t.index === index)?.kind
+  const forStream = (choice: StreamChoice): StreamChoice => {
+    const kind = kindOf(choice.sub)
+    return { ...choice, sub: kind === 'image' || (kind === 'text' && inStream) ? choice.sub : undefined }
+  }
 
   // One server transcode per choice of tracks/quality/size. Seeking keeps it (the server
   // restarts its encoder at the segment we ask for); a new choice gets a new one, and the
@@ -212,7 +224,7 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
     call('DELETE', `/Videos/ActiveEncodings?${q}`, undefined, keepalive).catch(() => {})
   }
   const sessionFor = (choice: StreamChoice) => {
-    const key = choiceKey(burned(choice))
+    const key = choiceKey(forStream(choice))
     if (key !== session.key) {
       stopEncoding(session.id)
       session = { key, id: crypto.getRandomValues(new Uint32Array(4)).join('') }
@@ -239,16 +251,20 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
     engines: ['hls'],
     levels: () => MEDIA_SERVER_LEVELS[server],
     streamUrl: (start, _engine, choice) => {
-      const q = streamQuery(media.Id, sessionFor(choice), device, burned(choice), MEDIA_SERVER_LEVELS[server][choice.quality])
+      const method = kindOf(choice.sub) === 'text' ? 'Hls' : 'Encode'
+      const q = streamQuery(media.Id, sessionFor(choice), device, forStream(choice), MEDIA_SERVER_LEVELS[server][choice.quality], method)
       return withStart(`${hosted ? base : window.location.origin + root}/Videos/${encodeURIComponent(item.Id)}/master.m3u8?${q}`, start)
     },
     headers: () => ({ Authorization: auth }),
-    // Text tracks only (the page burns nothing in itself). The first fetch of an embedded
-    // track waits while the server reads the file; the picture plays meanwhile.
-    captions: async (index) => {
-      const path = `/Videos/${encodeURIComponent(item.Id)}/${encodeURIComponent(media.Id)}/Subtitles/${index}/0/Stream.vtt`
-      return parseSubtitles(await (await call('GET', path)).text())
-    },
+    subtitlesInStream: inStream,
+    // Jellyfin, text tracks only. The first fetch of an embedded track waits while the
+    // server reads the file; the picture plays meanwhile.
+    captions: inStream
+      ? undefined
+      : async (index) => {
+          const path = `/Videos/${encodeURIComponent(item.Id)}/${encodeURIComponent(media.Id)}/Subtitles/${index}/0/Stream.vtt`
+          return parseSubtitles(await (await call('GET', path)).text())
+        },
     report: (event, position, choice, opts = {}) => {
       const body = {
         ItemId: item.Id,

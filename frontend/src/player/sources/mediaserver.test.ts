@@ -42,7 +42,7 @@ describe('media server source helpers', () => {
 
   it('builds the authorization header without letting values break out of quotes', () => {
     expect(authorization('tok"en', 'dev')).toBe(
-      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.16", Token="token"',
+      'MediaBrowser Client="BackseatFin", Device="Car browser", DeviceId="dev", Version="0.4.17", Token="token"',
     )
   })
 
@@ -177,6 +177,22 @@ describe('createServerSource', () => {
     const get = calls.at(-1)!
     expect(get.url).toBe('/jf/Videos/abc/ms1/Subtitles/3/0/Stream.vtt')
     expect(get.auth).toContain('Token="tok"')
+  })
+
+  it('has Emby segment text subtitles into the same transcode (no extra read of the file)', async () => {
+    setup()
+    const source = await createServerSource('Emby', 'abc', '/jf')
+    expect(source.captions).toBeUndefined()
+    expect(source.subtitlesInStream).toBe(true)
+    const text = new URL(source.streamUrl(0, 'hls', CHOICE)) // sub 3: text
+    expect(Object.fromEntries(text.searchParams)).toMatchObject({
+      SubtitleStreamIndex: '3', SubtitleMethod: 'Hls', ManifestSubtitles: 'vtt', SubtitleStreamIndexes: '3',
+    })
+    const off = new URL(source.streamUrl(0, 'hls', { ...CHOICE, sub: undefined }))
+    expect(off.searchParams.has('SubtitleStreamIndex')).toBe(false)
+    expect(off.searchParams.get('PlaySessionId')).not.toBe(text.searchParams.get('PlaySessionId'))
+    const image = new URL(source.streamUrl(0, 'hls', { ...CHOICE, sub: 4 }))
+    expect(image.searchParams.get('SubtitleMethod')).toBe('Encode')
   })
 
   it('says "not signed in" without a session', async () => {

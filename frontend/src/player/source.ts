@@ -63,6 +63,9 @@ export interface PlaybackSource {
    * YouTube's, a media server's text tracks (kind 'text'; image ones stay burned in).
    * Choosing one needs no new stream. */
   captions?(index: number): Promise<Cue[]>
+  /** Text subtitles come inside the stream (the engine hands their cues to the page,
+   * which draws them): choosing one starts a new stream (Emby). */
+  readonly subtitlesInStream?: boolean
   /** Text subtitles the server has to prepare before it can burn them in (Emby). */
   prepareSubtitle?(index: number): Promise<SubtitleState>
 }

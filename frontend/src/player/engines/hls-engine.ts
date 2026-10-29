@@ -1,4 +1,5 @@
-import { firstVariant, parseMediaPlaylist, type Segment, segmentAt, splitStart } from './hls'
+import { type Cue, parseSubtitles } from '../captions'
+import { firstVariant, parseMediaPlaylist, type Segment, segmentAt, splitStart, subtitleRendition } from './hls'
 import type { EngineCallbacks, EngineErrorKind, StreamEngine } from './types'
 import { createPipeline, MEASURE_MIN_BYTES, MEASURE_MIN_MS, measured, PROBE_EXTRA_S, type Pipeline } from './webcodecs-pipeline'
 
@@ -6,6 +7,9 @@ import { createPipeline, MEASURE_MIN_BYTES, MEASURE_MIN_MS, measured, PROBE_EXTR
  * 1.5–3 Mbps). Rides out a mobile dead zone of that length, like the WebSocket engine's
  * BUFFER_HIGH_S; segments past it wait, so the car's memory stays flat. */
 export const MAX_AHEAD_S = 20
+/** Emby finishes a subtitle segment once its next video segment is done; one more for
+ * margin. */
+const SUBTITLE_LAG = 2
 /** A failed segment fetch is retried in place this many times before the engine gives
  * up and lets the player reconnect (which starts over with an empty buffer)… */
 const SEGMENT_RETRIES = 3
@@ -56,19 +60,28 @@ async function get(url: string, headers: Record<string, string>, signal: AbortSi
 
 // Seeking reconnects with the same playlist URL: keep the last few, so a seek costs
 // one segment request, not two playlist round trips first.
-const playlists = new Map<string, Promise<Segment[]>>()
+interface Playlists {
+  segments: Segment[]
+  /** Subtitle segments, when the master playlist has a subtitle rendition (Emby). */
+  subtitles: Segment[] | null
+}
+const playlists = new Map<string, Promise<Playlists>>()
 const MAX_PLAYLISTS = 4
 
-function loadPlaylist(url: string, headers: Record<string, string>, signal: AbortSignal): Promise<Segment[]> {
+function loadPlaylist(url: string, headers: Record<string, string>, signal: AbortSignal): Promise<Playlists> {
   let p = playlists.get(url)
   if (!p) {
     p = (async () => {
       const text = await (await get(url, headers, signal)).text()
       const variant = firstVariant(text, url)
-      const media = variant ? await (await get(variant, headers, signal)).text() : text
+      const subs = subtitleRendition(text, url)
+      const [media, subtitles] = await Promise.all([
+        variant ? get(variant, headers, signal).then((r) => r.text()) : text,
+        subs ? get(subs, headers, signal).then(async (r) => parseMediaPlaylist(await r.text(), subs)).catch(() => null) : null,
+      ])
       const segments = parseMediaPlaylist(media, variant ?? url)
       if (!segments.length) throw new Error('empty playlist')
-      return segments
+      return { segments, subtitles: subtitles?.length ? subtitles : null }
     })()
     p.catch(() => playlists.delete(url))
     playlists.set(url, p)
@@ -107,27 +120,60 @@ export function createHlsEngine(
   pipeline.probe = (on) => {
     probing = on
   }
-  void run(pipeline, url, headers, abort.signal, () => MAX_AHEAD_S + (probing ? PROBE_EXTRA_S : 0))
+  void run(pipeline, url, headers, abort.signal, () => MAX_AHEAD_S + (probing ? PROBE_EXTRA_S : 0), cb)
   return pipeline
 }
 
-async function run(pipeline: Pipeline, url: string, headers: Record<string, string>, signal: AbortSignal, maxAhead: () => number) {
+async function run(
+  pipeline: Pipeline,
+  url: string,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  maxAhead: () => number,
+  cb: Pick<EngineCallbacks, 'onCues'>,
+) {
   const { url: playlistUrl, start } = splitStart(url)
   try {
-    const segments = await loadPlaylist(playlistUrl, headers, signal)
+    const { segments, subtitles } = await loadPlaylist(playlistUrl, headers, signal)
     let i = segmentAt(segments, start)
     // The picture starts at the segment boundary, up to one segment before `start`.
     pipeline.setStartOffset(segments[i].start - start)
+    const first = i
+    // Subtitles: the same transcode writes them alongside, a few hundred bytes a segment,
+    // but a subtitle segment is complete only once the encoder is past it: fetched
+    // SUBTITLE_LAG segments behind the video (still far ahead of the clock).
+    let subsDone = -1
+    const subtitlesUpTo = (j: number) => {
+      if (!subtitles || !cb.onCues) return
+      for (let k = Math.max(subsDone + 1, segmentAt(subtitles, segments[first].start)); k <= segmentAt(subtitles, segments[j].start); k++) {
+        void fetchCues(subtitles[k].url, headers, signal, cb.onCues)
+        subsDone = k
+      }
+    }
     for (; i < segments.length; i++) {
       while (pipeline.bufferedAhead() > maxAhead()) await sleep(WAIT_POLL_MS, signal)
       pipeline.inputStats.segment = i
       await fetchSegment(pipeline, segments[i].url, headers, signal)
+      if (i - SUBTITLE_LAG >= first) subtitlesUpTo(i - SUBTITLE_LAG)
     }
+    subtitlesUpTo(segments.length - 1)
     pipeline.flush()
   } catch (e) {
     if (signal.aborted || pipeline.destroyed) return
     const { message, kind } = classify(e)
     pipeline.fail(message, kind)
+  }
+}
+
+/** Cue times are media seconds as they are: Emby writes LOCAL 0 = the stream's start
+ * (X-TIMESTAMP-MAP), and its transcode keeps the source's timestamps. A segment that
+ * fails just has no subtitles. */
+async function fetchCues(url: string, headers: Record<string, string>, signal: AbortSignal, onCues: (cues: Cue[]) => void) {
+  try {
+    const cues = parseSubtitles(await (await get(url, headers, signal)).text())
+    if (cues.length && !signal.aborted) onCues(cues)
+  } catch {
+    // missing a few lines beats stopping the picture
   }
 }
 

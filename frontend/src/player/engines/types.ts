@@ -1,3 +1,5 @@
+import type { Cue } from '../captions'
+
 /** A way of turning a stream into pictures and sound on a canvas. The player swaps
  * engines without caring which one runs.
  * webcodecs: our server's H.264 stream over a WebSocket, hardware-decoded.
@@ -17,6 +19,9 @@ export interface EngineCallbacks {
    * WebSocket's close code when it closed before playing. */
   onError(message: string, kind: EngineErrorKind, closeCode?: number): void
   onAudioLocked(locked: boolean): void
+  /** Subtitle cues that came inside the stream (Emby's HLS subtitle segments), in media
+   * seconds. */
+  onCues?(cues: Cue[]): void
 }
 
 export interface EngineStats {

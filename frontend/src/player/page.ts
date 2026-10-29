@@ -12,7 +12,7 @@ import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
-import { createCaptionLayer, loadCaptionLang, saveCaptionLang } from './captions'
+import { createCaptionLayer, type Cue, loadCaptionLang, saveCaptionLang } from './captions'
 import { createUpNext, offerNext } from './up-next'
 import { diagnose } from './diagnose'
 import { loadingLines } from './loading'
@@ -421,6 +421,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     }
     closeSheet()
     if ('sub' in patch) {
+      if (source.subtitlesInStream) captionLayer.clear() // the new stream brings its own
       watchSubtitle()
       if (source.captions) void showCaptions()
       if (burnedSub(state.sub) === burnedBefore) return // drawn here: same stream
@@ -632,6 +633,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   }
 
   // --- captions drawn over the picture (YouTube's; a media server's text tracks) -------
+  // From the source (captions()) or inside the stream (Emby: the engine's cues).
   /** Drawn by the page, not burned into the stream. */
   function drawn(index: number | undefined) {
     return source.captions != null && item.subtitleTracks.find((tr) => tr.index === index)?.kind === 'text'
@@ -639,6 +641,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   function burnedSub(index: number | undefined) {
     return drawn(index) ? undefined : index
   }
+  video.addEventListener('cues', (e) => captionLayer.add((e as CustomEvent<Cue[]>).detail))
   let captionRequest = 0
   async function showCaptions() {
     const request = ++captionRequest

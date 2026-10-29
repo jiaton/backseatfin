@@ -62,13 +62,26 @@ export function createCaptionLayer(now: () => number) {
     if (el.textContent !== text) el.textContent = text
     el.hidden = !text
   }
+  const start = () => {
+    window.clearInterval(timer)
+    timer = window.setInterval(render, TICK_MS)
+    render()
+  }
   return {
     el,
     show(next: Cue[]) {
       cues = [...next].sort((a, b) => a.start - b.start)
-      window.clearInterval(timer)
-      timer = window.setInterval(render, TICK_MS)
-      render()
+      start()
+    },
+    /** More cues as the stream brings them (a cue crossing a segment boundary comes
+     * twice, and a seek back fetches some again: each is kept once). */
+    add(more: Cue[]) {
+      const seen = new Set(cues.map((c) => `${c.start}|${c.text}`))
+      const fresh = more.filter((c) => !seen.has(`${c.start}|${c.text}`))
+      if (!fresh.length) return
+      const wasEmpty = !cues.length
+      cues = [...cues, ...fresh].sort((a, b) => a.start - b.start)
+      if (wasEmpty) start()
     },
     clear() {
       cues = []

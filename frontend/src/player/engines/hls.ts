@@ -28,6 +28,14 @@ export function firstVariant(text: string, base: string): string | null {
   return uri ? new URL(uri, base).href : null
 }
 
+/** The subtitle rendition's playlist URL in a master playlist (the server sends the one
+ * track we asked for), else null. */
+export function subtitleRendition(text: string, base: string): string | null {
+  const media = lines(text).find((l) => l.startsWith('#EXT-X-MEDIA:') && l.includes('TYPE=SUBTITLES'))
+  const uri = media && /URI="([^"]+)"/.exec(media)
+  return uri ? new URL(uri[1], base).href : null
+}
+
 export function parseMediaPlaylist(text: string, base: string): Segment[] {
   const segments: Segment[] = []
   let start = 0

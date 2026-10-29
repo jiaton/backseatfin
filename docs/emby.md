@@ -174,15 +174,14 @@ nerds". While a video loads, the player says what it's doing and how fast the ne
 ### Subtitles
 
 Text subtitles (SRT, ASS, WebVTT) are drawn by the car player in the browser's own font
-(plain lines; ASS styling is dropped). Picture subtitles (PGS, DVD) are burned into the
-picture by Emby. Emby has to read the whole file to extract a text track embedded in it,
-so the first time a film's subtitles are used they can take half a minute or more (a big
-file on a slow disk: minutes); the film plays meanwhile and "Loading subtitles…" shows.
-Emby keeps the extracted track, so after that they come at once.
+(plain lines; ASS styling is dropped). Emby's transcode sends them alongside the video in
+small WebVTT pieces, read from the file in the same pass as the picture, so they cost
+nothing extra and show from the start. Picture subtitles (PGS, DVD) are burned into the
+picture by Emby.
 
-Why not burn text subtitles in too: Emby's ffmpeg would read the whole file again at
-every start and every long skip, before the first picture (33 s for a 1.9 GB episode on a
-NAS disk, against 0.3 s without subtitles).
+Why not burn text subtitles in too: Emby's ffmpeg would read the whole file at every
+start and every long skip, before the first picture (33 s for a 1.9 GB episode on a NAS
+disk, against 0.3 s without subtitles).
 
 ## Optional: HDR films (the BackseatFin server, way C only)
 

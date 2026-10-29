@@ -442,6 +442,9 @@ export class CarVideoElement extends HTMLElement {
         this.#audioLocked = locked
         this.#emit('audiolockchange')
       },
+      onCues: (cues) => {
+        if (live()) this.dispatchEvent(new CustomEvent('cues', { detail: cues }))
+      },
     }
     CarVideoElement.engineFactory(kind, this.#canvas, source.url(at, kind), callbacks, source.headers?.(), { reorder: source.reorder }).then(
       (engine) => {

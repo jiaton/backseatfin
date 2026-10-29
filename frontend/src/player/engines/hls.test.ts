@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { firstVariant, parseMediaPlaylist, segmentAt, splitStart, withStart } from './hls'
+import { firstVariant, parseMediaPlaylist, segmentAt, splitStart, subtitleRendition, withStart } from './hls'
 
 // Shapes as Jellyfin serves them (query strings shortened).
 const MASTER = `#EXTM3U
@@ -26,6 +26,18 @@ describe('hls playlists', () => {
   it('finds the variant of a master playlist, resolved against it', () => {
     expect(firstVariant(MASTER, BASE)).toBe('https://jf.example.com/Videos/abc/main.m3u8?MediaSourceId=abc&PlaySessionId=p1')
     expect(firstVariant(MEDIA, BASE)).toBeNull()
+  })
+
+  it("finds Emby's subtitle rendition (one track, segmented alongside the video)", () => {
+    const emby = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English (SUBRIP)",DEFAULT=NO,FORCED=NO,AUTOSELECT=NO,URI="subtitles.m3u8?PlaySessionId=p1&CurrentSubtitleStreamIndex=3&SubtitleSegmentLength=3",LANGUAGE="en"
+#EXT-X-STREAM-INF:BANDWIDTH=1353600,CODECS="avc1.640029,mp4a.40.2",RESOLUTION=720x307,SUBTITLES="subs"
+main.m3u8?PlaySessionId=p1
+`
+    expect(subtitleRendition(emby, BASE)).toBe('https://jf.example.com/Videos/abc/subtitles.m3u8?PlaySessionId=p1&CurrentSubtitleStreamIndex=3&SubtitleSegmentLength=3')
+    expect(firstVariant(emby, BASE)).toBe('https://jf.example.com/Videos/abc/main.m3u8?PlaySessionId=p1')
+    expect(subtitleRendition(MASTER, BASE)).toBeNull()
   })
 
   it('lists segments with absolute URLs and start times', () => {

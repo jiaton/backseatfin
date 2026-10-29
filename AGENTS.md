@@ -260,11 +260,22 @@ by design.
     `SubtitleMethod=Encode` (burned in). **Text subtitles are never burned in**: to burn
     an embedded one, the server's ffmpeg (`subtitles=filename=<the mkv>`) reads the whole
     file before the first frame, at every start and seek (33 s for a 1.9 GB mkv on the
-    NAS disk, 0.3 s without). Instead `PlaybackSource.captions` fetches
-    `/Videos/{id}/{source}/Subtitles/{i}/0/Stream.vtt` (the server extracts it once and
-    keeps it; the first time can take as long, while the film plays) and the page draws
-    it like YouTube's (`captions.ts: parseSubtitles`, plain lines). So a text track's
-    choice isn't part of the transcode (`burned()`): switching it needs no new stream.
+    NAS disk, 0.3 s without). The page draws text subtitles like YouTube's
+    (`captions.ts`, plain lines; ASS styling dropped on purpose), from:
+    - **Emby** (`subtitlesInStream`): `SubtitleMethod=Hls&ManifestSubtitles=vtt&
+      SubtitleStreamIndexes=<i>`. The same ffmpeg maps the track to segmented WebVTT
+      (`hls1/subs/<n>.vtt`, 3 s each, cue times = media seconds), so nothing extra reads
+      the file. The master playlist's `#EXT-X-MEDIA:TYPE=SUBTITLES` rendition →
+      `hls-engine` fetches subtitle segment n once video segment n+2 is in
+      (`SUBTITLE_LAG`: Emby completes one only after the next video segment) →
+      `onCues` → the `cues` event → `captionLayer.add`. Part of the transcode, so
+      switching the track starts a new stream.
+    - **Jellyfin** (`captions`): it has no in-stream text for embedded tracks, so
+      `/Videos/{id}/{source}/Subtitles/{i}/0/Stream.vtt` (extracted once by the server,
+      the first time while the film plays). Not part of the transcode: switching needs
+      no new stream.
+    Verified on a throwaway local Emby 4.8.3 (`emby/embyserver` + the test media, car
+    host = the `frontend` image with `EMBY_URL`; open it as `localhost` for WebCodecs).
     No subtitle burned = **no `SubtitleStreamIndex` at all**: Emby 4.8 looks `-1` up as a
     stream, finds none and falls back to the *first* subtitle stream (burned in).
   - **Quality levels are sizes** (`quality.ts`, `PlaybackSource.levels`). Both servers pick

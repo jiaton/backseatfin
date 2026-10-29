@@ -1,6 +1,6 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
-import { activeText, loadCaptionLang, parseSubtitles, saveCaptionLang } from './captions'
+import { activeText, createCaptionLayer, loadCaptionLang, parseSubtitles, saveCaptionLang } from './captions'
 
 const cues = [
   { start: 1, end: 3, text: 'Good morning' },
@@ -40,4 +40,30 @@ it("reads a media server's WebVTT or SRT as plain cues", () => {
     { start: 0, end: 1, text: '一\n第二行' },
     { start: 3600.1, end: 3602, text: '二' },
   ])
+})
+
+it("reads an Emby subtitle segment (minutes only, a timestamp map, maybe no cue)", () => {
+  expect(parseSubtitles('WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n\n\n10:00.063 --> 10:04.063\nSubtitle line 100\n')).toEqual([
+    { start: 600.063, end: 604.063, text: 'Subtitle line 100' },
+  ])
+  expect(parseSubtitles('WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n')).toEqual([])
+})
+
+it('adds cues as the stream brings them, each once', () => {
+  vi.useFakeTimers()
+  let t = 0
+  const layer = createCaptionLayer(() => t)
+  layer.add([{ start: 1, end: 3, text: 'a' }])
+  layer.add([{ start: 1, end: 3, text: 'a' }, { start: 0, end: 0.5, text: 'b' }]) // repeated across segments; an earlier one
+  layer.add([])
+  t = 2
+  layer.add([{ start: 1, end: 3, text: 'a' }])
+  vi.advanceTimersByTime(200)
+  expect(layer.el.textContent).toBe('a')
+  t = 0.2
+  vi.advanceTimersByTime(200)
+  expect(layer.el.textContent).toBe('b')
+  layer.clear()
+  expect(layer.el.hidden).toBe(true)
+  vi.useRealTimers()
 })
