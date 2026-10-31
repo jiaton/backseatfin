@@ -6,6 +6,10 @@ stream through your own server as YouTube encoded them (no re-encoding, so the s
 barely works). No Google account is used; YouTube sees your server's address, never the
 car's, and your history stays on your server.
 
+![The app's home screen in the car](images/youtube-home.jpg)
+
+<sub>Thumbnails: [Blender Studio](https://studio.blender.org/films/) open movies, [CC BY](https://creativecommons.org/licenses/by/4.0/).</sub>
+
 It needs the **BackseatFin server** (a Docker container next to the app). You don't
 need Emby or Jellyfin for it.
 
