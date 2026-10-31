@@ -478,10 +478,10 @@ by design.
        wakes the controls swallows its trailing click, which would otherwise hit the
        play button that just appeared under the finger.
    - **Language** (`player/i18n.ts`; the admin site shares its saved choice): English,
-     Chinese, Spanish, Japanese and Korean. It defaults to the browser's language (else
+     Chinese, Spanish, Japanese, Korean and German. It defaults to the browser's language (else
      English), or the YouTube app's picker when set (localStorage). The player has no
      picker of its own (it crowded the settings sheet). Media
-     Chrome has labels for en/zh/es only; ja/ko fall back to English there (aria labels). Engines
+     Chrome has labels for en/zh/es/de only; ja/ko fall back to English there (aria labels). Engines
      and `<car-video>` report technical English detail plus a reason
      (`decode`/`refused`/`timeout`/`outage`, with the WS close code), and the page
      words it. Server close reasons and subtitle errors are English.

@@ -1,12 +1,12 @@
-/** Player UI strings in English, Chinese, Spanish, Japanese and Korean. The browser's
+/** Player UI strings in English, Chinese, Spanish, Japanese, Korean and German. The browser's
  * language picks one (English otherwise); the YouTube app's own picker, when set, wins
  * (remembered per browser). The player has no picker: it would crowd the settings sheet. Server messages stay English and technical — the page maps
  * them to these. */
-export type Lang = 'en' | 'zh' | 'es' | 'ja' | 'ko'
-export const LANGS: Lang[] = ['en', 'zh', 'es', 'ja', 'ko']
-export const LANG_NAMES: Record<Lang, string> = { en: 'English', zh: '中文', es: 'Español', ja: '日本語', ko: '한국어' }
+export type Lang = 'en' | 'zh' | 'es' | 'ja' | 'ko' | 'de'
+export const LANGS: Lang[] = ['en', 'zh', 'es', 'ja', 'ko', 'de']
+export const LANG_NAMES: Record<Lang, string> = { en: 'English', zh: '中文', es: 'Español', ja: '日本語', ko: '한국어', de: 'Deutsch' }
 /** The `lang` attribute for each. */
-export const HTML_LANG: Record<Lang, string> = { en: 'en', zh: 'zh-CN', es: 'es', ja: 'ja', ko: 'ko' }
+export const HTML_LANG: Record<Lang, string> = { en: 'en', zh: 'zh-CN', es: 'es', ja: 'ja', ko: 'ko', de: 'de' }
 
 const en = {
   back: 'Back',
@@ -380,7 +380,81 @@ const ko: Record<StringKey, string> = {
   cancel: '취소',
 }
 
-const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko }
+const de: Record<StringKey, string> = {
+  back: 'Zurück',
+  backTo: 'Zurück zu {server}',
+  rewind: '{n} Sekunden zurück',
+  forward: '{n} Sekunden vor',
+  settings: 'Qualität, Audio und Untertitel',
+  progress: 'Wiedergabeposition',
+  quality: 'Qualität',
+  audio: 'Audio',
+  subtitles: 'Untertitel',
+  off: 'Aus',
+  done: 'Fertig',
+  loading: 'Wird geladen… {time}',
+  reconnecting: 'Verbindung verloren, verbinde neu…',
+  finished: 'Zu Ende',
+  tapForSound: 'Tippen, um den Ton einzuschalten',
+  retry: 'Erneut versuchen',
+  subtitlesLoading: 'Untertitel werden geladen…',
+  subtitlesFailed: 'Untertitel konnten nicht geladen werden',
+  errDecode: 'Dieser Browser kann den Stream nicht dekodieren ({detail})',
+  errBusy: 'Alle Streams sind belegt. Gleich noch einmal versuchen.',
+  errServer: 'Der Server hatte beim Vorbereiten des Streams einen Fehler.',
+  errUnavailable: 'Kann nicht abgespielt werden: {detail}',
+  errTimeout: 'Der Server hat zu lange für ein Bild gebraucht.',
+  errOutage: 'Die Verbindung ist weg, und das Neuverbinden ist fehlgeschlagen.',
+  errPlayback: 'Wiedergabefehler',
+  noItem: 'Nichts abzuspielen. Starte die Wiedergabe in {server}.',
+  signedOut: 'Nicht angemeldet, oder die Sitzung ist abgelaufen. Drücke in {server} noch einmal auf Abspielen.',
+  loadFailed: 'Laden fehlgeschlagen: {detail}',
+  hostedBlocked: 'Der Browser hat diesen Player (auf GitHub Pages) nicht zu {server} durchgelassen. Ein Server unter einer privaten Adresse (LAN oder VPN) braucht stattdessen den Player aus dem Zip auf deinem eigenen Proxy: siehe docs/emby.md.',
+  needsWebCodecs: 'Dieser Browser kann {server}-Streams hier nicht abspielen: Er braucht Hardware-Dekodierung für H.264 (WebCodecs).',
+  needsHttps: 'Öffne {server} über HTTPS: Browser dekodieren Video für eine Seite nur, wenn sie sicher ist (https://).',
+  screenNote:
+    'Dieses Fenster zeigt bis zu {size}. Größer wird der Stream nie gesendet; darüber erhöht eine höhere Stufe nur die Bitrate: etwas mehr Details, mehr Daten.',
+  playingNow: 'Läuft gerade: {size}',
+  qualityLow: 'Niedrig',
+  qualityMedium: 'Standard',
+  qualityHigh: 'Hoch',
+  qualityMax: 'Max',
+  stats: 'Statistiken für Nerds',
+  statsOk: 'Läuft flüssig.',
+  statsPaused: 'Pausiert, {buffer} s gepuffert.',
+  statsStarting: 'Stream startet…',
+  statsOutage: 'Netz weg, verbinde neu…',
+  statsSlowData: 'Die Daten kommen langsamer, als der Stream braucht ({rate} von {need} Mbps), daher ruckelt es. Eine niedrigere Qualität hilft.',
+  statsSlowServer: 'Der Server bereitet den Stream langsam vor ({ms} ms pro Segment).',
+  statsSlowDecoder: 'Dieses Gerät dekodiert nicht schnell genug: Das Bild hängt {ms} ms hinterher.',
+  transcoder: 'Transkodierung',
+  transcoderAuto: 'Automatisch',
+  transcoderServer: '{server}',
+  transcoderOurs: 'BackseatFin-Server',
+  transcoderNow: 'Jetzt: {name}. Automatisch nimmt den BackseatFin-Server für HDR-Filme (besseres Tone-Mapping) und {server} für den Rest.',
+  loadPreparing: '{server} bereitet das Video vor… {s} s',
+  loadReceiving: 'Video wird empfangen… {s} s',
+  loadBuffering: 'Das Netz ist langsam, puffere… {s} s',
+  loadReconnecting: 'Verbindung verloren, verbinde neu… {s} s',
+  loadSpeed: 'Geschwindigkeit',
+  loadNeeds: 'diese Qualität braucht ≈ {rate}',
+  loadData: 'Empfangen',
+  loadBuffered: '{s} s gepuffert',
+  loadSegment: 'Segment',
+  loadServerTook: 'der Server brauchte {s} s',
+  loadQuality: 'Qualität',
+  loadFrom: 'ab {time}',
+  loadConnects: 'Verbindungen',
+  autoCaptions: '{name} (automatisch erstellt)',
+  upNext: 'Als Nächstes in {s} s',
+  playNow: 'Jetzt abspielen',
+  playNextOne: 'Nächstes abspielen: {title}',
+  qualityAdviceDown: 'Das Netz kommt nicht mit: auf {name} wechseln',
+  qualityAdviceUp: 'Das Netz ist besser: zurück zu {name}',
+  cancel: 'Abbrechen',
+}
+
+const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko, de }
 const KEY = 'backseatfin:lang'
 
 const isLang = (v: unknown): v is Lang => LANGS.includes(v as Lang)

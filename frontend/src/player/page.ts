@@ -7,6 +7,7 @@ import 'media-chrome/dist/media-control-bar.js'
 import 'media-chrome/dist/media-play-button.js'
 import 'media-chrome/dist/media-time-range.js'
 import 'media-chrome/dist/media-time-display.js'
+import 'media-chrome/dist/lang/de.js'
 import 'media-chrome/dist/lang/es.js'
 import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
@@ -42,7 +43,7 @@ const RECOVERED_AHEAD_S = 15
 const STATS_KEY = 'backseatfin:stats'
 
 /** Media Chrome ships labels for some of our languages only; the rest stay English. */
-const MEDIA_CHROME_LANG: Partial<Record<Lang, string>> = { zh: 'zh-CN', es: 'es' }
+const MEDIA_CHROME_LANG: Partial<Record<Lang, string>> = { zh: 'zh-CN', es: 'es', de: 'de' }
 
 const lang: Lang = detectLang()
 const t: Translate = translator(lang)

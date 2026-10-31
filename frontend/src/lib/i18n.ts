@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react'
 import type { Lang } from '@/player/i18n'
 
 /** Admin UI strings (admin, /pair, /test) in every player language (English first, the source
- * of truth; then Chinese, Spanish, Japanese, Korean). Language detection and
+ * of truth; then Chinese, Spanish, Japanese, Korean, German). Language detection and
  * the saved choice are the player's (`@/player/i18n`), so both pages stay in step. */
 const en = {
   // shared
@@ -235,7 +235,52 @@ const ko: Record<Key, string> = {
   noReports: '아직 보고서가 없어요. 차량에서 {path} 페이지를 열고 테스트한 다음 제출하세요.',
 }
 
-export const TABLES: Record<Lang, Record<Key, string>> = { en, zh, es, ja, ko }
+const de: Record<Key, string> = {
+  language: 'Sprache',
+  loading: 'Wird geladen…',
+  loadingLabel: 'Wird geladen',
+  error: 'Etwas ist schiefgelaufen: {message}',
+  play: 'Abspielen',
+
+  signOut: 'Abmelden',
+
+  signInWithCode: 'Mit einem Kopplungscode anmelden',
+  signInWithKey: 'Mit einem Einrichtungscode anmelden',
+  apiKeyLabel: 'Einrichtungscode (oder API-Schlüssel)',
+  setupCodeHint:
+    'Der Server schreibt beim ersten Start einen Code in sein Log (docker compose logs backend). Für einen neuen: docker compose exec backend backseatfin-code',
+  deviceNameLabel: 'Name dieses Geräts',
+  defaultPhoneName: 'Handy',
+  defaultBrowserName: 'Browser',
+  signIn: 'Anmelden',
+  pairQrLabel: 'Mit dem Handy scannen, um dieses Gerät freizugeben',
+  pairCodeLabel: 'Kopplungscode {code}',
+  pairHint:
+    'Mit einem angemeldeten Handy scannen, oder diese 6 Ziffern dort unter Einstellungen → Geräte eingeben. Nach der Freigabe meldet sich dieser Bildschirm von selbst an.',
+  approveTitle: 'Neues Gerät freigeben',
+  approveHint: 'Prüfe, dass das Auto diesen Kopplungscode zeigt, und tippe dann auf Freigeben.',
+  approveFormLabel: 'Neues Gerät freigeben',
+  pairCodeInput: '6-stelliger Kopplungscode',
+  pairCodePlaceholder: 'Kopplungscode',
+  deviceName: 'Gerätename',
+  approve: 'Freigeben',
+  approved: '„{name}“ freigegeben. Es meldet sich in wenigen Sekunden an.',
+
+  devices: 'Geräte',
+  thisDevice: '(dieses Gerät)',
+  lastUsed: 'Zuletzt benutzt {time} · {agent}',
+  unknownBrowser: 'Unbekannter Browser',
+  revokeDevice: '{name} entfernen',
+  revokeConfirm: '„{name}“ entfernen? Es muss sich dann neu koppeln.',
+
+  playlists: 'YouTube-Playlists',
+  added: '„{title}“ hinzugefügt',
+  newVideos: 'Neue Videos: {count}',
+
+  noReports: 'Noch keine Berichte. Öffne die Seite {path} im Auto, führe die Tests aus und sende sie ab.',
+}
+
+export const TABLES: Record<Lang, Record<Key, string>> = { en, zh, es, ja, ko, de }
 
 export type T = (key: Key, vars?: Record<string, string | number>) => string
 

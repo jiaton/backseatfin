@@ -68,6 +68,18 @@ const TEXT = {
     turnOff: '끄기',
     open: 'Jellyfin 열기',
   },
+  de: {
+    title: 'Automodus',
+    explain:
+      'Im Automodus öffnet Abspielen in Jellyfin in diesem Browser den BackseatFin-Player, der auch während der Fahrt weiterspielt. Andere Browser sind nicht betroffen.',
+    on: 'Der Automodus ist in diesem Browser an.',
+    off: 'Der Automodus ist in diesem Browser aus.',
+    carHost: 'Diese Adresse ist ein reiner Auto-Hostname: Jeder Browser, der Jellyfin hier öffnet, bekommt den BackseatFin-Player. Nichts einzuschalten.',
+    otherHost: 'Dieser Server liefert den BackseatFin-Player nur auf seinen Auto-Hostnamen (in den Plugin-Einstellungen festgelegt). Öffne Jellyfin im Auto über einen davon.',
+    turnOn: 'Einschalten',
+    turnOff: 'Ausschalten',
+    open: 'Jellyfin öffnen',
+  },
 } satisfies Record<Lang, Record<string, string>>
 
 /** How this address gets the car player, from the plugin (a meta tag on this page):

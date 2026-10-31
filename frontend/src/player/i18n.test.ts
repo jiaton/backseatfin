@@ -27,6 +27,7 @@ it('knows Spanish, Japanese and Korean too', () => {
   expect(detectLang(store(null), ['es-MX'])).toBe('es')
   expect(detectLang(store(null), ['ja-JP'])).toBe('ja')
   expect(detectLang(store(null), ['ko'])).toBe('ko')
+  expect(detectLang(store(null), ['de-AT'])).toBe('de')
 })
 
 it('has every string, with the same {variables}, in every language', () => {
