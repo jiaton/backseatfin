@@ -196,6 +196,8 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const errorBack = h('button', { class: 'cm-button' })
   const errorPanel = h('div', { class: 'cm-error', role: 'alert', hidden: '' }, errorMessage, h('div', { class: 'cm-row' }, retry, errorBack))
   const sheet = h('div', { class: 'cm-sheet', role: 'dialog', hidden: '' })
+  // Behind the open sheet: a tap anywhere else closes it (and does nothing else).
+  const sheetBackdrop = h('div', { class: 'cm-sheet-backdrop', hidden: '' })
   const statsText = h('pre', { class: 'cm-stats-text' })
   const graph = createNetGraph()
   const statsPanel = h('div', { class: 'cm-stats', 'aria-live': 'off', hidden: '' }, graph.el, statsText)
@@ -205,7 +207,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
 
   const captionLayer = createCaptionLayer(() => video.currentTime)
   const upNext = createUpNext()
-  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, qualityHint, errorPanel, statsPanel, upNext.el, sheet)
+  document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, qualityHint, errorPanel, statsPanel, upNext.el, sheetBackdrop, sheet)
 
   // Every fixed label, so the language can change without a reload.
   let subState: 'none' | 'pending' | 'failed' = 'none'
@@ -529,13 +531,16 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   function openSheet() {
     renderSheet()
     sheet.hidden = false
+    sheetBackdrop.hidden = false
     controller.setAttribute('autohide', '-1') // keep the controls while choosing
   }
   function closeSheet() {
     sheet.hidden = true
+    sheetBackdrop.hidden = true
     controller.setAttribute('autohide', String(AUTOHIDE_S))
   }
   settings.addEventListener('click', () => (sheet.hidden ? openSheet() : closeSheet()))
+  sheetBackdrop.addEventListener('click', closeSheet)
 
   // --- stats for nerds -----------------------------------------------------------------
   let statsOn = false

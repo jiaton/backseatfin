@@ -40,8 +40,8 @@ du brauchst:
   deinen eigenen Server, so wie YouTube sie kodiert hat (ohne Neukodierung). Kein
   Google-Konto, und dein Verlauf bleibt bei dir. Videos, die du am Handy zu einer
   YouTube-Playlist hinzufügst, erscheinen im Auto.
-- **Schont das Auto.** Nutzt den Hardware-H.264-Decoder des Autos über WebCodecs, mit
-  JSMpeg als Fallback. Der Stream wird an den Bildschirm angepasst und überbrückt
+- **Schont das Auto.** Nutzt den Hardware-H.264-Decoder des Autos über WebCodecs (YouTube
+  kann auf JSMpeg ausweichen). Der Stream wird an den Bildschirm angepasst und überbrückt
   Funklöcher.
 - **HDR und Dolby Vision** werden tonkartiert (Jellyfin: durch Jellyfin selbst; Emby:
   durch den optionalen BackseatFin-Server, auf einer Intel-GPU oder der CPU).
@@ -54,7 +54,7 @@ du brauchst:
 
 **Jellyfin** (12.0+): das Plugin-Repository
 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` unter Dashboard → Plugins →
-Repositories hinzufügen, **BackseatFin** installieren, neu starten und auswählen, welche
+Manage Repositories hinzufügen, **BackseatFin** unter Available installieren, neu starten und auswählen, welche
 Browser den Auto-Player bekommen. Anleitung: [docs/jellyfin.md](docs/jellyfin.md).
 
 **Emby**: den Player in dein eigenes nginx oder Caddy einbauen (ein Zip herunterladen,
@@ -66,9 +66,9 @@ ein paar Zeilen ergänzen) oder unseren Container nutzen. Alle drei Wege:
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
-# Emby:    EMBY_URL setzen
+# Emby:    EMBY_URL einkommentieren und setzen
 # YouTube: COMPOSE_PROFILES=server einkommentieren (Anmeldung mit dem Code aus dem Log)
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 Anschließend jeden genutzten Port hinter HTTPS stellen ([Beispiele](docs/reverse-proxy.md))

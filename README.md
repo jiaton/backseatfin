@@ -36,8 +36,8 @@ need:
   stopped, on a screen made for the car. Videos stream through your own server as
   YouTube encoded them (no re-encoding). No Google account, and your history stays with
   you. Add videos to a YouTube playlist on your phone and they're on the car's home screen.
-- **Light on the car.** It uses the car's hardware H.264 decoder via WebCodecs, falling
-  back to JSMpeg. The stream is sized to the screen, and it rides out dead zones.
+- **Light on the car.** It uses the car's hardware H.264 decoder via WebCodecs (YouTube
+  can fall back to JSMpeg). The stream is sized to the screen, and it rides out dead zones.
 - **HDR and Dolby Vision** are tone-mapped (Jellyfin: by Jellyfin; Emby: by the optional
   BackseatFin server, on an Intel GPU or the CPU).
 
@@ -49,7 +49,7 @@ need:
 
 **Jellyfin** (12.0+): add the plugin repository
 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` in Dashboard → Plugins →
-Repositories, install **BackseatFin**, restart, and choose which browsers get the car
+Manage Repositories, install **BackseatFin** from Available, restart, and choose which browsers get the car
 player. Guide: [docs/jellyfin.md](docs/jellyfin.md).
 
 **Emby**: add the player to your own nginx or Caddy (download a zip, add a few lines),
@@ -60,9 +60,9 @@ or run our container. All three ways: [docs/emby.md](docs/emby.md).
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
-# Emby:    set EMBY_URL
+# Emby:    uncomment EMBY_URL and set it
 # YouTube: uncomment COMPOSE_PROFILES=server (sign in with the code in the log)
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 Then put each port you use behind HTTPS ([examples](docs/reverse-proxy.md)) and open it

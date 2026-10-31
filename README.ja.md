@@ -31,7 +31,7 @@
 
 - **メディアサーバー自身の Web アプリをそのまま使用。** 車で Jellyfin や Emby を開き、いつも通り選んで再生。シーク、音声トラック、字幕（PGS を含む）、再開位置、「視聴済み」はサーバーと同期し、プレーヤーは自分のログインを使います。
 - **セルフホストの YouTube。** 車向けの画面で検索し、チャンネルや再生リストをフォローし、止めたところから続きを見られます。動画は自分のサーバーを YouTube のエンコードのまま通り（再エンコードなし）、Google アカウントは不要で、視聴履歴は手元に残ります。スマホで YouTube の再生リストに動画を追加すると、車のホーム画面に表示されます。
-- **車への負荷が小さい。** WebCodecs 経由で車のハードウェア H.264 デコーダーを使い、使えない場合は JSMpeg にフォールバックします。ストリームは画面サイズに合わせられ、通信の途切れも乗り越えます。
+- **車への負荷が小さい。** WebCodecs 経由で車のハードウェア H.264 デコーダーを使います（YouTube は使えない場合 JSMpeg にフォールバックできます）。ストリームは画面サイズに合わせられ、通信の途切れも乗り越えます。
 - **HDR と Dolby Vision** はトーンマッピングされます（Jellyfin：Jellyfin 自身／Emby：オプションの BackseatFin サーバーが Intel GPU または CPU で）。
 
 > [!WARNING]
@@ -39,7 +39,7 @@
 
 ## クイックスタート
 
-**Jellyfin**（12.0 以降）：Dashboard → Plugins → Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、**BackseatFin** をインストールして再起動し、車のプレーヤーを使うブラウザを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
+**Jellyfin**（12.0 以降）：Dashboard → Plugins → Manage Repositories でプラグインリポジトリ `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` を追加し、Available から **BackseatFin** をインストールして再起動し、車のプレーヤーを使うブラウザを選びます。ガイド：[docs/jellyfin.md](docs/jellyfin.md)。
 
 **Emby**：既存の nginx や Caddy にプレーヤーを追加（zip をダウンロードして数行追加）するか、コンテナを使います。3 つの方法は [docs/emby.md](docs/emby.md)。
 
@@ -48,9 +48,9 @@
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
-# Emby:    EMBY_URL を設定
+# Emby:    EMBY_URL のコメントを外して設定
 # YouTube: COMPOSE_PROFILES=server のコメントを外す（ログのセットアップコードでログイン）
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 使うポートを HTTPS の背後に置き（[例](docs/reverse-proxy.md)）、車で開いてください。ガイド：[docs/emby.md](docs/emby.md)、[docs/youtube.md](docs/youtube.md)。

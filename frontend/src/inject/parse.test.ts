@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isActive, isPlayerRoute, parsePlaybackUrl, playerUrl } from './parse'
+import { isActive, isPlayerRoute, parsePlaybackInfo, parsePlaybackUrl, playerUrl, withTracks } from './parse'
 
 const BASE = 'https://car.example.com/web/index.html'
 
@@ -86,4 +86,37 @@ it('gives a hosted player the full address and the server origin', () => {
   const u = new URL(url)
   expect(u.origin + u.pathname).toBe('https://jiaton.github.io/backseatfin/emby/play')
   expect(u.searchParams.get('server')).toBe('https://emby.example.com')
+})
+
+describe('parsePlaybackInfo', () => {
+  const base = 'https://car.example.com/web/index.html'
+
+  it("reads Emby's tracks from the query", () => {
+    expect(parsePlaybackInfo('/emby/Items/8/PlaybackInfo?UserId=u&AudioStreamIndex=1&SubtitleStreamIndex=3', base)).toEqual({ item: '8', audio: 1, sub: 3 })
+  })
+
+  it("reads Jellyfin's from the JSON body, and -1 as none", () => {
+    const body = JSON.stringify({ IsPlayback: true, AudioStreamIndex: '2', SubtitleStreamIndex: -1 })
+    expect(parsePlaybackInfo('/Items/abc/PlaybackInfo', base, body)).toEqual({ item: 'abc', audio: 2, sub: undefined })
+    const picked = JSON.stringify({ AudioStreamIndex: 1, SubtitleStreamIndex: '3' })
+    expect(parsePlaybackInfo('/Items/abc/PlaybackInfo', base, picked)).toEqual({ item: 'abc', audio: 1, sub: 3 })
+  })
+
+  it('ignores other requests, and PlaybackInfo that is only looking', () => {
+    expect(parsePlaybackInfo('/Items/8/Images/Primary', base)).toBeNull()
+    expect(parsePlaybackInfo('/emby/Items/8/PlaybackInfo?IsPlayback=false&StartTimeTicks=0', base)).toBeNull()
+    expect(parsePlaybackInfo('/Items/abc/PlaybackInfo', base, JSON.stringify({ IsPlayback: false, SubtitleStreamIndex: 3 }))).toBeNull()
+  })
+})
+
+describe('withTracks', () => {
+  it("fills in the item page's tracks the playback URL leaves out", () => {
+    const h = { item: '0123abcd', t: 5, audio: 1 }
+    expect(withTracks(h, { item: '0123ABCD', audio: 2, sub: 3 })).toEqual({ item: '0123abcd', t: 5, audio: 1, sub: 3 })
+  })
+
+  it("leaves another item's hand-off alone", () => {
+    const h = { item: '9', t: 0 }
+    expect(withTracks(h, { item: '8', sub: 3 })).toBe(h)
+  })
 })

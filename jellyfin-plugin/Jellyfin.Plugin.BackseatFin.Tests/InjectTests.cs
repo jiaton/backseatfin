@@ -35,6 +35,15 @@ public class InjectTests
         Assert.Null(InjectStartupFilter.ScriptTag("jf.example.com", hosts));
     }
 
+    [Theory]
+    [InlineData("jf.example.com", "", "opt-in")]
+    [InlineData("CAR.example.com", "car.example.com, car2.example.com", "car")]
+    [InlineData("jf.example.com", "car.example.com", "none")]
+    public void TellsHowAHostGetsTheCarPlayer(string host, string hostnames, string expected)
+    {
+        Assert.Equal(expected, InjectStartupFilter.HostMode(host, hostnames));
+    }
+
     [Fact]
     public void InjectsBeforeHeadOnce()
     {

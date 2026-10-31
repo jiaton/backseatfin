@@ -23,6 +23,8 @@ allow only on secure pages).
    sudo mkdir -p /srv/backseatfin && sudo unzip -o backseatfin-emby-player.zip -d /srv/backseatfin
    ```
 
+   (`unzip` may need installing first: `sudo apt install unzip`.)
+
 2. Add a server for the car hostname (replace `192.168.1.10:8096` with your Emby and
    add your usual certificate lines). nginx needs its `sub_filter` module, which most
    builds include (`nginx -V 2>&1 | grep -o http_sub_module`).
@@ -73,13 +75,23 @@ allow only on secure pages).
 3. `sudo nginx -t && sudo nginx -s reload`. To update later, download and unpack the zip
    again.
 
+At each Play the player asks `/car/health` whether the optional BackseatFin server is
+there (way C only); with A and B that's a 404, which is expected.
+
 ## B. You already use Caddy
 
 Caddy can't change a page's content on its own; it needs the
 [replace-response](https://github.com/caddyserver/replace-response) plugin. If your Caddy
-doesn't have it, build one with `xcaddy build --with github.com/caddyserver/replace-response`
-(or, with Docker, an image `FROM caddy:2-builder` that runs that and copies `/usr/bin/caddy`
-into `caddy:2`), or use way C instead.
+doesn't have it, build one with `xcaddy build --with github.com/caddyserver/replace-response`,
+or use way C instead. With Docker, this Dockerfile makes a Caddy image with it (`docker
+build -t caddy-replace .`, then use `caddy-replace` in place of `caddy:2`):
+
+```dockerfile
+FROM caddy:2-builder AS builder
+RUN xcaddy build --with github.com/caddyserver/replace-response
+FROM caddy:2
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+```
 
 1. Download and unpack the player as in A, step 1.
 2. In the Caddyfile: the global `order` line, and a site for the car hostname.
@@ -124,7 +136,8 @@ GitHub Pages: then the only change is the line that adds the script, pointing at
 (Emby allows that); it always runs the latest release. It needs the car hostname to
 resolve to a public address, as it does through a normal reverse proxy: Chrome blocks a
 public page (GitHub Pages) from calling a private one (a LAN or VPN address), so if
-yours resolves privately, use the zip.
+yours resolves privately, use the zip (the player then says the browser didn't let it
+reach Emby).
 
 nginx (in place of the `/web/` location's `sub_filter` line, and without `location /car/`):
 
@@ -153,8 +166,25 @@ container that does all of the above, and point your reverse proxy (any) at it.
 
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
-cp .env.example .env    # set EMBY_URL, e.g. http://192.168.1.10:8096
-docker compose up -d
+cp .env.example .env    # uncomment EMBY_URL and set it, e.g. http://192.168.1.10:8096
+docker compose pull && docker compose up -d
+```
+
+`EMBY_URL` is Emby as the container reaches it: use the host's LAN address, not
+`localhost` (inside the container that's the container itself). If Emby is a container on
+the same host without a published port, join its network instead, with a
+`docker-compose.override.yml` next to the compose file (`emby` being Emby's container
+name and `emby_default` its network, as `docker inspect emby` shows), and set
+`EMBY_URL=http://emby:8096`:
+
+```yaml
+services:
+  frontend:
+    networks: [default, emby]
+networks:
+  emby:
+    external: true
+    name: emby_default
 ```
 
 Then give `CAR_PORT` (default 8097) the car hostname: in Caddy simply
@@ -164,7 +194,8 @@ Then give `CAR_PORT` (default 8097) the car hostname: in Caddy simply
 ## In the car
 
 Open `https://car.example.com` in the car's browser and sign in to Emby once. Browse as
-usual; Play opens the car player and the back arrow returns to where you were. Progress
+usual; Play opens the car player (with the audio and subtitles picked on Emby's page) and
+the back arrow returns to where you were. Progress
 and "watched" sync with Emby like any other client.
 
 The player's settings sheet has quality (each level shows its real picture size, bitrate

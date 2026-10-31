@@ -36,7 +36,7 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
   const home = `${hosted?.base ?? root}/web/`
   try {
     const [engine, hasBackend] = await Promise.all([pickEngine(), backend && !hosted ? backendAvailable() : false])
-    if (engine !== 'webcodecs' && !hasBackend) return showMessage('needsWebCodecs', server, {}, home)
+    if (engine !== 'webcodecs' && !hasBackend) return showMessage(window.isSecureContext ? 'needsWebCodecs' : 'needsHttps', server, {}, home)
     const pref = loadTranscoder()
     // The media server's item says whether it's HDR (which 'auto' sends to our server).
     let source: PlaybackSource | null = engine === 'webcodecs' ? await createServerSource(server, params.item, root, hosted) : null
@@ -63,6 +63,9 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
   } catch (e) {
     const status = e instanceof ServerError || e instanceof HttpError ? e.status : 0
     if (status === 401) showMessage('signedOut', server, {}, home)
+    // A fetch the browser refused outright: from GitHub Pages to a private address, that's
+    // Chrome's private network protection.
+    else if (hosted && e instanceof TypeError) showMessage('hostedBlocked', server, {}, home)
     else showMessage('loadFailed', server, { detail: String(e) }, home)
   }
 }

@@ -35,8 +35,12 @@ public class InjectStartupFilter : IStartupFilter
             || p.EndsWith("/web/index.html", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The script tag for this request, or null when this host doesn't get one.</summary>
-    public static string? ScriptTag(string host, string carHostnames)
+    /// <summary>
+    /// How this host gets the car player: "opt-in" (no car hostnames set: every browser
+    /// gets the script, only those switched to car mode use it), "car" (a car hostname:
+    /// every browser uses it) or "none" (another host while car hostnames are set).
+    /// </summary>
+    public static string HostMode(string host, string carHostnames)
     {
         var hosts = carHostnames
             .Split(new[] { ',', ' ', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -44,14 +48,19 @@ public class InjectStartupFilter : IStartupFilter
             .ToArray();
         if (hosts.Length == 0)
         {
-            // Every browser gets it; only those switched to car mode use it.
-            return "<script type=\"module\" src=\"../BackseatFin/inject.js\" data-mode=\"opt-in\"></script>";
+            return "opt-in";
         }
 
-        return hosts.Contains(host.ToLowerInvariant())
-            ? "<script type=\"module\" src=\"../BackseatFin/inject.js\"></script>"
-            : null;
+        return hosts.Contains(host.ToLowerInvariant()) ? "car" : "none";
     }
+
+    /// <summary>The script tag for this request, or null when this host doesn't get one.</summary>
+    public static string? ScriptTag(string host, string carHostnames) => HostMode(host, carHostnames) switch
+    {
+        "opt-in" => "<script type=\"module\" src=\"../BackseatFin/inject.js\" data-mode=\"opt-in\"></script>",
+        "car" => "<script type=\"module\" src=\"../BackseatFin/inject.js\"></script>",
+        _ => null,
+    };
 
     public static string Inject(string html, string tag)
     {

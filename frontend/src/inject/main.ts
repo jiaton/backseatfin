@@ -14,8 +14,8 @@
  */
 
 import {
-  CAR_MODE_KEY, CLOSE_MESSAGE, CREDENTIALS_KEY, isActive, isPlayerRoute, parsePlaybackUrl, playerUrl, READY_MESSAGE, SESSION_MESSAGE,
-  type Handoff,
+  CAR_MODE_KEY, CLOSE_MESSAGE, CREDENTIALS_KEY, isActive, isPlayerRoute, parsePlaybackInfo, parsePlaybackUrl, playerUrl, READY_MESSAGE,
+  SESSION_MESSAGE, type Handoff, type TrackChoice, withTracks,
 } from './parse'
 
 const LAYER_ID = 'backseatfin-player'
@@ -80,7 +80,15 @@ function install() {
     }
   })
 
-  function handoff(h: Handoff): boolean {
+  // The tracks picked on the item page, from the web app's last PlaybackInfo request.
+  let tracks: TrackChoice | null = null
+  const notePlaybackInfo = (url: unknown, body?: unknown) => {
+    if (typeof url !== 'string' && !(url instanceof URL)) return
+    tracks = parsePlaybackInfo(String(url), location.href, body) ?? tracks
+  }
+
+  function handoff(found: Handoff): boolean {
+    const h = withTracks(found, tracks)
     if (layer()) return true // already playing: swallow the web app's duplicate requests
     if (h.session && handedOff.has(h.session)) return true // its player retrying: keep it held
     const token = window.ApiClient?.accessToken()
@@ -132,8 +140,10 @@ function install() {
   }
 
   // HLS transcode: hls.js requests master.m3u8 via XHR/fetch and plays from a blob: URL.
+  const xhrUrls = new WeakMap<XMLHttpRequest, unknown>()
   const xhrOpen = XMLHttpRequest.prototype.open as (this: XMLHttpRequest, ...args: unknown[]) => void
   XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, ...args: unknown[]) {
+    xhrUrls.set(this, args[1])
     if (mainPlayerPresent() && tryHandoff(args[1])) heldRequests.add(this)
     xhrOpen.apply(this, args)
   } as typeof XMLHttpRequest.prototype.open
@@ -141,11 +151,13 @@ function install() {
   const xhrSend = XMLHttpRequest.prototype.send
   XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, body?: Document | XMLHttpRequestBodyInit | null) {
     if (heldRequests.has(this)) return // stays pending until the caller aborts it
+    notePlaybackInfo(xhrUrls.get(this), body)
     xhrSend.call(this, body)
   }
 
   const originalFetch = window.fetch
   window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+    notePlaybackInfo(input instanceof Request ? input.url : input, init?.body)
     if (mainPlayerPresent() && tryHandoff(input instanceof Request ? input.url : input)) {
       // Same as the XHR case: pending until the caller aborts.
       const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)

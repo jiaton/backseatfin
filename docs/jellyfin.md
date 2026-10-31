@@ -9,9 +9,12 @@ only allow on secure pages).
 
 ## 1. Install the plugin
 
-1. In Jellyfin: **Dashboard → Plugins → Repositories → +**, and add
-   `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`.
-2. **Catalog → BackseatFin → Install**, then restart Jellyfin.
+1. In Jellyfin: **Dashboard → Plugins → Manage Repositories → New Repository**. Name it
+   `BackseatFin`, with the URL
+   `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`, and **Add**.
+2. Back on **Plugins**, choose **Available** (or search), open **BackseatFin** and
+   **Install**, confirm the third-party notice, then restart Jellyfin (**Dashboard →
+   Restart**).
 
 ## 2. Choose which browsers get the car player
 
@@ -19,8 +22,8 @@ The plugin never changes playback in a browser unless you tell it to. Pick one:
 
 **A car-only hostname** (recommended if you run a reverse proxy). Point an extra hostname at
 Jellyfin, for example `car.example.com`, and enter it in **Dashboard → Plugins → BackseatFin
-→ Car-only hostnames**. Every browser that opens Jellyfin on that hostname gets the car
-player; your usual address is unchanged.
+→ Settings → Car-only hostnames**, then **Save**. Every browser that opens Jellyfin on that
+hostname gets the car player; your usual address is unchanged.
 
 ```caddyfile
 car.example.com {
@@ -28,9 +31,14 @@ car.example.com {
 }
 ```
 
+The plugin tells the hostnames apart by the request's `Host` header: Caddy passes it on
+by itself; in nginx, keep `proxy_set_header Host $host;` in the car hostname's server
+block.
+
 **Car mode per browser.** Leave the hostnames empty. In the car's browser, open
-`https://<your jellyfin>/BackseatFin/car` once and turn car mode on. Only that browser gets
-the car player.
+`https://<your jellyfin>/BackseatFin/car` once (with a base URL set in Jellyfin:
+`/<base url>/BackseatFin/car`) and turn car mode on. Only that browser gets the car
+player.
 
 ## 3. In the car
 
@@ -57,8 +65,11 @@ capped to the screen: the stream is never sent larger than the window can show.
 ## Troubleshooting
 
 - **Play still opens Jellyfin's own player.** The browser isn't in car mode, or the
-  hostname isn't in the plugin's list. Open `/BackseatFin/car` in that browser to check.
-- **"This browser can't play Jellyfin streams here".** The page isn't on HTTPS, or the
-  browser has no hardware H.264 decoder for WebCodecs.
+  hostname isn't in the plugin's list. Open `/BackseatFin/car` in that browser: it says
+  which applies at that address.
+- **"Open Jellyfin over HTTPS".** The page is on plain `http://`: browsers decode video
+  for a page (WebCodecs) only on secure pages.
+- **"This browser can't play Jellyfin streams here".** The browser has no hardware H.264
+  decoder for WebCodecs.
 - **Slow to start.** Jellyfin transcodes in real time; on a weak CPU, enable hardware
   acceleration in Jellyfin (Dashboard → Playback → Transcoding), or choose a lower quality.

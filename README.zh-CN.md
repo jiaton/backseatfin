@@ -31,7 +31,7 @@
 
 - **就用你媒体服务器自己的网页。** 在车里打开 Jellyfin 或 Emby，照常浏览，点播放。跳转进度、音轨、字幕（包括 PGS）、续播位置和"已观看"状态都会与服务器同步，播放器用的是你自己的登录。
 - **自托管的 YouTube。** 在专为车机设计的界面上搜索、关注频道和播放列表，从上次停下的地方继续看。视频经你自己的服务器原样转发（不重新编码），不需要谷歌账号，观看记录留在你自己手里。在手机上把视频加进 YouTube 播放列表，车机首页就会出现。
-- **对车机负担小。** 通过 WebCodecs 使用车机的硬件 H.264 解码器，不支持时回退到 JSMpeg。视频流按屏幕尺寸调整，并能挺过信号盲区。
+- **对车机负担小。** 通过 WebCodecs 使用车机的硬件 H.264 解码器（YouTube 不支持时可回退到 JSMpeg）。视频流按屏幕尺寸调整，并能挺过信号盲区。
 - **HDR 和杜比视界** 会做色调映射（Jellyfin：由 Jellyfin 完成；Emby：由可选的 BackseatFin 服务器完成，使用 Intel GPU 或 CPU）。
 
 > [!WARNING]
@@ -39,7 +39,7 @@
 
 ## 快速开始
 
-**Jellyfin**（12.0 及以上）：在 Dashboard → Plugins → Repositories 中添加插件仓库 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`，安装 **BackseatFin**，重启，然后选择哪些浏览器使用车机播放器。指南见 [docs/jellyfin.md](docs/jellyfin.md)。
+**Jellyfin**（12.0 及以上）：在 Dashboard → Plugins → Manage Repositories 中添加插件仓库 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json`，在 Available 里安装 **BackseatFin**，重启，然后选择哪些浏览器使用车机播放器。指南见 [docs/jellyfin.md](docs/jellyfin.md)。
 
 **Emby**：在你自己的 nginx 或 Caddy 里加上播放器（下载一个 zip，加几行配置），或者用我们的容器。三种方式见 [docs/emby.md](docs/emby.md)。
 
@@ -48,9 +48,9 @@
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
-# Emby：    填 EMBY_URL
+# Emby：    取消 EMBY_URL 的注释并填写
 # YouTube： 取消注释 COMPOSE_PROFILES=server（用日志里的设置码登录）
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 然后把用到的端口放到 HTTPS 之后（[示例](docs/reverse-proxy.md)），在车里打开即可。指南：[docs/emby.md](docs/emby.md)、[docs/youtube.md](docs/youtube.md)。

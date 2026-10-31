@@ -26,24 +26,35 @@ In `.env`:
 |---|---|
 | `COMPOSE_PROFILES=server` | Uncomment it: this starts the server |
 | `APP_PORT` | Host port of the app (default 8098) |
+| `CAR_PORT` | Host port of the Emby car host (default 8097). It's published even without Emby: change it if 8097 is taken |
 
 ## 2. Start
 
 ```sh
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
-This pulls the published images (`ghcr.io/jiaton/backseatfin-server` and `-web`). To
-build them yourself, run `docker compose build` first.
+This runs the published images (`ghcr.io/jiaton/backseatfin-server` and `-web`). To
+build them yourself, run `docker compose build` instead of `pull` (and `pull` again to
+go back to the published ones: a local build under the same name wins otherwise).
+
+Your devices, follows and history live in the `data` volume: they survive updates and
+`docker compose down`, but `docker compose down -v` deletes them.
 
 ## 3. Put it behind HTTPS
 
 Give the app its own hostname, for example `tube.example.com` → `APP_PORT`. See
 [reverse-proxy.md](reverse-proxy.md) for Caddy and nginx examples.
 
+For a first try, plain `http://<server's LAN address>:8098` works too, but then the car
+can't use its hardware decoder (browsers allow it only on HTTPS pages): the server
+re-encodes for the JSMpeg fallback instead, which is much heavier on it.
+
 ## 4. Sign in
 
-1. Get the setup code: at its first start the server prints one to its log.
+1. Get the setup code: at its first start the server prints one to its log. The first
+   start takes about a minute (it fetches the newest yt-dlp first); follow it with
+   `docker compose logs -f backend`, or once it's up:
 
    ```sh
    docker compose logs backend | grep "Setup code"

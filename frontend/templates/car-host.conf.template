@@ -37,8 +37,21 @@ server {
     add_header Cache-Control "no-cache";
   }
 
-  # The optional BackseatFin server: its API (with the stream WebSocket) and health.
-  location ~ ^/car/(api/|health$) {
+  # Whether the optional BackseatFin server is there (the player asks at every Play).
+  # Without it: a quiet 404, not a 502 and a resolver error in the log each time.
+  location = /car/health {
+    proxy_pass $backend/health;
+    proxy_intercept_errors on;
+    error_page 502 503 504 =404 /car/no-server;
+    error_log /dev/stderr crit;
+  }
+  location = /car/no-server {
+    internal;
+    return 404;
+  }
+
+  # The optional BackseatFin server: its API (with the stream WebSocket).
+  location ~ ^/car/api/ {
     rewrite ^/car/(.*)$ /$1 break;
     proxy_pass $backend;
     proxy_http_version 1.1;

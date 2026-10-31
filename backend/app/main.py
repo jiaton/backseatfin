@@ -1,4 +1,5 @@
 import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,6 +17,26 @@ from app.tube.routes import router as tube_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("backseatfin")
+# httpx logs every request at INFO: YouTube's signed media URLs, with this server's address.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+class _HidePairingIds(logging.Filter):
+    """The access log without the pairing id a car polls with (it collects the car's
+    sign-in): /api/auth/pairings/<id> → /api/auth/pairings/…"""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+            record.args = (*args[:2], hide_pairing_id(args[2]), *args[3:])
+        return True
+
+
+def hide_pairing_id(path: str) -> str:
+    return re.sub(r"(/pairings/)(?!approve\b)[^/?]+", r"\1…", path)
+
+
+logging.getLogger("uvicorn.access").addFilter(_HidePairingIds())
 
 
 def _first_start_code() -> None:

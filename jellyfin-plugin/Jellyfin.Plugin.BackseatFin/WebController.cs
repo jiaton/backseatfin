@@ -35,6 +35,17 @@ public class WebController : ControllerBase
             return NotFound();
         }
 
+        if (file == "car.html")
+        {
+            // The car-mode page says how this address gets the car player: switched per
+            // browser, or by the car hostnames set in the plugin's settings.
+            var mode = InjectStartupFilter.HostMode(Request.Host.Host, Plugin.Instance?.Configuration.CarHostnames ?? string.Empty);
+            using var reader = new StreamReader(stream);
+            var html = InjectStartupFilter.Inject(reader.ReadToEnd(), $"<meta name=\"backseatfin-host\" content=\"{mode}\">");
+            Response.Headers.CacheControl = "no-cache";
+            return Content(html, ContentType(file));
+        }
+
         var hashed = file.StartsWith("assets/", StringComparison.Ordinal);
         // Hashed build output never changes under the same name; the pages and
         // inject.js must update as soon as the plugin does.

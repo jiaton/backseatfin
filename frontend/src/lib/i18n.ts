@@ -29,7 +29,7 @@ const en = {
   pairQrLabel: 'Scan with your phone to approve this device',
   pairCodeLabel: 'Pairing code {code}',
   pairHint:
-    'Scan with a phone that is signed in, or enter these 6 digits under Devices on the admin page. This screen signs in by itself once approved.',
+    'Scan with a phone that is signed in, or enter these 6 digits under Settings → Devices on that phone. This screen signs in by itself once approved.',
   approveTitle: 'Approve a new device',
   approveHint: 'Check that the car shows this pairing code, then tap Approve.',
   approveFormLabel: 'Approve a new device',
@@ -76,7 +76,7 @@ const zh: Record<Key, string> = {
   signIn: '登录',
   pairQrLabel: '用手机扫码批准这台设备',
   pairCodeLabel: '配对码 {code}',
-  pairHint: '用已登录的手机扫码，或在管理页「设备」里输入这 6 位数字。批准后这里会自动登录。',
+  pairHint: '用已登录的手机扫码，或在那台手机的「设置 → 设备」里输入这 6 位数字。批准后这里会自动登录。',
   approveTitle: '批准新设备登录',
   approveHint: '确认车上显示的是这个配对码，再点批准。',
   approveFormLabel: '批准新设备',
@@ -121,7 +121,7 @@ const es: Record<Key, string> = {
   pairQrLabel: 'Escanéalo con tu teléfono para aprobar este dispositivo',
   pairCodeLabel: 'Código de emparejamiento {code}',
   pairHint:
-    'Escanéalo con un teléfono que tenga la sesión iniciada, o introduce estos 6 dígitos en Dispositivos, en la página de administración. Esta pantalla iniciará sesión sola cuando lo apruebes.',
+    'Escanéalo con un teléfono que tenga la sesión iniciada, o introduce estos 6 dígitos en Ajustes → Dispositivos en ese teléfono. Esta pantalla iniciará sesión sola cuando lo apruebes.',
   approveTitle: 'Aprobar un dispositivo nuevo',
   approveHint: 'Comprueba que el coche muestra este código de emparejamiento y toca Aprobar.',
   approveFormLabel: 'Aprobar un dispositivo nuevo',
@@ -166,7 +166,7 @@ const ja: Record<Key, string> = {
   pairQrLabel: 'スマートフォンでスキャンしてこのデバイスを承認',
   pairCodeLabel: 'ペアリングコード {code}',
   pairHint:
-    'ログイン済みのスマートフォンでスキャンするか、管理ページの「デバイス」でこの 6 桁の数字を入力してください。承認されるとこの画面は自動でログインします。',
+    'ログイン済みのスマートフォンでスキャンするか、そのスマートフォンの「設定 → デバイス」でこの 6 桁の数字を入力してください。承認されるとこの画面は自動でログインします。',
   approveTitle: '新しいデバイスを承認',
   approveHint: '車にこのペアリングコードが表示されていることを確認してから、「承認」をタップしてください。',
   approveFormLabel: '新しいデバイスを承認',
@@ -211,7 +211,7 @@ const ko: Record<Key, string> = {
   pairQrLabel: '휴대폰으로 스캔해 이 기기를 승인하세요',
   pairCodeLabel: '페어링 코드 {code}',
   pairHint:
-    '로그인된 휴대폰으로 스캔하거나, 관리 페이지의 기기 메뉴에서 이 6자리 숫자를 입력하세요. 승인되면 이 화면이 자동으로 로그인해요.',
+    '로그인된 휴대폰으로 스캔하거나, 그 휴대폰의 설정 → 기기에서 이 6자리 숫자를 입력하세요. 승인되면 이 화면이 자동으로 로그인해요.',
   approveTitle: '새 기기 승인',
   approveHint: '차량에 이 페어링 코드가 표시되는지 확인한 다음 승인을 누르세요.',
   approveFormLabel: '새 기기 승인',

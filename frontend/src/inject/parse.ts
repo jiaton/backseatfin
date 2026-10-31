@@ -72,6 +72,55 @@ export function parsePlaybackUrl(raw: string, base: string): Handoff | null {
   }
 }
 
+export interface TrackChoice {
+  item: string
+  audio?: number
+  sub?: number
+}
+
+const PLAYBACK_INFO_PATH = /\/items\/([A-Za-z0-9-]+)\/playbackinfo$/i
+
+/** The tracks the web app asks the server for before it plays (PlaybackInfo: Emby puts
+ * them in the query, Jellyfin in the JSON body). The playback URL leaves out a text
+ * subtitle the web app would show itself, so the hand-off takes the choice from here. */
+export function parsePlaybackInfo(raw: string, base: string, body?: unknown): TrackChoice | null {
+  let url: URL
+  try {
+    url = new URL(raw, base)
+  } catch {
+    return null
+  }
+  const m = PLAYBACK_INFO_PATH.exec(url.pathname)
+  // IsPlayback=false: the web app only looking (it does so again right after Play).
+  if (!m || /^false$/i.test(url.searchParams.get('IsPlayback') ?? '')) return null
+  const choice: TrackChoice = {
+    item: m[1],
+    audio: intParam(url.searchParams, 'AudioStreamIndex', 'audioStreamIndex'),
+    sub: intParam(url.searchParams, 'SubtitleStreamIndex', 'subtitleStreamIndex'),
+  }
+  if (typeof body === 'string') {
+    try {
+      const json = JSON.parse(body) as Record<string, unknown>
+      if (json.IsPlayback === false) return null
+      // A number, or a number as a string (Jellyfin's web app sends "3").
+      const index = (v: unknown) => (typeof v === 'number' || typeof v === 'string') && /^\d+$/.test(String(v)) ? Number(v) : undefined
+      choice.audio ??= index(json.AudioStreamIndex)
+      choice.sub ??= index(json.SubtitleStreamIndex)
+    } catch {
+      // not JSON: the query is all there is
+    }
+  }
+  return choice
+}
+
+/** The hand-off with the tracks from the item's PlaybackInfo filled in where its URL
+ * has none (item ids compared without dashes: Jellyfin writes them both ways). */
+export function withTracks(h: Handoff, choice: TrackChoice | null): Handoff {
+  const id = (s: string) => s.replace(/-/g, '').toLowerCase()
+  if (!choice || id(choice.item) !== id(h.item)) return h
+  return { ...h, audio: h.audio ?? choice.audio, sub: h.sub ?? choice.sub }
+}
+
 /** Routes that are the server's own player — never a sensible "back" target. Emby:
  * #!/videoosd/…, #!/nowplaying; Jellyfin: #/video, #/queue. */
 export function isPlayerRoute(href: string): boolean {

@@ -82,3 +82,11 @@ def test_websocket_requires_cookie_or_key(client):
         with pytest.raises(WebSocketDisconnect) as exc:
             ws.receive_bytes()
         assert exc.value.reason == "unknown source 'nope'"
+
+
+def test_access_log_hides_pairing_ids():
+    from app.main import hide_pairing_id
+
+    assert hide_pairing_id("/api/auth/pairings/abc123def") == "/api/auth/pairings/…"
+    assert hide_pairing_id("/auth/pairings/abc123?x=1") == "/auth/pairings/…?x=1"
+    assert hide_pairing_id("/api/auth/pairings/approve") == "/api/auth/pairings/approve"

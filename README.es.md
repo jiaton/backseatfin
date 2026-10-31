@@ -40,7 +40,7 @@ partes; usa las que necesites:
   YouTube los codificó (sin recodificar). Sin cuenta de Google, y tu historial se queda
   contigo. Añade vídeos a una lista de YouTube en el móvil y aparecerán en el coche.
 - **Ligero para el coche.** Usa el decodificador de hardware H.264 del coche mediante
-  WebCodecs, con JSMpeg como alternativa. La transmisión se ajusta a la pantalla y
+  WebCodecs (YouTube puede recurrir a JSMpeg). La transmisión se ajusta a la pantalla y
   resiste las zonas sin señal.
 - **HDR y Dolby Vision** se mapean tonalmente (Jellyfin: por Jellyfin; Emby: por el
   servidor opcional de BackseatFin, con una GPU Intel o la CPU).
@@ -53,7 +53,7 @@ partes; usa las que necesites:
 
 **Jellyfin** (12.0+): añade el repositorio de plugins
 `https://jiaton.github.io/backseatfin/jellyfin/manifest.json` en Dashboard → Plugins →
-Repositories, instala **BackseatFin**, reinicia y elige qué navegadores usan el
+Manage Repositories, instala **BackseatFin** desde Available, reinicia y elige qué navegadores usan el
 reproductor del coche. Guía: [docs/jellyfin.md](docs/jellyfin.md).
 
 **Emby**: añade el reproductor a tu propio nginx o Caddy (descarga un zip y añade unas
@@ -64,9 +64,9 @@ líneas) o usa nuestro contenedor. Las tres formas: [docs/emby.md](docs/emby.md)
 ```sh
 git clone https://github.com/jiaton/backseatfin.git && cd backseatfin
 cp .env.example .env
-# Emby:    pon EMBY_URL
+# Emby:    descomenta EMBY_URL y ponlo
 # YouTube: descomenta COMPOSE_PROFILES=server (entra con el código del registro)
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 Después, pon detrás de HTTPS cada puerto que uses ([ejemplos](docs/reverse-proxy.md)) y

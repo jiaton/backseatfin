@@ -91,8 +91,9 @@ GitHub Pages.
     the image's entrypoint). It serves Emby's `/web/` and `/web/index.html` with the
     script tag added (`sub_filter`, `Accept-Encoding` cleared), the player's static files
     at `/car/*` (prefix stripped), `/car/api/*` and `/car/health` to the optional server
-    (resolved per request: no server = 502, and the player lets Emby transcode), and
-    everything else to Emby.
+    (resolved per request: no server = 502 for the API, a quiet 404 for `/car/health`
+    with its error log at `crit`, and the player lets Emby transcode), and everything
+    else to Emby.
 - Users put both ports behind their own HTTPS reverse proxy (`docs/reverse-proxy.md`).
   WebCodecs needs a secure context.
 - Jellyfin plugin: C# on .NET 10, built against `Jellyfin.Controller` 12.0.0 (loads on
@@ -240,7 +241,10 @@ by design.
   hosts get the script tag (like Emby's car host). Empty → every page gets it with
   `data-mode="opt-in"`, and `inject.js` only acts where `localStorage['backseatfin:car']
   === '1'`, which `/BackseatFin/car` switches. Never on by default anywhere else: phones
-  and computers keep Jellyfin's own player.
+  and computers keep Jellyfin's own player. `/BackseatFin/car` is served with
+  `<meta name="backseatfin-host" content="opt-in|car|none">` (`HostMode`), so on a car
+  hostname, or on another host while hostnames are set, it says so instead of offering
+  a switch that would do nothing.
 - **Hand-off:** the same `inject.js` as Emby (the two web apps share their ancestry:
   `ApiClient`, `video.htmlvideoplayer`, `/Videos/{id}/…` URLs). Jellyfin's routes are
   `#/video`/`#/queue`; its own HLS player writes item ids as dashed GUIDs. `inject.js`
@@ -317,7 +321,12 @@ by design.
    only** (Emby's main player; theme/backdrop videos never trigger), plus XHR/fetch for
    HLS while that element exists.
    - The first playback URL gives the item, the start (`#t=` or `StartTimeTicks`), and
-     Emby's chosen `AudioStreamIndex`/`SubtitleStreamIndex`.
+     Emby's chosen `AudioStreamIndex`/`SubtitleStreamIndex`. A text subtitle the web
+     app would show itself isn't in that URL, so `inject.js` also notes the tracks of
+     the last PlaybackInfo with `IsPlayback` not false (Emby: query; Jellyfin: JSON
+     body, indexes as strings) and fills in what the URL lacks for the same item. The
+     web app sends look-only PlaybackInfo (`IsPlayback=false`, no tracks) right after
+     Play; those are ignored.
    - It stores `{token, userId}` from Emby's global `ApiClient` in sessionStorage and
      opens `/car/play?item&t&audio&sub&back&embed=1` as a **full-screen iframe layer
      over Emby's page**, then steps Emby back out of its own (empty) player route with
@@ -597,6 +606,10 @@ reverse proxy's log (`docs/reverse-proxy.md`) without the car banning itself. Ke
 all of this true.
 
 Logs: the backend never logs tokens. ffmpeg gets the Emby token only via `-headers`.
+The pairing id a car polls with (`GET /api/auth/pairings/<id>`) is a credential too:
+uvicorn's access log (`_HidePairingIds` in `main.py`) and the web image's nginx access
+log (`log_format redacted`) write it as `…`/`...`. httpx logs at WARNING only (at INFO
+it logged every signed googlevideo URL).
 yt-dlp runs without YouTube cookies by design.
 
 ## Frontend rules
