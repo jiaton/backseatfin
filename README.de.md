@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/logo.svg" alt="" width="96">
+
 # BackseatFin
 
 **Schau deine Jellyfin- oder Emby-Bibliothek und YouTube im Browser des Autos an, auch während der Fahrt.**

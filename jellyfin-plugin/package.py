@@ -39,7 +39,7 @@ def main() -> None:
             "overview": "Canvas player for car browsers",
             "owner": "jiaton",
             "category": "General",
-            "imageUrl": "",
+            "imageUrl": "https://raw.githubusercontent.com/jiaton/backseatfin/main/docs/images/logo.png",
             "versions": [
                 {
                     "version": full_version,

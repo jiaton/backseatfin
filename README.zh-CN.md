@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/logo.svg" alt="" width="96">
+
 # BackseatFin
 
 **即使车辆在行驶中，也能在车载浏览器里看你的 Jellyfin、Emby 媒体库和 YouTube。**
