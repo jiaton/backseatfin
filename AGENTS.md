@@ -479,7 +479,8 @@ by design.
        play button that just appeared under the finger.
    - **Language** (`player/i18n.ts`; the admin site shares its saved choice): English,
      Chinese, Spanish, Japanese and Korean. It defaults to the browser's language (else
-     English); the switch applies in place and is remembered in localStorage. Media
+     English), or the YouTube app's picker when set (localStorage). The player has no
+     picker of its own (it crowded the settings sheet). Media
      Chrome has labels for en/zh/es only; ja/ko fall back to English there (aria labels). Engines
      and `<car-video>` report technical English detail plus a reason
      (`decode`/`refused`/`timeout`/`outage`, with the WS close code), and the page

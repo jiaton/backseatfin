@@ -16,7 +16,7 @@ import { createCaptionLayer, type Cue, loadCaptionLang, saveCaptionLang } from '
 import { createUpNext, offerNext } from './up-next'
 import { diagnose } from './diagnose'
 import { loadingLines } from './loading'
-import { detectLang, HTML_LANG, LANG_NAMES, type Lang, LANGS, saveLang, type StringKey, type Translate, translator } from './i18n'
+import { detectLang, HTML_LANG, type Lang, type StringKey, type Translate, translator } from './i18n'
 import { CLOSE_MESSAGE, formatClock, type PlayerParams } from './params'
 import { fitLevel, gbPerHour, loadQuality, type Quality, QUALITY_VALUES, saveQuality } from './quality'
 import { createHistory, createNetGraph } from './net-graph'
@@ -44,17 +44,12 @@ const STATS_KEY = 'backseatfin:stats'
 /** Media Chrome ships labels for some of our languages only; the rest stay English. */
 const MEDIA_CHROME_LANG: Partial<Record<Lang, string>> = { zh: 'zh-CN', es: 'es' }
 
-let lang: Lang = 'en'
-let t: Translate = translator('en')
-/** The page's current language (pages built outside mountPlayer, like showMessage's). */
+const lang: Lang = detectLang()
+const t: Translate = translator(lang)
+/** The page's language (pages built outside mountPlayer, like showMessage's). */
 export const currentT = (): Translate => t
-function switchLang(next: Lang) {
-  lang = next
-  t = translator(next)
-  document.documentElement.lang = HTML_LANG[next]
-  setLanguage(MEDIA_CHROME_LANG[next] ?? 'en') // Media Chrome's own labels
-}
-switchLang(detectLang())
+document.documentElement.lang = HTML_LANG[lang]
+setLanguage(MEDIA_CHROME_LANG[lang] ?? 'en') // Media Chrome's own labels
 defineCarVideo()
 
 const QUALITY_NAME = { low: 'qualityLow', medium: 'qualityMedium', high: 'qualityHigh', max: 'qualityMax' } as const
@@ -209,7 +204,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const upNext = createUpNext()
   document.body.replaceChildren(controller, captionLayer.el, status, loadingBox, subChip, unlock, qualityHint, errorPanel, statsPanel, upNext.el, sheetBackdrop, sheet)
 
-  // Every fixed label, so the language can change without a reload.
+  // Every fixed label.
   let subState: 'none' | 'pending' | 'failed' = 'none'
   const renderSubChip = () => {
     subChip.hidden = subState === 'none'
@@ -508,22 +503,6 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       section.append(h('p', { class: 'cm-note' }, t('transcoderNow', { name: ours ? t('transcoderOurs') : server, server })))
       groups.push(section)
     }
-    // Switching language re-labels the page in place; the stream keeps playing.
-    groups.push(
-      group(
-        t('language'),
-        LANGS.map((l) => ({
-          label: LANG_NAMES[l],
-          selected: l === lang,
-          pick: () => {
-            saveLang(l)
-            switchLang(l)
-            applyTexts()
-            renderSheet()
-          },
-        })),
-      ),
-    )
     const close = h('button', { class: 'cm-button cm-sheet-close' }, t('done'))
     close.addEventListener('click', closeSheet)
     sheet.replaceChildren(...groups, close)

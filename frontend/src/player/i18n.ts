@@ -1,6 +1,6 @@
 /** Player UI strings in English, Chinese, Spanish, Japanese and Korean. The browser's
- * language picks one (English otherwise); the viewer can switch in the settings sheet
- * (remembered per browser). Server messages stay English and technical — the page maps
+ * language picks one (English otherwise); the YouTube app's own picker, when set, wins
+ * (remembered per browser). The player has no picker: it would crowd the settings sheet. Server messages stay English and technical — the page maps
  * them to these. */
 export type Lang = 'en' | 'zh' | 'es' | 'ja' | 'ko'
 export const LANGS: Lang[] = ['en', 'zh', 'es', 'ja', 'ko']
@@ -18,7 +18,6 @@ const en = {
   quality: 'Quality',
   audio: 'Audio',
   subtitles: 'Subtitles',
-  language: 'Language',
   off: 'Off',
   done: 'Done',
   loading: 'Loading… {time}',
@@ -96,7 +95,6 @@ const zh: Record<StringKey, string> = {
   quality: '画质',
   audio: '音轨',
   subtitles: '字幕',
-  language: '语言',
   off: '关闭',
   done: '完成',
   loading: '加载中… {time}',
@@ -170,7 +168,6 @@ const es: Record<StringKey, string> = {
   quality: 'Calidad',
   audio: 'Audio',
   subtitles: 'Subtítulos',
-  language: 'Idioma',
   off: 'Desactivados',
   done: 'Listo',
   loading: 'Cargando… {time}',
@@ -245,7 +242,6 @@ const ja: Record<StringKey, string> = {
   quality: '画質',
   audio: '音声',
   subtitles: '字幕',
-  language: '言語',
   off: 'オフ',
   done: '完了',
   loading: '読み込み中… {time}',
@@ -320,7 +316,6 @@ const ko: Record<StringKey, string> = {
   quality: '화질',
   audio: '오디오',
   subtitles: '자막',
-  language: '언어',
   off: '끄기',
   done: '완료',
   loading: '불러오는 중… {time}',
