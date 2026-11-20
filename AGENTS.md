@@ -469,9 +469,22 @@ by design.
      - It provides the controller, play button, time range and time display. We
        provide the back button and title (top), skips −60/−10/+10/+60 s around play
        (centre; ±10 lands in the buffer or the kept past, so it needs no stream, ±60
-       reconnects), and a settings sheet
-       with big option buttons for quality, audio, subtitles and language (its own
-       menus are desktop-sized).
+       reconnects), a stats button and a settings sheet (bottom right). The sheet has
+       option buttons in even grid columns (48 px, compact on owner's request) for
+       quality (size and Mbps per level), audio, subtitles and, on Emby with the
+       server, the transcoder; then the car media buttons switch. Media Chrome's own
+       menus are desktop-sized.
+     - **Car media buttons** (`car-buttons.ts`, a switch in the sheet, off by default,
+       remembered in `backseatfin:car-buttons`): a car browser shows its media card only
+       for an audibly playing `<audio>`, and the player has none (canvas + Web Audio).
+       So it loops a hidden 10 s 25 Hz tone at −60 dBFS (generated WAV; all-zero counts
+       as silent) and sets the Media Session on it: title, server, artwork as a data:
+       URL (Emby/Jellyfin `Images/Primary` of the series or item with the auth header;
+       YouTube's thumbnail through `/api/tube/image`), playbackState from the player.
+       Tested by muxtower in a Tesla: the card's button only ever sends `play`, so
+       `play` toggles; prev/next are greyed for web pages; the loop needs a tap first
+       (tried at load, then on each tap); one element for the page's life. A native
+       pause of the loop counts as a press. Handlers are set once the loop plays.
      - `gesturesdisabled`: a tap never toggles play.
      - Touch taps show and hide the controls (3 s autohide). Hidden controls are
        opacity 0 in Media Chrome, so CSS turns their pointer events off. A tap that
@@ -520,8 +533,8 @@ by design.
        audio goes through a per-stream GainNode, so destroy() silences it at once.
      - Far behind (picture > 1.5 s behind the clock with a decoder backlog): the decoder
        is reset and restarts at the newest keyframe.
-   - **Stats for nerds** (`page.ts` + `diagnose.ts`; toggle in the settings sheet's
-     quality section, remembered): a panel over the picture, updated twice a second.
+   - **Stats for nerds** (`page.ts` + `diagnose.ts`; its own button on the control bar,
+     remembered): a panel over the picture, updated twice a second.
      On top a graph (`net-graph.ts`, one canvas, history kept at one point a second
      even while the panel is closed): the buffer as a gauge (marks at 15/20 s, red under
      5 s) and two minutes of what arrived, the link measurements, the stream's need and
@@ -637,7 +650,7 @@ Client state: React state + the URL only (no store library).
 Styling: colors only from tokens in `src/index.css` (the player's in
 `player/page.css`). `npm run lint` enforces it (stylelint `color-no-hex` +
 `scripts/check-tokens.mjs`). Car-facing screens use big touch targets (≥ 56 px in the
-player) and native `<select>` pickers.
+player's controls, 48 px in its settings sheet) and native `<select>` pickers.
 
 UI text: every user-visible string goes through i18n (`player/i18n.ts` for the
 player; `lib/i18n.ts` + `useT()` from `components/i18n.tsx` for the admin site),

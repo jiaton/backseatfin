@@ -198,9 +198,9 @@ usual; Play opens the car player (with the audio and subtitles picked on Emby's 
 the back arrow returns to where you were. Progress
 and "watched" sync with Emby like any other client.
 
-The player's settings sheet has quality (each level shows its real picture size, bitrate
-and data per hour), audio track, subtitles, language, and "Stats for
-nerds". While a video loads, the player says what it's doing and how fast the network is.
+The player's settings sheet has quality (each level shows its real picture size and
+bitrate), audio track, subtitles, and a switch for the car's media buttons (pause and play
+from the car's media card). "Stats for nerds" has its own button next to it. While a video loads, the player says what it's doing and how fast the network is.
 
 ### Subtitles
 

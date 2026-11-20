@@ -19,7 +19,6 @@ const en = {
   audio: 'Audio',
   subtitles: 'Subtitles',
   off: 'Off',
-  done: 'Done',
   loading: 'Loading… {time}',
   reconnecting: 'Connection lost, reconnecting…',
   finished: 'Finished',
@@ -40,9 +39,8 @@ const en = {
   hostedBlocked: "The browser didn't let this player (hosted on GitHub Pages) reach {server}. A server on a private address (LAN or VPN) needs the player from the zip on your own proxy instead: see docs/emby.md.",
   needsWebCodecs: "This browser can't play {server} streams here: it needs hardware H.264 decoding (WebCodecs).",
   needsHttps: 'Open {server} over HTTPS: browsers decode video for a page only when it is secure (https://).',
-  screenNote:
-    'This window can show up to {size}. The stream is never sent larger than that, so above it a higher level only raises the bitrate: a little more detail, more data.',
-  playingNow: 'Playing now: {size}',
+  screenNote: 'Screen: up to {size}; higher levels only add bitrate.',
+  playingNow: 'Playing: {size}',
   qualityLow: 'Low',
   qualityMedium: 'Standard',
   qualityHigh: 'High',
@@ -80,6 +78,8 @@ const en = {
   qualityAdviceDown: 'The network can’t keep up: switch to {name}',
   qualityAdviceUp: 'The network is better: back to {name}',
   cancel: 'Cancel',
+  carButtons: 'Car media buttons',
+  carButtonsNote: "Pause and play from the car's media card. Plays a tone you can't hear to show it.",
 }
 export type StringKey = keyof typeof en
 /** Every key (for tests). */
@@ -96,7 +96,6 @@ const zh: Record<StringKey, string> = {
   audio: '音轨',
   subtitles: '字幕',
   off: '关闭',
-  done: '完成',
   loading: '加载中… {time}',
   reconnecting: '网络中断，正在重连…',
   finished: '播放完毕',
@@ -117,8 +116,8 @@ const zh: Record<StringKey, string> = {
   hostedBlocked: '浏览器不允许这个播放器（托管在 GitHub Pages 上）连接 {server}。服务器在私有地址（局域网或 VPN）时，请改用 zip 版播放器放在你自己的反向代理上，见 docs/emby.md。',
   needsWebCodecs: '这个浏览器无法在这里播放 {server} 的视频：需要 H.264 硬件解码（WebCodecs）。',
   needsHttps: '请用 HTTPS 打开 {server}：浏览器只在安全页面（https://）上解码视频。',
-  screenNote: '这个窗口最多显示 {size}。视频不会以超过这个尺寸传输，所以再往上选更高档位，只是提高码率：细节多一点，流量也更大。',
-  playingNow: '当前播放：{size}',
+  screenNote: '屏幕最大 {size}，更高档位只提高码率。',
+  playingNow: '当前 {size}',
   qualityLow: '流畅',
   qualityMedium: '标清',
   qualityHigh: '高清',
@@ -156,6 +155,8 @@ const zh: Record<StringKey, string> = {
   qualityAdviceDown: '网络跟不上：切到{name}',
   qualityAdviceUp: '网络好转：恢复到{name}',
   cancel: '取消',
+  carButtons: '车机媒体按键',
+  carButtonsNote: '用车机的媒体卡片暂停和播放。会放一段听不见的声音来显示卡片。',
 }
 
 const es: Record<StringKey, string> = {
@@ -169,7 +170,6 @@ const es: Record<StringKey, string> = {
   audio: 'Audio',
   subtitles: 'Subtítulos',
   off: 'Desactivados',
-  done: 'Listo',
   loading: 'Cargando… {time}',
   reconnecting: 'Se perdió la conexión, reconectando…',
   finished: 'Terminado',
@@ -190,9 +190,8 @@ const es: Record<StringKey, string> = {
   hostedBlocked: 'El navegador no dejó que este reproductor (alojado en GitHub Pages) llegara a {server}. Con un servidor en una dirección privada (LAN o VPN), usa el reproductor del zip en tu propio proxy: consulta docs/emby.md.',
   needsWebCodecs: 'Este navegador no puede reproducir vídeos de {server} aquí: necesita decodificación H.264 por hardware (WebCodecs).',
   needsHttps: 'Abre {server} por HTTPS: los navegadores solo decodifican vídeo en páginas seguras (https://).',
-  screenNote:
-    'Esta ventana muestra como máximo {size}. El vídeo nunca se envía más grande, así que por encima de eso un nivel más alto solo sube la tasa de bits: algo más de detalle, más datos.',
-  playingNow: 'Reproduciendo: {size}',
+  screenNote: 'Pantalla: hasta {size}; los niveles más altos solo suben la tasa de bits.',
+  playingNow: 'Ahora: {size}',
   qualityLow: 'Baja',
   qualityMedium: 'Estándar',
   qualityHigh: 'Alta',
@@ -230,6 +229,8 @@ const es: Record<StringKey, string> = {
   qualityAdviceDown: 'La red no da abasto: cambiar a {name}',
   qualityAdviceUp: 'La red va mejor: volver a {name}',
   cancel: 'Cancelar',
+  carButtons: 'Botones multimedia del coche',
+  carButtonsNote: 'Pausa y reproduce desde la tarjeta multimedia del coche. Reproduce un tono inaudible para mostrarla.',
 }
 
 const ja: Record<StringKey, string> = {
@@ -243,7 +244,6 @@ const ja: Record<StringKey, string> = {
   audio: '音声',
   subtitles: '字幕',
   off: 'オフ',
-  done: '完了',
   loading: '読み込み中… {time}',
   reconnecting: '接続が切れました。再接続しています…',
   finished: '再生終了',
@@ -264,9 +264,8 @@ const ja: Record<StringKey, string> = {
   hostedBlocked: 'ブラウザがこのプレーヤー（GitHub Pages 上）から {server} への接続を許可しませんでした。プライベートアドレス（LAN や VPN）のサーバーには、zip 版プレーヤーを自分のプロキシに置いて使ってください（docs/emby.md 参照）。',
   needsWebCodecs: 'このブラウザではここで {server} の動画を再生できません。H.264 のハードウェアデコード（WebCodecs）が必要です。',
   needsHttps: '{server} は HTTPS で開いてください。ブラウザは安全なページ（https://）でのみ動画をデコードします。',
-  screenNote:
-    'このウィンドウで表示できるのは最大 {size} です。動画がそれより大きく送られることはないため、それ以上の画質を選んでもビットレートが上がるだけです（少し精細になり、通信量が増えます）。',
-  playingNow: '再生中：{size}',
+  screenNote: '画面は最大 {size}。それ以上の画質はビットレートが上がるだけです。',
+  playingNow: '再生中 {size}',
   qualityLow: '低',
   qualityMedium: '標準',
   qualityHigh: '高',
@@ -304,6 +303,8 @@ const ja: Record<StringKey, string> = {
   qualityAdviceDown: '回線が追いつきません：{name}に切り替え',
   qualityAdviceUp: '回線が回復しました：{name}に戻す',
   cancel: 'キャンセル',
+  carButtons: '車のメディアボタン',
+  carButtonsNote: '車のメディアカードから一時停止・再生できます。表示のため聞こえない音を流します。',
 }
 
 const ko: Record<StringKey, string> = {
@@ -317,7 +318,6 @@ const ko: Record<StringKey, string> = {
   audio: '오디오',
   subtitles: '자막',
   off: '끄기',
-  done: '완료',
   loading: '불러오는 중… {time}',
   reconnecting: '연결이 끊겼습니다. 다시 연결하는 중…',
   finished: '재생 완료',
@@ -338,9 +338,8 @@ const ko: Record<StringKey, string> = {
   hostedBlocked: '브라우저가 이 플레이어(GitHub Pages에 호스팅)에서 {server}에 연결하도록 허용하지 않았습니다. 사설 주소(LAN 또는 VPN)의 서버에는 zip 플레이어를 자체 프록시에 두고 사용하세요. docs/emby.md를 참고하세요.',
   needsWebCodecs: '이 브라우저에서는 여기서 {server} 영상을 재생할 수 없습니다. H.264 하드웨어 디코딩(WebCodecs)이 필요합니다.',
   needsHttps: '{server}을(를) HTTPS로 여세요. 브라우저는 보안 페이지(https://)에서만 동영상을 디코딩합니다.',
-  screenNote:
-    '이 창은 최대 {size}까지 표시합니다. 영상은 이보다 크게 전송되지 않으므로, 그 이상의 화질은 비트레이트만 올립니다. 조금 더 선명해지고 데이터는 더 씁니다.',
-  playingNow: '현재 재생: {size}',
+  screenNote: '화면 최대 {size}. 더 높은 화질은 비트레이트만 올립니다.',
+  playingNow: '재생 중 {size}',
   qualityLow: '낮음',
   qualityMedium: '표준',
   qualityHigh: '높음',
@@ -378,6 +377,8 @@ const ko: Record<StringKey, string> = {
   qualityAdviceDown: '네트워크가 따라가지 못합니다: {name}(으)로 전환',
   qualityAdviceUp: '네트워크가 좋아졌습니다: {name}(으)로 복귀',
   cancel: '취소',
+  carButtons: '차량 미디어 버튼',
+  carButtonsNote: '차량 미디어 카드에서 일시정지·재생합니다. 카드를 표시하려고 들리지 않는 소리를 재생합니다.',
 }
 
 const de: Record<StringKey, string> = {
@@ -391,7 +392,6 @@ const de: Record<StringKey, string> = {
   audio: 'Audio',
   subtitles: 'Untertitel',
   off: 'Aus',
-  done: 'Fertig',
   loading: 'Wird geladen… {time}',
   reconnecting: 'Verbindung verloren, verbinde neu…',
   finished: 'Zu Ende',
@@ -412,9 +412,8 @@ const de: Record<StringKey, string> = {
   hostedBlocked: 'Der Browser hat diesen Player (auf GitHub Pages) nicht zu {server} durchgelassen. Ein Server unter einer privaten Adresse (LAN oder VPN) braucht stattdessen den Player aus dem Zip auf deinem eigenen Proxy: siehe docs/emby.md.',
   needsWebCodecs: 'Dieser Browser kann {server}-Streams hier nicht abspielen: Er braucht Hardware-Dekodierung für H.264 (WebCodecs).',
   needsHttps: 'Öffne {server} über HTTPS: Browser dekodieren Video für eine Seite nur, wenn sie sicher ist (https://).',
-  screenNote:
-    'Dieses Fenster zeigt bis zu {size}. Größer wird der Stream nie gesendet; darüber erhöht eine höhere Stufe nur die Bitrate: etwas mehr Details, mehr Daten.',
-  playingNow: 'Läuft gerade: {size}',
+  screenNote: 'Bildschirm: bis {size}; höhere Stufen erhöhen nur die Bitrate.',
+  playingNow: 'Jetzt: {size}',
   qualityLow: 'Niedrig',
   qualityMedium: 'Standard',
   qualityHigh: 'Hoch',
@@ -452,6 +451,8 @@ const de: Record<StringKey, string> = {
   qualityAdviceDown: 'Das Netz kommt nicht mit: auf {name} wechseln',
   qualityAdviceUp: 'Das Netz ist besser: zurück zu {name}',
   cancel: 'Abbrechen',
+  carButtons: 'Medientasten des Autos',
+  carButtonsNote: 'Pause und Wiedergabe über die Medienkarte des Autos. Spielt dafür einen unhörbaren Ton.',
 }
 
 const TABLES: Record<Lang, Record<StringKey, string>> = { en, zh, es, ja, ko, de }

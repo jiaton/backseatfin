@@ -1,6 +1,6 @@
 import { fetchTubeCaptions, fetchTubeVideo, reportTubeProgress } from '../api'
 import { ENGINE_FORMAT, type EngineKind } from '../engines/types'
-import { wsUrl } from '../net'
+import { API_PREFIX, wsUrl } from '../net'
 import { SERVER_LEVELS, YOUTUBE_LEVELS } from '../quality'
 import type { PlaybackSource } from '../source'
 
@@ -32,6 +32,12 @@ export async function createYoutubeSource(videoId: string, engine: EngineKind): 
         q.set('maxh', String(Math.min(h, 4096)))
       }
       return wsUrl(`/api/stream/ws?${q}`)
+    },
+    // Through our server's image cache (YouTube's image hosts only).
+    artwork: async () => {
+      if (!video.thumbnail_url) return null
+      const r = await fetch(`${API_PREFIX}/api/tube/image?u=${encodeURIComponent(video.thumbnail_url)}`)
+      return r.ok ? r.blob() : null
     },
     // YouTube's captions are text, drawn by the page: switching needs no new stream.
     captions: (index) => fetchTubeCaptions(video.id, captions[index].id),

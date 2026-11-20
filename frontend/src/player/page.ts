@@ -12,6 +12,7 @@ import 'media-chrome/dist/lang/es.js'
 import 'media-chrome/dist/lang/zh-CN.js'
 import { setLanguage } from 'media-chrome/dist/utils/i18n.js'
 
+import { createCarButtons, loadCarButtons, saveCarButtons } from './car-buttons'
 import { type CarVideoError, CarVideoElement, defineCarVideo } from './car-video'
 import { createCaptionLayer, type Cue, loadCaptionLang, saveCaptionLang } from './captions'
 import { createUpNext, offerNext } from './up-next'
@@ -93,6 +94,7 @@ const ICONS = {
   forward: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
   settings:
     '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+  stats: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
   volume: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/>',
 }
 function icon(name: keyof typeof ICONS): SVGSVGElement {
@@ -173,11 +175,13 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
   const center = h('div', { slot: 'centered-chrome', class: 'cm-center' }, skips[0].el, skips[1].el, play, skips[2].el, skips[3].el)
 
   const settings = h('button', { class: 'cm-icon-button', 'aria-haspopup': 'dialog' }, icon('settings'))
+  const statsButton = h('button', { class: 'cm-icon-button cm-toggle' }, icon('stats'))
   const bar = h(
     'media-control-bar',
     { class: 'cm-bar' },
     h('media-time-display', { showduration: '' }),
     h('media-time-range'),
+    statsButton,
     settings,
   )
   const controller = h('media-controller', { autohide: String(AUTOHIDE_S), gesturesdisabled: '', class: 'cm-controller' }, video, top, center, bar)
@@ -216,6 +220,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     back.setAttribute('aria-label', t('backTo', { server }))
     for (const { s, el } of skips) el.setAttribute('aria-label', t(s < 0 ? 'rewind' : 'forward', { n: Math.abs(s) }))
     settings.setAttribute('aria-label', t('settings'))
+    statsButton.setAttribute('aria-label', t('stats'))
     sheet.setAttribute('aria-label', t('settings'))
     bar.querySelector('media-time-range')?.setAttribute('aria-label', t('progress'))
     unlockLabel.textContent = t('tapForSound')
@@ -426,22 +431,24 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     }
     video.reload()
   }
-  function group(label: string, options: { label: string; detail?: string; selected: boolean; pick: () => void }[]) {
+  // `wide`: options with long names (tracks), fewer to a row.
+  function group(label: string, options: { label: string; detail?: string; selected: boolean; pick: () => void }[], wide = false) {
     const buttons = options.map((o) => {
       const b = h('button', { class: 'cm-option', 'aria-pressed': String(o.selected) }, o.label)
       if (o.detail) b.append(h('small', {}, o.detail))
       b.addEventListener('click', o.pick)
       return b
     })
-    return h('section', {}, h('h2', {}, label), h('div', { class: 'cm-options' }, ...buttons))
+    return h('section', {}, h('h2', {}, label), h('div', { class: wide ? 'cm-options cm-wide' : 'cm-options' }, ...buttons))
   }
   /** What a level really sends in this window: its size cap fitted into the display
    * box at the film's aspect ratio (known once a picture is playing), and its data rate. */
-  function levelText(q: Quality) {
+  function levelText(q: Quality, perHour = true) {
     const l = source.levels(video.engine)[q]
     const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9
     const { w, h } = fitLevel(l, displayBox(), aspect)
-    return `${w}×${h} · ${(l.kbps / 1000).toFixed(1)} Mbps · ${gbPerHour(l).toFixed(1)} GB/h`
+    const mbps = `${(l.kbps / 1000).toFixed(1)} Mbps`
+    return perHour ? `${w}×${h} · ${mbps} · ${gbPerHour(l).toFixed(1)} GB/h` : `${w}×${h}\n${mbps}` // the sheet: two short lines
   }
   function renderSheet() {
     const box = displayBox()
@@ -449,27 +456,20 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       t('quality'),
       QUALITY_VALUES.map((q: Quality) => ({
         label: t(QUALITY_NAME[q]),
-        detail: levelText(q),
+        detail: levelText(q, false),
         selected: q === state.quality,
         pick: () => choose({ quality: q }),
       })),
     )
-    const notes = [t('screenNote', { size: `${box.w}×${box.h}` })]
-    if (video.videoWidth) notes.push(t('playingNow', { size: `${video.videoWidth}×${video.videoHeight}` }))
-    quality.append(...notes.map((n) => h('p', { class: 'cm-note' }, n)))
-    // The stats panel sits right here, one tap away from the quality it explains.
-    const statsToggle = h('button', { class: 'cm-option cm-stats-toggle', 'aria-pressed': String(statsOn) }, t('stats'))
-    statsToggle.addEventListener('click', () => {
-      showStats(!statsOn)
-      renderSheet()
-    })
-    quality.append(statsToggle)
+    const now = video.videoWidth ? ` ${t('playingNow', { size: `${video.videoWidth}×${video.videoHeight}` })}` : ''
+    quality.append(h('p', { class: 'cm-note' }, t('screenNote', { size: `${box.w}×${box.h}` }) + now))
     const groups = [quality]
     if (item.audioTracks.length > 1) {
       groups.push(
         group(
           t('audio'),
           item.audioTracks.map((tr: Track) => ({ label: tr.title, selected: tr.index === state.audio, pick: () => choose({ audio: tr.index }) })),
+          true,
         ),
       )
     }
@@ -482,7 +482,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
             selected: tr.index === state.sub,
             pick: () => choose({ sub: tr.index }),
           })),
-        ]),
+        ], true),
       )
     }
     const { transcoder } = opts
@@ -504,9 +504,18 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       section.append(h('p', { class: 'cm-note' }, t('transcoderNow', { name: ours ? t('transcoderOurs') : server, server })))
       groups.push(section)
     }
-    const close = h('button', { class: 'cm-button cm-sheet-close' }, t('done'))
-    close.addEventListener('click', closeSheet)
-    sheet.replaceChildren(...groups, close)
+    // A switch, under the choices: it changes the page, not the stream.
+    const carSwitch = h('button', { class: 'cm-switch', role: 'switch', 'aria-checked': String(carButtons.on) },
+      h('span', {}, t('carButtons'), h('small', {}, t('carButtonsNote'))),
+      h('span', { class: 'cm-switch-knob', 'aria-hidden': 'true' }),
+    )
+    carSwitch.addEventListener('click', () => {
+      saveCarButtons(!carButtons.on)
+      if (carButtons.on) carButtons.stop()
+      else void carButtons.start()
+      renderSheet()
+    })
+    sheet.replaceChildren(...groups, carSwitch)
   }
   function openSheet() {
     renderSheet()
@@ -539,6 +548,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
       // remembered for this page only
     }
     statsPanel.hidden = !on
+    statsButton.setAttribute('aria-pressed', String(on))
     window.clearInterval(statsTimer)
     if (on) {
       renderStats()
@@ -576,7 +586,24 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     )
     statsText.textContent = lines.join('\n')
   }
+  statsButton.addEventListener('click', () => showStats(!statsOn))
   if (statsOn) showStats(true)
+
+  // --- the car's media card (optional, off by default) ----------------------------------
+  const carButtons = createCarButtons({
+    title: item.title,
+    artist: server,
+    artwork: source.artwork,
+    paused: () => video.paused,
+    play: () => void video.play(),
+    pause: () => video.pause(),
+    seekBy: (s) => (video.currentTime += s),
+  })
+  // Needs a tap before it may play: tried now, then on every tap until it runs.
+  if (loadCarButtons()) void carButtons.start()
+  document.addEventListener('pointerdown', () => carButtons.on && void carButtons.start(), { capture: true })
+  video.addEventListener('playing', () => carButtons.sync())
+  video.addEventListener('pause', () => carButtons.sync())
 
   // --- text subtitles: extracted in the background ------------------------------------
   // Emby reads the whole file to extract an embedded subtitle (a minute on a big mkv),

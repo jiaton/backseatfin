@@ -333,51 +333,64 @@ car-video {
   right: 16px;
   bottom: 88px;
   display: grid;
-  gap: 18px;
-  width: min(560px, calc(100vw - 32px));
+  gap: 16px;
+  width: min(520px, calc(100vw - 32px));
   max-height: calc(100vh - 120px);
   overflow-y: auto;
-  padding: 20px;
+  padding: 16px;
   box-sizing: border-box;
   border-radius: var(--cm-radius);
   background: var(--cm-panel);
 }
 
 .cm-sheet h2 {
-  margin: 0 0 10px;
-  font-size: 14px;
+  margin: 0 0 8px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--cm-muted);
 }
 
+/* Even columns, so options line up instead of wrapping ragged. */
 .cm-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.cm-options.cm-wide {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
 .cm-option {
-  min-height: 52px;
-  padding: 0 18px;
+  min-height: 48px;
+  padding: 6px 12px;
   border: 1px solid var(--cm-line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
-  font-size: 17px;
+  font-size: 15px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cm-wide .cm-option {
+  text-align: left;
 }
 
 .cm-option small {
   display: block;
-  font-size: 13px;
+  margin-top: 2px;
+  font-size: 11px;
+  white-space: pre-line;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
 }
 
 .cm-note {
-  margin: 10px 0 0;
-  max-width: 60ch;
-  font-size: 14px;
-  line-height: 1.5;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--cm-muted);
 }
 
@@ -387,8 +400,60 @@ car-video {
   color: var(--cm-accent-fg);
 }
 
-.cm-sheet-close {
-  justify-self: end;
+.cm-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--cm-line);
+  background: transparent;
+  font-size: 15px;
+  text-align: left;
+}
+
+.cm-switch small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cm-muted);
+}
+
+.cm-switch-knob {
+  flex: none;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--cm-line);
+  transition: background 0.15s;
+}
+
+.cm-switch-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--cm-fg);
+  transition: transform 0.15s;
+}
+
+.cm-switch[aria-checked='true'] .cm-switch-knob {
+  background: var(--cm-accent);
+}
+
+.cm-switch[aria-checked='true'] .cm-switch-knob::after {
+  transform: translateX(18px);
+}
+
+.cm-toggle[aria-pressed='true'] {
+  color: var(--cm-accent);
 }
 
 .cm-message {
@@ -528,8 +593,4 @@ car-video {
   color: var(--cm-muted);
   font: 13px/1.5 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   white-space: pre-wrap;
-}
-
-.cm-stats-toggle {
-  margin-top: 12px;
 }

@@ -66,6 +66,8 @@ export interface PlaybackSource {
   /** Text subtitles come inside the stream (the engine hands their cues to the page,
    * which draws them): choosing one starts a new stream (Emby). */
   readonly subtitlesInStream?: boolean
+  /** A picture of the item (the car's media card shows it). */
+  artwork?(): Promise<Blob | null>
   /** Text subtitles the server has to prepare before it can burn them in (Emby). */
   prepareSubtitle?(index: number): Promise<SubtitleState>
 }

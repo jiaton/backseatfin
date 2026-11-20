@@ -46,8 +46,9 @@ Open Jellyfin, sign in once, and browse as usual. Press Play and the car player 
 back arrow returns to where you were. Progress and "watched" sync with Jellyfin like any
 other client.
 
-The player's settings sheet has quality, audio track and subtitles; the player speaks the
-browser's language. Quality is
+The player's settings sheet has quality, audio track and subtitles, and a switch for the
+car's media buttons (pause and play from the car's media card); "Stats for nerds" has its
+own button next to it. The player speaks the browser's language. Quality is
 capped to the screen: the stream is never sent larger than the window can show.
 
 ## How it works

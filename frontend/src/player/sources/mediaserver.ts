@@ -101,6 +101,7 @@ interface JfItem {
   Id: string
   Name: string
   SeriesName?: string
+  SeriesId?: string
   ParentIndexNumber?: number
   IndexNumber?: number
   RunTimeTicks?: number
@@ -256,6 +257,7 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
       return withStart(`${hosted ? base : window.location.origin + root}/Videos/${encodeURIComponent(item.Id)}/master.m3u8?${q}`, start)
     },
     headers: () => ({ Authorization: auth }),
+    artwork: async () => (await call('GET', `/Items/${encodeURIComponent(item.SeriesId ?? item.Id)}/Images/Primary?maxWidth=512`)).blob(),
     subtitlesInStream: inStream,
     // Jellyfin, text tracks only. The first fetch of an embedded track waits while the
     // server reads the file; the picture plays meanwhile.
