@@ -134,12 +134,10 @@ export function createWebCodecsEngine(canvas: HTMLCanvasElement, url: string, cb
 
   /** Opens a stream at the end of what's buffered and splices it on. */
   const refill = () => {
-    const range = pipeline.receivedRange()
-    if (!range) return
-    const cut = range.last // the newest frame is replaced by the new stream's keyframe
+    const at = pipeline.splice() // where the received sound ends: the new stream goes on from there
+    if (at == null) return
     const next = new URL(url)
-    next.searchParams.set('t', (startSeconds + (cut - range.first)).toFixed(3))
-    pipeline.spliceAt(cut)
+    next.searchParams.set('t', (startSeconds + at).toFixed(3))
     reconnects++
     connect(next.href)
   }

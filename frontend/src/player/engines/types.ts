@@ -68,6 +68,9 @@ export interface EngineStats {
   audioClock?: 'audio' | 'wall'
   audioFormat?: string
   audioBufferedS?: number
+  /** Times the sound fed to the decoder jumped (a splice, a gap in the source): the
+   * decoder was re-timed each time. */
+  audioJumps?: number
   /** Our server's stream: connections replaced mid-stream (stuck, or after a long
    * pause), and whether the server is told to hold (buffer full). */
   reconnects?: number
