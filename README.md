@@ -40,6 +40,9 @@ need:
   you. Add videos to a YouTube playlist on your phone and they're on the car's home screen.
 - **Light on the car.** It uses the car's hardware H.264 decoder via WebCodecs (YouTube
   can fall back to JSMpeg). The stream is sized to the screen, and it rides out dead zones.
+  It keeps about 40 s of compressed video (~16 MB at 3 Mbps), where the hls.js players
+  of Jellyfin's and Emby's web apps hold minutes: in our 1080p test, the browser used
+  150–250 MB (15–30%) less memory than with hls.js ([method](docs/player.md#memory-our-player-vs-video-2026-11-25)).
 - **HDR and Dolby Vision** are tone-mapped (Jellyfin: by Jellyfin; Emby: by the optional
   BackseatFin server, on an Intel GPU or the CPU).
 

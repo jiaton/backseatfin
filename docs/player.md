@@ -176,6 +176,50 @@ picture stood still per phase:
 - Our server's scale filter left a 641:640 sample aspect ratio, so every frame was
   resampled to draw it; it now ends with `setsar=1`.
 
+## Memory: our player vs `<video>` (2026-11-25)
+
+Big Buck Bunny (CC-BY, Blender Foundation) encoded once: 1080p30 H.264 High with
+B-frames, keyframe every 3 s, AAC 48 kHz stereo, 3.06 Mbps. The same bytes were played
+three ways in headless Chromium (Playwright 1.63, Intel iGPU via `--use-angle=gl-egl`,
+1920×1080 window), from a local server with no network shaping:
+
+- **A, our player:** the real Jellyfin build (`hls` engine → WebCodecs → canvas) on
+  the film as 3 s HLS segments, behind a stand-in for Jellyfin's item API.
+- **B, `<video>` + hls.js 1.7.4 with its defaults** on the same playlist. Emby 4.8's and
+  Jellyfin's web apps use hls.js the same way: Emby passes only timeouts, Jellyfin
+  `maxBufferLength` 30 s, and neither limits the back buffer.
+- **C, `<video src=film.mp4>`**, the same encode as a faststart MP4.
+
+PSS of every Chromium process from `/proc/<pid>/smaps_rollup`. Short runs: 6.5 min
+(playback, a seek forward to 7:30, a seek back to 1:40), twice each, interleaved.
+Long runs: 20 min of steady playback (the film looped three times), once each.
+
+| | A: our player | B: hls.js | C: MP4 |
+|---|---|---|---|
+| Total PSS at 5 min (two runs) | 737 / 770 MB | 891 / 892 MB | 447 / 387 MB |
+| Total PSS, 10–20 min (mean) | **617 MB** | **869 MB** | 558 MB |
+| Renderer PSS, 10–20 min | 420 MB | 577 MB | 217 MB |
+| Renderer PSS, peak over all runs | 470 MB | 588 MB | 233 MB |
+| Media held | 42 s compressed (20 ahead + 20 behind), ≈ 16 MB | ≈ 420 s (150 ahead + 270 behind), ≈ 162 MB | Chrome's media cache; `buffered` claims the whole film, but renderer memory stays flat |
+| JS heap | 3–6 MB | 3–4 MB | 1–2 MB |
+
+- Against hls.js our player uses about 250 MB less in total (−29%) and 160 MB less in
+  the renderer. Chrome caps a SourceBuffer at about 150 MB of video, so hls.js stops
+  growing there: the gap doesn't widen with a longer film.
+- **A plain `<video>` playing an MP4 is lighter than ours:** its renderer is about half
+  of ours. Ours holds up to 24 decoded frames (`MAX_QUEUED_FRAMES`, ≈ 3 MB each at
+  1080p) and decodes in the page, which `<video>` doesn't need to.
+- Our renderer grows for the first ~7 min (300 → ~470 MB), then stays flat (20-min
+  run). That's allocator warm-up: ArrayBuffer backing stores (CDP
+  `Runtime.getHeapUsage`) stayed between 0 and 17 MB.
+- CPU (renderer + GPU process, software decode) came out similar for all three
+  (≈ 30–35 % of one core when the machine was quiet). The NAS's own load varied
+  during the runs, so these numbers aren't precise.
+- Not the car: these runs decode in software (VA-API wouldn't engage in this headless
+  build). In the car, `<video>` and WebCodecs both decode in hardware, so decoded frames
+  sit in GPU memory instead. The buffers compared here (compressed data in the page vs
+  MSE's SourceBuffer) are the same either way.
+
 ## Later
 - Lower the quality by itself when the network can't carry the stream (1 Mbps above).
 - Memory readings from the car itself.
