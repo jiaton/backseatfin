@@ -21,8 +21,9 @@ where the car blocks `<video>` but not `<canvas>`. Built and tested on Tesla (Ch
      ffmpeg passes the H.264 through untouched (`StreamSpec.copy_video`, two inputs via
      `audio_url`), re-encoding only the sound to AAC 48 kHz. The player reorders the
      B-frames (`PlaybackSource.reorder`). See "YouTube in the car" below.
-   - **HDR / Dolby Vision tone mapping** that works (Emby's often doesn't): the player's
-     "Auto" transcoder sends HDR films here (`player/transcoder.ts`).
+   - **HDR / Dolby Vision tone mapping** that works where Emby's doesn't: the player's
+     "Auto" transcoder sends Dolby Vision profile 5 here (`player/transcoder.ts`); other
+     HDR only when the viewer picks this server.
      ffmpeg re-encodes to H.264 + AAC in MPEG-TS, pushed over a WebSocket (engine
      **WebCodecs**), or MPEG-1/MP2 for **JSMpeg** where WebCodecs can't do H.264 + AAC.
    - **Settings** (`/settings` in the app): what you follow (unfollow), devices, language.
@@ -301,8 +302,12 @@ by design.
     WebCodecs the page says so.
 - **Who transcodes** (`player/start.ts`, Emby only): the page probes `health` next to
   itself (the car host's `/car/health`). With the server there, `transcoder.ts` picks:
-  `auto` (default) = the server for HDR items (`VideoRange` ≠ SDR) or without WebCodecs,
-  Emby otherwise; `server` / `backseatfin` force one (localStorage
+  `auto` (default) = the server for Dolby Vision with no base layer (profile 5: Emby's
+  `ExtendedVideoSubType` `DoviProfile50`, i.e. compatibility id 0; Jellyfin's
+  `VideoRangeType` `DOVI`) or without WebCodecs, Emby otherwise. HDR10, HLG and DV 7/8
+  (HDR10 base) play fine through Emby, which starts faster and draws text subtitles at
+  once (owner, 2026-11-24: a DV 8.1 episode on the server started slowly and its
+  subtitles waited minutes for extraction); `server` / `backseatfin` force one (localStorage
   `backseatfin:transcoder`). The settings sheet offers the choice only when the server
   answers; switching reloads the page at the current position with the same tracks.
 - **`hls` engine** (`engines/hls-engine.ts` + `hls.ts`): master → first variant → media

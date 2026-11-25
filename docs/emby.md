@@ -216,11 +216,12 @@ disk, against 0.3 s without subtitles).
 
 ## Optional: HDR films (the BackseatFin server, way C only)
 
-Emby's own tone mapping often leaves HDR and Dolby Vision films washed out. The
+Emby shows HDR10, HLG and most Dolby Vision (profiles 7 and 8, which carry an HDR10
+base) fine, but Dolby Vision profile 5 has no such base and comes out purple and green. The
 BackseatFin server can transcode those instead, on an Intel GPU (up to 1080p) or the CPU
 (up to 720p). In `.env`, uncomment `COMPOSE_PROFILES=server`, then
 `docker compose up -d` again. The player's settings then offer **Transcoding**: *Auto*
-(the default: the server for HDR films, Emby for the rest), *Emby* or *BackseatFin
+(the default: the server for Dolby Vision profile 5, Emby for the rest), *Emby* or *BackseatFin
 server*. The same server also gives you [YouTube in the car](youtube.md).
 
 For the Intel GPU, also set:

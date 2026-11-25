@@ -95,6 +95,10 @@ interface JfStream {
   IsDefault?: boolean
   IsTextSubtitleStream?: boolean
   VideoRange?: string
+  /** Emby: e.g. DoviProfile50, DoviProfile81 (profile, then the base layer's compatibility id). */
+  ExtendedVideoSubType?: string
+  /** Jellyfin: DOVI (no base layer), DOVIWithHDR10, DOVIWithSDR, HDR10… */
+  VideoRangeType?: string
 }
 
 interface JfItem {
@@ -108,10 +112,14 @@ interface JfItem {
   MediaSources?: { Id: string; MediaStreams?: JfStream[] }[]
 }
 
-/** HDR or Dolby Vision ("HDR", "HDR 10", "DolbyVision"… — anything but SDR). */
-const isHdr = (streams: JfStream[]) => {
-  const range = streams.find((s) => s.Type === 'Video')?.VideoRange
-  return Boolean(range) && range!.toUpperCase() !== 'SDR'
+/**
+ * Dolby Vision without a base layer other players understand: compatibility id 0, i.e.
+ * profile 5 in practice. Emby names it DoviProfile50 (the last digit is the id; 81 = profile
+ * 8 with an HDR10 base), Jellyfin plain "DOVI" (vs "DOVIWithHDR10" and so on).
+ */
+export const isDolbyVisionOnly = (streams: JfStream[]) => {
+  const video = streams.find((s) => s.Type === 'Video')
+  return /^DoviProfile\d0$/.test(video?.ExtendedVideoSubType ?? '') || video?.VideoRangeType === 'DOVI'
 }
 
 function track(s: JfStream): Track {
@@ -247,7 +255,7 @@ export async function createServerSource(server: MediaServer, itemId: string, ro
       duration: item.RunTimeTicks ? item.RunTimeTicks / TICKS_PER_SECOND : Number.NaN,
       audioTracks: streams.filter((s) => s.Type === 'Audio').map(track),
       subtitleTracks,
-      hdr: isHdr(streams),
+      dolbyVisionOnly: isDolbyVisionOnly(streams),
     },
     engines: ['hls'],
     levels: () => MEDIA_SERVER_LEVELS[server],

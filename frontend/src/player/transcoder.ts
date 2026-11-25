@@ -6,8 +6,9 @@ import type { EngineKind } from './engines/types'
  * tone-maps HDR / Dolby Vision properly (Emby's own tone mapping often doesn't), and it's
  * the only way to play in a browser without WebCodecs (JSMpeg).
  *
- * 'auto' = the BackseatFin server for HDR films (or without WebCodecs), the media server
- * for everything else.
+ * 'auto' = the BackseatFin server for Dolby Vision profile 5 (or without WebCodecs), the
+ * media server for everything else: it shows HDR10, HLG and DV 7/8 (their HDR10 base) fine,
+ * starts faster and draws text subtitles at once.
  */
 export const TRANSCODERS = ['auto', 'server', 'backseatfin'] as const
 export type Transcoder = (typeof TRANSCODERS)[number]
@@ -35,7 +36,7 @@ export function saveTranscoder(v: Transcoder, storage: Pick<Storage, 'setItem'> 
 }
 
 /** Whether the BackseatFin server should transcode this item. */
-export function prefersBackseatfin(pref: Transcoder, hdr: boolean, engine: EngineKind): boolean {
+export function prefersBackseatfin(pref: Transcoder, dolbyVisionOnly: boolean, engine: EngineKind): boolean {
   if (engine !== 'webcodecs') return true // the media server's HLS needs WebCodecs
-  return pref === 'backseatfin' || (pref === 'auto' && hdr)
+  return pref === 'backseatfin' || (pref === 'auto' && dolbyVisionOnly)
 }
