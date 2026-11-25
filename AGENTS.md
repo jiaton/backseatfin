@@ -451,10 +451,18 @@ by design.
          Older clients send no acks and aren't limited.
        - Data watchdog: no bytes for 5 s while expecting some (not held) = stuck (mobile
          networks hang without closing). The socket is dropped and a new one opened
-         **spliced** onto the buffer: it starts (`t`) where the buffer ends and its first
-         keyframe is placed there (`pipeline.spliceAt`), so playback doesn't stop.
-         Retried every 2 s; if the buffer runs out first, car-video's stall/outage
-         handling takes over.
+         **spliced** onto the buffer (`pipeline.splice()`, `engines/splice.ts`), so
+         playback doesn't stop. It starts (`t`) where the received *sound* ends, and its
+         first sound is placed exactly there; its picture (copied H.264: from the
+         keyframe before `t`) takes over at its first keyframe after what the decoder
+         already has. Never a jump in the sound fed to the decoder: Chrome's
+         `AudioDecoder` ignores input timestamps after the first and counts on, so a
+         jump shifted all later sound (placing the new stream by its keyframe left a
+         gap of up to a GOP: every buffer was then "past" and dropped, sound gone with
+         the picture playing, until a seek; the owner's "no sound a while after
+         resuming a long pause", 2026-11). Any jump that still happens re-times the
+         decoder with a `flush()` (stats: `audioJumps`). Retried every 2 s; if the
+         buffer runs out first, car-video's stall/outage handling takes over.
        - Paused: the stream is kept (held) for 60 s, then closed to free ffmpeg; play()
          continues from the buffer and splices a new stream on with 10 s left.
        - A clean close (1000) after data = the server finished the film: nothing retried.

@@ -2,6 +2,7 @@ import { avcCodecString } from './annexb'
 import { type AacConfig, type AudioSample, TsDemuxer, type VideoSample } from './mpegts'
 
 import { AAC_CODEC, H264_CODEC } from './detect'
+import { splicedDemuxer } from './splice'
 import type { EngineCallbacks, EngineErrorKind, EngineStats, StreamEngine } from './types'
 
 /** Buffered picture needed before playback starts. */
@@ -32,6 +33,10 @@ const AUDIO_START_LEAD_S = 0.1
 /** Two consecutive audio buffers closer than this to "back to back" are played
  * back to back: per-buffer rounding otherwise leaves µs gaps/overlaps that crackle. */
 const AUDIO_SNAP_S = 0.05
+/** An AAC-LC frame's samples. */
+const AAC_FRAME_SAMPLES = 1024
+/** Audio input more than this off from where the previous chunk ended is a jump. */
+const AUDIO_JUMP_US = 10_000
 /** A frame is drawn on the screen refresh after it comes due (half a refresh late on
  * average) and shows a moment after that: draw it this much early, so the picture
  * doesn't trail the sound (people notice sound leading the picture sooner than the
@@ -115,14 +120,14 @@ export interface Pipeline extends StreamEngine {
   onDestroy: (() => void) | null
   /** Asked on resume: false = the input gave up while paused (reconnect instead). */
   canResume: () => boolean
-  /** Pts of the first and the newest video received (null before any). */
-  receivedRange(): { first: number; last: number } | null
   /**
-   * Continues the stream from a second connection that starts at `cut` (a pts on this
-   * stream's timeline): buffered media from `cut` on is dropped, and what's pushed from
-   * now on is a new MPEG-TS stream whose first keyframe is placed at `cut`.
+   * Continues the stream from a second connection: what's pushed from now on is a new
+   * MPEG-TS stream, which must start at the returned time (seconds from where this
+   * stream was asked to start; null = nothing received yet to continue). That is where
+   * the received sound ends; the new stream is placed so its sound goes on from there
+   * with no gap, and its picture takes over at its first keyframe (splice.ts).
    */
-  spliceAt(cut: number): void
+  splice(): number | null
   inputStats: InputStats
 }
 
@@ -180,12 +185,15 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   let skippedChunks = 0
   let startOffset = 0
   let lastReceived: number | null = null // pts of the newest video received
-  let firstReceived: number | null = null
+  let fedUpTo = Number.NEGATIVE_INFINITY // pts of the newest video handed to the decoder
+  let lastAudioEnd: number | null = null // where the newest sound received ends
   let codec = ''
   let decoderResets = 0
+  let audioJumps = 0
   const frames: VideoFrame[] = [] // decoded, waiting for their time
   let pending: { chunk: EncodedVideoChunk; dts: number }[] = [] // received, not yet decoded
   let audioPending: EncodedAudioChunk[] = [] // received, not yet decoded
+  let nextAudioTs: number | null = null // µs: where the input fed to the audio decoder goes on
   // Decoded (or skipped over) already, kept for skips back (KEEP_BEHIND_S): in decode
   // order and contiguous with `pending`, the video starting at a keyframe.
   let pastVideo: { chunk: EncodedVideoChunk; dts: number }[] = []
@@ -358,6 +366,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       ) {
         const { chunk } = pending[0]
         retireVideo(1)
+        fedUpTo = Math.max(fedUpTo, chunk.timestamp / 1e6)
         decodeStarted.set(chunk.timestamp, performance.now())
         if (decodeStarted.size > 120) decodeStarted.delete(decodeStarted.keys().next().value!)
         videoDecoder.decode(chunk)
@@ -369,6 +378,15 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       while (audioPending.length && audioPending[0].timestamp / 1e6 <= audioHorizon) {
         const chunk = audioPending.shift()!
         retireAudio(chunk)
+        // Chrome's AudioDecoder ignores input timestamps after the first one and stamps
+        // its output by counting on: after a jump in the input, all later sound would be
+        // stamped off by the jump (and dropped as past, or played out of sync). A flush
+        // makes it take the next input's timestamp again; nothing decoded is lost.
+        if (nextAudioTs != null && Math.abs(chunk.timestamp - nextAudioTs) > AUDIO_JUMP_US) {
+          audioDecoder.flush().catch(() => {}) // rejects only when reset or closed meanwhile
+          audioJumps++
+        }
+        nextAudioTs = chunk.timestamp + (chunk.duration ?? 0)
         audioDecoder.decode(chunk)
       }
     }
@@ -384,7 +402,6 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       videoDecoder.configure({ codec, optimizeForLatency: !opts.reorder })
     }
     lastReceived = Math.max(lastReceived ?? s.pts, s.pts)
-    firstReceived ??= s.pts
     pending.push({
       chunk: new EncodedVideoChunk({ type: s.key ? 'key' : 'delta', timestamp: Math.round(s.pts * 1e6), data: s.data }),
       dts: s.dts,
@@ -455,6 +472,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     const key = `${config.sampleRate}/${config.channels}/${config.asc.join(',')}`
     if (key === audioConfigKey && audioDecoder) return
     audioDecoder?.close()
+    nextAudioTs = null
     audioConfigKey = key
     audioConfig = config
     audioDecoder = new AudioDecoder({ output: onAudioData, error: (e) => fail(`audio decoder: ${e.message}`, 'decode') })
@@ -469,33 +487,13 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
   const onAudio = (s: AudioSample) => {
     firstAudioPts ??= s.pts
     configureAudio(s.config)
-    audioPending.push(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.pts * 1e6), data: s.data }))
+    const duration = Math.round((AAC_FRAME_SAMPLES / s.config.sampleRate) * 1e6)
+    lastAudioEnd = Math.max(lastAudioEnd ?? 0, s.pts + duration / 1e6)
+    audioPending.push(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.pts * 1e6), duration, data: s.data }))
     pump()
   }
 
   let demuxer = new TsDemuxer(onVideo, onAudio)
-
-  /** A demuxer for a second connection: its timestamps are moved so its first keyframe
-   * lands on `cut`; audio before that point duplicates what's already buffered. */
-  const splicedDemuxer = (cut: number) => {
-    let shift: number | null = null
-    const early: AudioSample[] = []
-    const audioAt = (a: AudioSample) => {
-      const pts = a.pts + shift!
-      if (pts >= cut - 0.001) onAudio({ ...a, pts })
-    }
-    return new TsDemuxer(
-      (v) => {
-        if (shift == null) {
-          if (!v.key) return
-          shift = cut - v.pts
-          for (const a of early.splice(0)) audioAt(a)
-        }
-        onVideo({ ...v, pts: v.pts + shift, dts: v.dts + shift })
-      },
-      (a) => (shift == null ? early.length < 500 && early.push(a) : audioAt(a)),
-    )
-  }
 
   /** Media time of the sound being heard right now, or null when there's none. */
   const heardMedia = (): number | null => {
@@ -538,6 +536,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       // skipped input everything would come out stamped in the past (and be dropped).
       audioDecoder.reset()
       audioDecoder.configure(audioDecoderConfig(audioConfig))
+      nextAudioTs = null
     }
     unschedule()
     // Back: all of it is decoded again from pastAudio.
@@ -640,6 +639,7 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
       chunksPending: pending.length,
       chunksSkipped: skippedChunks,
       decoderResets,
+      audioJumps,
       audioScheduled: audioScheduledCount,
       videoWidth: drawnCount ? canvas.width : 0,
       videoHeight: drawnCount ? canvas.height : 0,
@@ -697,15 +697,22 @@ export function createPipeline(canvas: HTMLCanvasElement, cb: EngineCallbacks, o
     },
     onDestroy: null,
     canResume: () => true,
-    receivedRange: () => (firstReceived == null || lastReceived == null ? null : { first: firstReceived, last: lastReceived }),
-    spliceAt: (cut) => {
+    splice: () => {
       demuxer.flush()
-      const keep = (ts: number) => ts < cut - 0.001
-      for (let i = pending.length - 1; i >= 0; i--) if (!keep(pending[i].chunk.timestamp / 1e6)) pending.splice(i, 1)
-      for (let i = audioPending.length - 1; i >= 0; i--) if (!keep(audioPending[i].timestamp / 1e6)) audioPending.splice(i, 1)
-      audioReady = audioReady.filter((a) => keep(a.ts))
-      lastReceived = Math.min(lastReceived ?? cut, cut)
-      demuxer = splicedDemuxer(cut)
+      if (lastReceived == null || firstPts == null) return null
+      // No sound (or none lately): the new picture's first keyframe replaces the newest frame.
+      const audioCut = lastAudioEnd != null && lastReceived - lastAudioEnd < MAX_PREROLL_S ? lastAudioEnd : null
+      const cut = audioCut ?? lastReceived
+      demuxer = splicedDemuxer(audioCut, lastReceived, {
+        video: onVideo,
+        audio: onAudio,
+        cutVideo: (pts) => {
+          for (let i = pending.length - 1; i >= 0; i--) if (pending[i].chunk.timestamp / 1e6 >= pts - 0.001) pending.splice(i, 1)
+          lastReceived = Math.min(lastReceived ?? pts, pts)
+        },
+        videoFloor: () => fedUpTo,
+      })
+      return cut - firstPts + startOffset
     },
     inputStats: {},
     buffering: () => starved,

@@ -581,7 +581,7 @@ export function mountPlayer(source: PlaybackSource, params: PlayerParams, opts: 
     lines.push(
       `decoder  latency ${ms(s.decodeMs)} · queue ${s.decodeQueue ?? 0} · waiting ${s.chunksPending ?? 0} · late ${s.framesLate ?? 0} · skipped ${s.chunksSkipped ?? 0}${s.decoderResets ? ` · resets ${s.decoderResets}` : ''}`,
       `a/v      picture ${signed(s.avOffsetMs)} vs sound · behind clock ${ms(s.videoBehindMs)}`,
-      `audio    ${s.audioFormat ?? '–'} · output latency ${ms(s.outputLatencyMs)} · clock ${s.audioClock ?? '–'}`,
+      `audio    ${s.audioFormat ?? '–'} · output latency ${ms(s.outputLatencyMs)} · clock ${s.audioClock ?? '–'}${s.audioJumps ? ` · input jumps ${s.audioJumps}` : ''}`,
       `session  ${formatClock(video.currentTime)} · ${t(QUALITY_NAME[state.quality])} (${levelText(state.quality)}) · connects ${s.connects}${s.reconnects ? ` + ${s.reconnects} spliced` : ''}${s.held ? ' · server holding (buffer full)' : ''}${heap ? ` · JS ${(heap / 1048576).toFixed(1)} MB` : ''}`,
     )
     statsText.textContent = lines.join('\n')

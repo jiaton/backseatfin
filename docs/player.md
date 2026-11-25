@@ -128,6 +128,27 @@ only after a while; and every resume reloaded from the network.
   request (HLS) or reconnect (WebSocket, up to 60 s / 30 s buffered).
 - Memory unchanged: 6 min steady, JS heap 2.6–4.7 MB, renderer ~570 MB, flat.
 
+## Sound gone after a long pause (2026-11-24)
+Reported from the car (YouTube via our server, WebCodecs): after a pause and play, about
+a minute later the sound stops while the picture plays on; −60 s / +60 s brings it back.
+- Cause: a pause over 60 s closes the WebSocket; play() continues from the buffer and
+  splices a new stream on with 10 s left (the data watchdog does the same mid-drive).
+  The new stream (copied H.264) has its picture from the keyframe before `t` and its
+  sound from `t`, and was placed by its keyframe: its sound landed up to a GOP after the
+  old sound ended. Chrome's `AudioDecoder` ignores input timestamps after the first one
+  (until `flush`/`reset`) and stamps its output by counting on (measured in Chromium:
+  a 3 s jump in the input → output stamped 3 s early), so all later sound came out
+  stamped in the past and was dropped. `t` was also off by the first stream's preroll.
+- Reproduced on the local rig (`aqz-KE-bpKQ`, pause 70 s): after the splice
+  `audioScheduled` froze for the remaining 50 s while frames kept being drawn.
+- Fix: the new stream starts where the received sound ends and its first sound is
+  placed exactly there (`engines/splice.ts`); its picture takes over at its first
+  keyframe after what the decoder already has. A jump in the sound input re-times the
+  decoder with a non-awaited `flush()` (nothing decoded is lost; `audioJumps` in the
+  stats). After the fix the same run had sound throughout, no input jumps.
+- Tests: `splice.test.ts`, and `webcodecs-pipeline.test.ts` with a decoder that stamps
+  like Chrome's (fails on the old splice).
+
 ## Emby without the server: its HLS vs our WebSocket stream (2026-10-08)
 
 Same film (HEVC 1080p, PGS subtitles) from a real Emby 4.8, played through toxiproxy at
