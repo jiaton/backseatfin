@@ -40,7 +40,7 @@ export async function startPlayer(server: MediaServer, { backend = false } = {})
     const pref = loadTranscoder()
     // The media server's item says whether it's HDR (which 'auto' sends to our server).
     let source: PlaybackSource | null = engine === 'webcodecs' ? await createServerSource(server, params.item, root, hosted) : null
-    if (hasBackend && prefersBackseatfin(pref, Boolean(source?.item.hdr), engine)) source = await createBackseatfinSource(params.item, engine)
+    if (hasBackend && prefersBackseatfin(pref, Boolean(source?.item.dolbyVisionOnly), engine)) source = await createBackseatfinSource(params.item, engine)
     mountPlayer(source!, params, {
       transcoder: hasBackend
         ? {

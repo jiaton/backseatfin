@@ -27,8 +27,12 @@ export interface PlayerItem {
   duration: number
   audioTracks: Track[]
   subtitleTracks: Track[]
-  /** HDR or Dolby Vision (the BackseatFin server tone-maps those better than Emby). */
-  hdr?: boolean
+  /**
+   * Dolby Vision with no base layer a plain HDR10/HLG/SDR player can show (profile 5).
+   * Media servers turn it purple/green; the BackseatFin server reshapes it properly.
+   * Other HDR (HDR10, HLG, DV 7/8 with their HDR10 base) the media server shows fine.
+   */
+  dolbyVisionOnly?: boolean
 }
 
 /** What the viewer picked; every change reconnects the stream. */

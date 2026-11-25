@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CREDENTIALS_KEY } from '../params'
 import { MEDIA_SERVER_LEVELS } from '../quality'
 import type { StreamChoice } from '../source'
-import { authorization, createServerSource, deviceId, readServerCredentials, serverRoot, streamQuery } from './mediaserver'
+import { authorization, createServerSource, deviceId, isDolbyVisionOnly, readServerCredentials, serverRoot, streamQuery } from './mediaserver'
 
 const mem = (entries: [string, string][] = []) => {
   const m = new Map(entries)
@@ -105,7 +105,7 @@ describe('createServerSource', () => {
     const source = await createServerSource('Jellyfin', 'abc', '/jf')
     expect(calls[0]).toMatchObject({ method: 'GET', url: '/jf/Users/u1/Items/abc' })
     expect(calls[0].auth).toContain('Token="tok"')
-    expect(source.item).toMatchObject({ title: 'Show S1E2 · Pilot', duration: 3600, hdr: true })
+    expect(source.item).toMatchObject({ title: 'Show S1E2 · Pilot', duration: 3600, dolbyVisionOnly: false })
     expect(source.server).toBe('Jellyfin')
     expect(source.item.audioTracks.map((t) => [t.index, t.title, t.isDefault])).toEqual([
       [1, 'English AAC 5.1', true],
@@ -197,5 +197,24 @@ describe('createServerSource', () => {
 
   it('says "not signed in" without a session', async () => {
     await expect(createServerSource('Emby', 'abc')).rejects.toMatchObject({ status: 401 })
+  })
+})
+
+describe('isDolbyVisionOnly', () => {
+  const video = (extra: Record<string, string>) => [{ Type: 'Video', Index: 0, ...extra }]
+  it('is true only for Dolby Vision with no base layer (profile 5)', () => {
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR', ExtendedVideoSubType: 'DoviProfile50' }))).toBe(true) // Emby
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR', VideoRangeType: 'DOVI' }))).toBe(true) // Jellyfin
+  })
+  it('leaves HDR the media server shows fine to it', () => {
+    // Regression: a DV 8.1 episode (HDR10 base) went to the BackseatFin server, which started slowly
+    // and had to wait minutes for its text subtitles, while Emby played it in the right colours.
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR', ExtendedVideoSubType: 'DoviProfile81' }))).toBe(false)
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR', ExtendedVideoSubType: 'DoviProfile76' }))).toBe(false)
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR 10', ExtendedVideoSubType: 'Hdr10Plus0' }))).toBe(false)
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR', VideoRangeType: 'DOVIWithHDR10' }))).toBe(false)
+    expect(isDolbyVisionOnly(video({ VideoRange: 'HDR 10' }))).toBe(false)
+    expect(isDolbyVisionOnly(video({ VideoRange: 'SDR' }))).toBe(false)
+    expect(isDolbyVisionOnly([])).toBe(false)
   })
 })
